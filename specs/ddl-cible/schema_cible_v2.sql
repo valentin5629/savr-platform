@@ -141,7 +141,7 @@ CREATE TYPE plateforme.mode_paiement AS ENUM ('virement','prelevement','cb','che
 -- 1.3 plateforme — lieux / véhicules
 CREATE TYPE plateforme.region AS ENUM ('idf','province');
 CREATE TYPE plateforme.acces_difficulte AS ENUM ('facile','difficile','tres_difficile');
-CREATE TYPE plateforme.type_vehicule AS ENUM ('velo_cargo','camionnette','fourgon','vul','poids_lourd');
+CREATE TYPE plateforme.type_vehicule AS ENUM ('velo_cargo','camionnette','fourgon','vul','poids_lourd','camionnette_frigo','camion_frigo','camion_16m3_simple','camion_16m3_double','camion_20m3_simple','camion_20m3_double');
 
 -- 1.4 plateforme — tournées
 CREATE TYPE plateforme.creneau AS ENUM ('matin','apres_midi','soir','nuit','journee_complete');
@@ -778,6 +778,7 @@ CREATE TABLE plateforme.collectes (
   lieu_overrides           jsonb,
   realisee_at              timestamptz,                    -- base embargo H+24
   annulation_demandee_at   timestamptz,                    -- demande d'annulation du client (base du délai d'annulation tardive, Val 2026-10-15)
+  annulation_tardive       boolean,                        -- annulée < 4 h avant le créneau, imputable au client (Val 2026-11-03) ; NULL = non annulée ou avant le 2026-11-03
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );

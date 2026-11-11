@@ -108,9 +108,9 @@ Scénario : e2_repush_creneau_et_canal_libre
   Quand heure_collecte passe de 22:00 à 23:30
   Alors le PUT porte place.timeslots mis à jour (le créneau n'était jamais transmis avant ce lot)
   Quand informations_supplementaires est modifiée
-  Alors le PUT porte comment mis à jour
+  Alors le PUT porte comment recomposé, ligne « Précisions du traiteur » du texte de départ mise à jour (chez A Toute! : address_start_comment, décision Val 2026-11-03)
   Quand informations_supplementaires est VIDÉE
-  Alors le PUT porte comment = valeur vide, JAMAIS omis (l'omission laisserait au chauffeur la consigne périmée du dispatch initial)
+  Alors le PUT porte comment recomposé sans la ligne « Précisions du traiteur », JAMAIS omis (l'omission laisserait au chauffeur la consigne périmée du dispatch initial)
   Et les stuffs ne sont PAS re-poussés (un re-push reposerait à 0 les quantités alimentées par le polling)
   Et controle_acces_requis n'est PAS transmis (aucun champ natif MTS-1, exclusion assumée V1)
   Et place est construit par le helper UNIQUE partagé E1/E2 (parité non recopiée)
@@ -144,8 +144,8 @@ Scénario : adapter_ignore_tournee_autre_provider
 Scénario : contact_secours_et_alerte_anticipee_lieu
   Étant donné une collecte AG servie par A Toute! avec un contact de secours renseigné
   Quand le payload Everest est composé
-  Alors pickup.contact porte le contact PRINCIPAL (nom + telephone)
-  Et notes ouvre par « Contact de secours : {nom} — {telephone} »
+  Alors address_start_name / address_start_tel portent le contact PRINCIPAL (nom + telephone)
+  Et address_start_comment porte « - Contact 1 : {nom}, {telephone} » puis « - Contact 2 : {nom}, {telephone} »
   Et le même composeur PARTAGÉ produit comment pour MTS-1, qui porte donc le numéro deux fois
     (phoneAlternatives natif + comment en clair) — duplication assumée, garde-fou 2
   Étant donné un event E5 lieu.champ_critique_modifie en échec, attempts = 2
@@ -1079,7 +1079,7 @@ Scénario : chaine_e1_s1_s5_zd_complete
     4. S3 tournée-upsert reçu → collecte_tournees liaison créée
     5. S_en_cours reçu → collectes.statut = en_cours
     6. S5 reçu (statut_final=realisee) → collectes.statut = realisee, collecte_flux créés
-    7. Batch embargo H+24 → collectes.statut = cloturee
+    7. Clôture à realisee_at + 48h → collectes.statut = cloturee (bordereau déjà émis dès les pesées, décision Val 2026-11-04)
     8. Trigger taux_recyclage → collectes.taux_recyclage calculé, caps_appliques figé
     9. Puppeteer → bordereau_savr PDF généré
   Alors l'intégralité de la chaîne s'exécute sans erreur

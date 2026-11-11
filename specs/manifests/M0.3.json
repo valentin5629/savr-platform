@@ -81,7 +81,7 @@
     },
     {
       "id": "M0.3-alerte-pack-bas",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1039",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1024",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_debit_realisee + fn_trg_pack_debit_annulation_tardive — détection franchissement du seuil 10% (restants avant >10% ET après ≤10% ET non épuisé) → f_upsert_alerte_admin('pack_ag_bas', …, entity=pack). Le pack_ag_epuise in-app préexistant est conservé.",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -89,7 +89,7 @@
     },
     {
       "id": "M0.3-rearm-pack-alerte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:213",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:214",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_recredit + rpc_annuler_credit_collecte — un recrédit qui repasse le solde >10% RÉSOUT (statut='resolue') l'alerte ouverte pack_ag_bas/pack_ag_epuise → ré-arme le déclencheur (F4 tranchée Val 2026-06-07).",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -97,7 +97,7 @@
     },
     {
       "id": "M0.3-tpl9-email",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md:209",
       "artefact": "packages/plateforme/src/app/api/cron/notify-pack-etat/route.ts + lib/packs/notify-pack-etat.ts : scanne alertes_admin (code pack_ag_bas/pack_ag_epuise, statut ouverte, email_notifie_at IS NULL) → sendEmail('admin_pack_ag_etat','contact@gosavr.io', {niveau, etat_libelle, organisation_nom, credits_restants/initiaux, pct_restant, niveau_bas, niveau_epuise, …}) → pose email_notifie_at (idempotent). Destinataire = tous admin_savr via inbox partagée (§06.02 l.202). vercel.json cron.",
       "test": "M0.3-5 ; M0.3-6 ; M0.3-7 ; M0.3-8",
       "statut": "implemented",
@@ -129,9 +129,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c3e83ae82b87b9a2b1490321e617f63dda47bea50de2c5ff30b2dd1e8f0d8e8d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8217fcbe55eb780c79fa1cee886dd961b880ec5f1656e36d78526975ef0d9001",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "35e0f8c5158b80fdcabeffea0cdb6efe5513941ad81bc7d52f00455cd16ad5cc",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "34d83ae54048a0ffadb80ace6175cc5a3cd0bbf9710544f21a780949457afd97",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "df488c17cba483f028f5251958f7c6d1808d95086f630a3903bb7acdfeec53b5",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "bb1b5909a595db4e4b4567bedc8d200e7dc874089b468a8a105bb76f74330925"
   }
 }

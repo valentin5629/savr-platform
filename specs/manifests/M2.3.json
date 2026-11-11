@@ -251,7 +251,7 @@
     },
     {
       "id": "BL-P0-08",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:101-115",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:102-116",
       "artefact": "supabase/migrations/20260625000000_plateforme_r5_dispatch_ag_bridge.sql (transporteurs.prestataire_logistique_id + rpc_valider_attribution_ag : pose prestataire + émet collecte.creee avec consumer dérivé du type_tms) ; packages/adapters/src/outbox-worker.ts (route via getLogistiqueProvider par type_tms) ; packages/shared/src/seed/demo.ts (pont transp→prest)",
       "test": "T21b/T21c/T21d/T21e/T21f (supabase/tests/m2_3_algo_attribution_ag.test.sql) — a_toutes→adapter_everest, mts1→adapter_mts1, autre→provider_manual + prestataire posé + statut_tms non_envoye ; M2.3 / worker outbox — routing dispatch AG par type_tms (packages/adapters/src/outbox-worker.m2-3.test.ts)",
       "statut": "implemented",
@@ -275,7 +275,7 @@
     },
     {
       "id": "BL-P1-ALGO-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:55-72",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:55-73",
       "artefact": "supabase/migrations/20260630120000_plateforme_r11_algo_ag.sql (rpc_log_attribution_aucune_reco) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/associations/route.ts + src/lib/attribution-ag/associations-par-distance.ts (associations actives triées par distance au lieu) ; [collecteId]/page.tsx (liste déroulante association — décision Val 2026-09-17 remplaçant la recherche libre, divergence M2.3_20260918_attribution-ag-liste-associations.md) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts + src/lib/attribution-ag/validation.ts (logAttributionAucuneReco)",
       "test": "R11-T5/T6 (supabase/tests/r11_algo_ag.test.sql) audit attribution_manuelle_aucune_reco ; M2.3 / associations par distance au lieu de la collecte (associations-par-distance.test.ts) ; M2.3 / GET attributions-ag/[collecteId]/associations (attribution-ag-associations.m2-3.test.ts) ; M2.3 / Attribution AG — liste déroulante association (attribution-association-select.test.tsx) — ordre des distances, override avec motif, aucune_reco, retour à la file Collectes. Rendu liste = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
@@ -283,7 +283,7 @@
     },
     {
       "id": "BL-P1-ALGO-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:77-83",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:78-84",
       "artefact": "packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/page.tsx (liste déroulante de tous les transporteurs actifs, recommandé pré-sélectionné — décision Val 2026-09-17 remplaçant la recherche libre, divergence M2.3_20260917_attribution-ag-liste-transporteurs.md ; motif obligatoire si ≠ reco) ; packages/plateforme/src/app/api/v1/admin/transporteurs/route.ts (filtre actif)",
       "test": "M2.3 / Attribution AG — liste déroulante transporteur (attribution-transporteur-select.test.tsx) — liste tous les transporteurs actifs, reco pré-sélectionné sans motif ; autre transporteur → motif obligatoire puis POST transporteur choisi. Rendu liste déroulante = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
@@ -299,7 +299,7 @@
     },
     {
       "id": "BL-P1-ALGO-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:101-106",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:102-107",
       "artefact": "packages/plateforme/vercel.json (cron /api/cron/process-attributions-ag */5). Les 3 actions async : email association + email transporteur (process-attributions-ag/route.ts → job.ts) + envoi ordre/dispatch (event collecte.creee → outbox-worker → adapter, câblé R5)",
       "test": "M2.3 / R11 ALGO-05 cron registration (algo-attribution-ag-r11.m2-3.test.ts) — vercel.json déclare le cron ; emails couverts par M2.3 job + dispatch par BL-P0-08 (R5)",
       "statut": "implemented",
@@ -324,8 +324,8 @@
     },
     {
       "id": "BL-P1-ALGO-07",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:115-122",
-      "artefact": "packages/adapters/src/everest/adapter.ts (dispatch → statut_tms attribuee_en_attente_acceptation ; rejet permanent 4xx → rejetee_par_prestataire) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (acceptee sur mission_dispatched)",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:116-123",
+      "artefact": "packages/adapters/src/everest/adapter.ts (dispatch → statut_tms attribuee_en_attente_acceptation ; rejet permanent 4xx → rejetee_par_prestataire) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (acceptee quand toutes les courses de la collecte ont un coursier, depuis le 2026-11-03 ; avant : sur mission_dispatched)",
       "test": "Everest 422 (rejet permanent) → statut_tms = rejetee_par_prestataire + Everest 5xx (transient) → PAS de rejet (packages/adapters/src/everest/adapter.m2-5.test.ts) ; mission_dispatched → statut_tms=acceptee (webhooks/everest.m2-5.test.ts)",
       "statut": "implemented",
       "libelle": "statut_tms AG (attente=attribuee_en_attente_acceptation à l'envoi, acceptee à l'acceptation, rejetee_par_prestataire au refus sync permanent)"
@@ -356,11 +356,11 @@
     },
     {
       "id": "M2.3-attribution-besoin-vehicule",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:91",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:92",
       "artefact": "supabase/migrations/20261001213000_plateforme_collectes_type_vehicule_souhaite.sql (collectes.type_vehicule_souhaite, enum type_vehicule, nullable) ; packages/plateforme/src/app/api/v1/admin/attributions-ag/[collecteId]/valider/route.ts (nb_camions_demande via fn_modifier_collecte + type_vehicule_souhaite via UPDATE, AVANT rpc_valider_attribution_ag) ; packages/adapters/src/outbox-worker.ts + infos-acces.ts (ligne « Véhicule souhaité : N × type » dans le canal libre comment MTS-1 et Everest) ; packages/plateforme/src/components/admin/attribution-ag-form.tsx (formulaire partagé fiche + écran)",
-      "test": "M2.3/valider — besoin véhicule écrit avant la validation (nb via fn_modifier_collecte, type via UPDATE) + M2.3/valider — 422 si type_vehicule_souhaite hors enum ou nb_camions_demande invalide + M2.3/valider — besoin véhicule sur une collecte non « AG programmee » → 422, rien n’est écrit + M2.3 / worker — type_tms=a_toutes : le véhicule souhaité (type × nombre) atteint l’adapter + M2.3 / worker — lecture type_vehicule_souhaite en échec passager → failed + retry + packages/adapters/src/infos-acces.test.ts « plusieurs véhicules : la phrase suit la consigne » + M2.3 / worker — collecte ZD avec N véhicules : aucune ligne « Véhicule souhaité » + packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/attribution-besoin-vehicule.test.tsx « lecture de la collecte en échec : POST sans nombre ni type » + packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/attribution-besoin-vehicule.test.tsx « lecture tardive (N=3 posé par Ops) pendant la saisie du type : POST avec nb=3 et le type saisi »",
+      "test": "M2.3/valider — besoin véhicule écrit avant la validation (nb via fn_modifier_collecte, type via UPDATE) + M2.3/valider — 422 si type_vehicule_souhaite hors enum ou nb_camions_demande invalide + M2.3/valider — besoin véhicule sur une collecte non « AG programmee » → 422, rien n’est écrit + M2.3 / worker — type_tms=a_toutes : le véhicule souhaité (type × nombre) atteint l’adapter + M2.3 / worker — lecture type_vehicule_souhaite en échec passager → failed + retry + packages/adapters/src/infos-acces.test.ts « plusieurs véhicules : la phrase suit la consigne » + worker — collecte ZD : le véhicule souhaité part comme en AG (Val 2026-11-10) + packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/attribution-besoin-vehicule.test.tsx « lecture de la collecte en échec : POST sans nombre ni type » + packages/plateforme/src/app/(admin)/admin/attributions-ag/[collecteId]/attribution-besoin-vehicule.test.tsx « lecture tardive (N=3 posé par Ops) pendant la saisie du type : POST avec nb=3 et le type saisi »",
       "statut": "implemented",
-      "libelle": "Besoin véhicule à l'attribution AG (décision Val 2026-10-01) : type de véhicule souhaité (nouvelle colonne V1, divergence BOA-LOGISTIQUE_20261001) + nombre de véhicules (nb_camions_demande existant) saisis dans le même formulaire que l'association et le prestataire ; écrits avant l'event de dispatch, transmis aux deux adapters par le canal libre (aucun champ natif MTS-1/Everest en V1 — rien pour un seul véhicule, « N vélos prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur » dans le commentaire de la mission pour plusieurs, nommés par le type ou à défaut par le transporteur (Val 2026-11-03)) ; N véhicules = N commandes identiques (1 dispatch par rang, MTS-1 comme Everest) ; colonne classée V1-only par Val (2026-10-01)."
+      "libelle": "Besoin véhicule à l'attribution AG (décision Val 2026-10-01) : type de véhicule souhaité (nouvelle colonne V1, divergence BOA-LOGISTIQUE_20261001) + nombre de véhicules (nb_camions_demande existant) saisis dans le même formulaire que l'association et le prestataire ; écrits avant l'event de dispatch, transmis aux deux adapters par le canal libre (aucun champ natif MTS-1/Everest en V1 — rien pour un seul véhicule, « N vélos prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur » dans le commentaire de la mission pour plusieurs, nommés par le type ou à défaut par le transporteur (Val 2026-11-03)) ; N véhicules = N commandes identiques (1 dispatch par rang, MTS-1 comme Everest) ; colonne classée V1-only par Val (2026-10-01). Depuis le 2026-11-10 (_Divergences/_traités/2026-11/BOA-LOGISTIQUE_20261110.md, #769) : AG et ZD ; un véhicule au type précisé → « Véhicule souhaité : … » ; plusieurs véhicules → « N camions … prévus pour cette collecte » ; types proposés selon le type de collecte."
     },
     {
       "id": "M2.3-parametres-algo-validation-type",
@@ -395,11 +395,20 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M2.3_20261103_region-lieu-code-postal.md",
       "libelle": "Région d'un lieu déduite de son code postal (choix C1, Val 2026-11-03) : 75, 77, 78, 91, 92, 93, 94, 95 → idf, tout autre code postal non vide → province ; la région saisie reste prioritaire. Un lieu créé depuis le formulaire de programmation n'avait pas de région : l'algorithme ne proposait alors ni association ni transporteur. Région remplie à la création (programmation, Admin) et repli dans l'algorithme ; sans région ni code postal, l'onglet Logistique dit de compléter le lieu. ACL (service_role seul), SECURITY DEFINER et search_path inchangés."
+    },
+    {
+      "id": "M2.3-check-gabarits-vehicule-base",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:866",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/_traités/2026-11/BOA-LOGISTIQUE_20261110.md",
+      "libelle": "Contrainte en base : lieux.type_vehicule_max et transporteurs.types_vehicules limités à velo_cargo, camionnette, fourgon, vul, poids_lourd (§04 l.866 et l.1421) ; les 6 valeurs ajoutées à l'enum type_vehicule le 2026-11-10 ne servent qu'au véhicule souhaité d'une collecte. Dette code notée par la fiche : sur main la garde n'existe que dans les routes (422, #769), une écriture directe (reprise Bubble, SQL) peut encore poser une autre valeur."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c3e83ae82b87b9a2b1490321e617f63dda47bea50de2c5ff30b2dd1e8f0d8e8d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8217fcbe55eb780c79fa1cee886dd961b880ec5f1656e36d78526975ef0d9001",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "104248528cfe319a1e59fa0a28eb98ed128399f2398d598e8c71ec2542dea0d8"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "34d83ae54048a0ffadb80ace6175cc5a3cd0bbf9710544f21a780949457afd97",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "42ce6b72eea82f861660d7b6017ac2176e977294f5888eea6e20af5785ebc0b2"
   }
 }

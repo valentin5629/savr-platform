@@ -18,13 +18,13 @@ Tous les modules documentés §01→§15, soit :
 - [ ] **Formulaire programmation collecte** : deux écrans puis une page de confirmation (refonte Val 2026-10-22), N collectes ZD et AG event-centrées, tarif ZD base+remises, vérif pack AG (§06.01)
 - [ ] **Machine à états collecte unifiée** ZD+AG : `programmee → validee → en_cours → realisee → cloturee` (§05)
 - [ ] **Intégration logistique V1** (voir MODIFY ci-dessous) : MTS-1 API V3 + Everest derrière l'abstraction `logistique_provider`
-- [ ] **Génération PDF** : bordereau pesée ZD, rapport recyclage ZD, attestation don AG, batch J+1 6h, embargo H+24 (§06, §12)
+- [ ] **Génération PDF** : bordereau pesée ZD, rapport recyclage ZD, attestation don AG, dès que les poids sont là, email à la clôture (48 h) (§06, §12)
 - [ ] **Pennylane v2** : brouillons factures ZD (par collecte + mensuel groupé) + AG, **polling J+1** (webhook → V1.1) (§08)
   - ⚠ **Go-live : facturation hors plateforme (décision Val 2026-10-22)**. Interrupteur `facturationPlateformeActive()` éteint : le batch J+1 ne prépare aucun brouillon ; le traiteur, l'agence et le gestionnaire de lieux ne voient ni leurs factures ni le badge « en attente de facturation » ; l'email `collecte_programmee` ne donne plus le tarif ZD. Back-office Admin inchangé. Retour sur la plateforme plus tard (échéance non fixée), après : date de départ du batch J+1, raccord de la numérotation avec les factures émises hors plateforme, correction du contrat Pennylane v2.
 - [ ] **Dashboards par rôle** : manager, commercial, gestionnaire lieux, agence, client organisateur (§11)
 - [ ] **Reporting + exports CSV** tous profils (§12)
 - [ ] **Registre réglementaire ZD-only** (Module 20 MVP), bordereaux + attestations batch J+1 (§06.03)
-- [ ] **CO₂ ADEME modélisé** : ZD (induit/évité/net) + AG (évité seul, 2,5 kgCO₂e/repas FAO), snapshot figé (§04/§11/§12)
+- [ ] **CO₂ ADEME modélisé** : ZD (induit/évité/net) + AG (évité seul, 2,04 kgCO₂e/repas, Base Carbone ADEME), snapshot figé (§04/§11/§12)
 - [ ] **Migration Bubble** : ~1 500 collectes AG + ~175 ZD + lieux + orgas + users (§13)
 - [ ] **Resend** : emails transactionnels (18 templates actifs en seed DB, catalogue §06.02 au 2026-11-02)
 
@@ -42,7 +42,7 @@ Tous les modules documentés §01→§15, soit :
 | Module 15 — multi-langues | §03 M15 | V2 | Champs traduisibles anticipés data model |
 | Module 16 — signature électronique | §03 M16 | V2 | — |
 | Module 19 — import brief + impact enrichi | §03 M19, §04 N6 | V2 | 6 tables + 3 champs **non créés V1** (migration triviale V2) ; gating = recrutement chargé projet env. |
-| 2FA | §09, §15 | V1.1 | Supabase Auth natif, 1 ligne de config |
+| 2FA des clients | §09, §15 | V1.1 | Supabase Auth natif. Équipe Savr : livrée en V1 (décision Val 2026-11-04). Utilisateurs d'une organisation cochée par l'Admin (VIPARIS) : livrée en V1 (décision Val 2026-11-10) |
 | SSO SAML | §09, §15 | V2 | Archi JWT anticipée V1, activable sans migration |
 | Trackdéchets (BSD officiels) | §01, §15 | V2 | Registre interne V1, renvoi Veolia en audit |
 | Lien partage public rapport (90j) | §12, §15 | V1.1 | V1 : manager télécharge + transmet le PDF |

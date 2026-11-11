@@ -98,8 +98,8 @@ Sans cette phase, les collectes restent bloquées au statut `programmee` pour to
 - Template PDF bordereau de pesée ZD
 - Template PDF rapport de recyclage ZD (avec logo client organisateur)
 - Template PDF attestation de don AG (avec/sans mention fiscale 2041-GE)
-- Batch cron J+1 à 6h (bordereaux + rapports + attestations)
-- Embargo H+24 sur rapport de recyclage
+- Batch cron toutes les 15 min (bordereaux + rapports + attestations), dès que les poids sont là
+- Email « document disponible » à la clôture (48 h)
 - Alerte pesées anormales déclenchée avant le batch
 - Stockage PDFs dans Cloudflare R2 (bucket de l'environnement, un dossier par nature de document, URLs pré-signées)
 - Accès PDFs depuis back-office Admin
@@ -210,7 +210,7 @@ L'estimation dépend du rythme de validation de Val entre chaque sprint. En spri
 
 Fonctionnalités activables sans refonte d'architecture, en quelques heures ou jours chacune :
 
-- **2FA** (Supabase Auth, 1 ligne de config)
+- **2FA des clients** (Supabase Auth ; celle de l'équipe Savr est livrée en V1, décision Val 2026-11-04 ; celle des utilisateurs d'une organisation cochée par l'Admin, VIPARIS, aussi, décision Val 2026-11-10)
 - **Staging environment** (si frère reviewer rejoint la boucle)
 - **QR code vérification PDF** (page publique de validation)
 - **Export REP Emballages / Citeo** (requête SQL sur données déjà collectées)

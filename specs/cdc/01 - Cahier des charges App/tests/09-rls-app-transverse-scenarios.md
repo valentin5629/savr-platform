@@ -585,6 +585,39 @@ Scénario : photo_aucun_repas_lecture_equipe_savr_seule
   Et `admin_savr` et `ops_savr` la lisent
 ```
 
+```gherkin
+# Source : §09 §3 « Règle du code de vérification de l'équipe Savr » + §15 §2.1 (décision Val 2026-11-04, questionnaire VIPARIS IAM1)
+# Couche : db (pgTAP SECU__code_verification_base)
+# Priorité : P0-bloquant
+
+Scénario Outline : code_verification_equipe_savr_refus_base
+  Étant donné un compte <role> dont le code de vérification est activé
+  Et une session de ce compte au niveau <niveau>
+  Quand elle lit, crée, modifie ou supprime des lignes d'une table de plateforme ou shared, appelle une fonction SECURITY DEFINER ou lit une vue security_invoker = false, par l'API Supabase en direct
+  Alors <resultat>
+
+  Exemples :
+    | role       | niveau | resultat                                                                  |
+    | admin_savr | aal1   | aucune ligne lue ni modifiée, toute création refusée (42501)              |
+    | ops_savr   | aal1   | aucune ligne lue ni modifiée, toute création refusée (42501)              |
+    | admin_savr | aal2   | exactement les droits d'avant la règle                                    |
+    | ops_savr   | aal2   | exactement les droits d'avant la règle                                    |
+
+Scénario : code_verification_sans_code_active_inchange
+  Étant donné un compte admin_savr ou ops_savr dont le code de vérification n'est pas activé, ou un compte client (d'une organisation qui n'exige pas le code, ou dont le code n'est pas activé)
+  Quand une session aal1 de ce compte lit ou écrit en base
+  Alors ses droits sont exactement ceux d'avant la règle
+
+# Source : §09 §3, §09 §7 + §15 §2.1 (décision Val 2026-11-10, questionnaire VIPARIS IAM3)
+# Couche : db (pgTAP SECU__code_verification_organisation)
+Scénario : code_verification_organisation_refus_base
+  Étant donné un utilisateur d'une organisation dont l'Admin a coché « Code de vérification », et dont le code est activé
+  Quand une session aal1 de ce compte, hors impersonation, lit ou écrit en base
+  Alors aucune ligne n'est lue ni modifiée
+  Et avec le code (aal2), ou dans la session impersonée ouverte par l'Admin, ses droits sont ceux d'avant
+  Et une autre session du même compte pendant l'impersonation reste soumise au code
+```
+
 
 ## Scénarios hors scope (à générer en V1.1)
 
@@ -592,7 +625,7 @@ Scénario : photo_aucun_repas_lecture_equipe_savr_seule
 - **pgTAP cross-schema TMS↔Plateforme** (addendum 2026-04-23/28 : `shared.prestataires` write deny, `plateforme.lieux` 2 colonnes logistiques, 4 colonnes cachées TMS) — différés à la création du schéma `tms.*` (V2/TMS natif). Listés §09 comme dette contractuelle.
 - **Benchmark RLS 100k rows** (`audit_log` p95 < 200 ms) — objectif de design V1, seuil bloquant V1.1 (sobriété 2026-06-03 A2).
 - **Restriction colonne ops sur `attributions_antgaspi`** (ops limité à poids_repas_kg + volume_repas_realise) — contrôle **applicatif** V1 (décision F1 lot ⑧), non testable en pgTAP DB ; test Vitest API à écrire avec le module §06.09.
-- **MFA / 2FA** — V2.
+- **MFA / 2FA** — équipe Savr livrée en V1 (2026-11-04) : application testée en Vitest (middleware, gardes d'API et de page), base testée en pgTAP (scénario `code_verification_equipe_savr_refus_base`, Catégorie 9). Utilisateurs d'une organisation cochée par l'Admin (VIPARIS, 2026-11-10) : même règle, pgTAP `SECU__code_verification_organisation` (scénario `code_verification_organisation_refus_base`). Autres clients : V1.1.
 
 ```gherkin
 # Source : §04 organisations_lieux + §09 A1 (arbitrage Val 2026-09-29 C1-C3)

@@ -58,7 +58,7 @@ PostgreSQL devient lent non pas à cause du volume de données brut, mais à cau
 | `evenements` | `organisation_id`, `lieu_id`, `date_evenement` | Filtres principaux |
 | `pesees` | `collecte_id` | Jointure pesées → collecte |
 | `factures` | `organisation_id`, `statut`, `created_at` | Dashboard facturation |
-| `rapports_rse` | `collecte_id`, `disponible_a` | Embargo H+24 + lookup |
+| `rapports_rse` | `collecte_id`, `disponible_a` | Disponibilité + lookup |
 | `bordereaux_savr` | `collecte_id` | Lookup bordereau |
 | `attestations_don` | `collecte_id` | Lookup attestation |
 | `packs_antgaspi` | `organisation_id`, `statut` | Vérification blocage AG |
@@ -75,7 +75,7 @@ PostgreSQL devient lent non pas à cause du volume de données brut, mais à cau
 
 ---
 
-## 3. Batch J+1 6h — Concurrence PDF
+## 3. Batch des documents (toutes les 15 min) — Concurrence PDF
 
 ### Situation à T+18 mois
 

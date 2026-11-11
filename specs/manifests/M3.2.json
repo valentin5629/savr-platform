@@ -539,7 +539,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx + packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx (lien des Top listes : onglet=passees) + packages/plateforme/src/lib/collectes/vue-temporelle.ts",
       "test": "M3.2/collectes_vues_a_venir_passees_par_date + M3.2/drilldown_gestionnaire_tous_statuts_type_non_fige",
       "statut": "implemented",
-      "libelle": "Liste Collectes du gestionnaire de lieux : vues « Collectes à venir » (par défaut) / « Collectes passées », rangées par date ; la borne de date et le sens du tri (croissant à venir, décroissant dans le passé) partent au serveur (liste paginée) et à l'export CSV ; le lien des Top listes du dashboard ouvre « passées » (décision Val 2026-10-19 ; fiche _Divergences/M3.1_20261019_collectes-a-venir-passees)."
+      "libelle": "Liste Collectes du gestionnaire de lieux : vues « Collectes à venir » (par défaut) / « Collectes passées », rangées par date ; la borne de date et le sens du tri (croissant à venir, décroissant dans le passé) partent au serveur (liste paginée) et à l'export CSV ; le lien des Top listes du dashboard ouvre « passées » (décision Val 2026-10-19 ; fiche _Divergences/M3.1_20261019_collectes-a-venir-passees). Depuis le 2026-11-03, les deux vues sont tranchées au créneau, à la minute, et non plus au jour (livrable M3.1-vues-collectes-a-la-minute)."
     },
     {
       "id": "M3.2-01",
@@ -764,7 +764,7 @@
     },
     {
       "id": "BL-P1-GEST-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2153",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2155",
       "artefact": "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
       "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc)",
       "statut": "implemented",
@@ -809,7 +809,7 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts + packages/plateforme/src/app/(gestionnaire)/layout.tsx + packages/plateforme/src/app/(registre)/layout.tsx + packages/plateforme/src/app/(programmation)/layout.tsx",
       "test": "M3.2/P2_nav_pack_toujours_visible + M3.2/nav_pack_meme_menu_partout + M3.2/nav_pack_autres_roles_sans_lecture + packages/plateforme/src/lib/routes.test.ts",
       "statut": "implemented",
-      "libelle": "Nav gestionnaire — « Mon pack Anti-Gaspi » (ex « Mon pack AG ») figure toujours dans le menu, même quand l'organisation n'a aucun pack (Val 2026-11-02 : onglet pour tous les rôles clients ; l'ancien masquage « sans pack » de la CDC l.73, sa règle entreesNavMasquees et le comptage de packs sont retirés). Les sections transverses registre et programmation, qui ont leur propre layout, rendent le même menu que l'espace (défaut E2E 2026-10-06). Les entrées « Collectes » (/gestionnaire/collectes) et « Registre réglementaire » (/registre) font partie des sections du menu (CDC l.66-73 : réintégrées par Val le 2026-07-06). L'entrée « Événements » (/gestionnaire/evenements), retirée le 2026-10-07, est remise par Val le 2026-10-18 (_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md).",
+      "libelle": "Nav gestionnaire — « Mon pack Anti-Gaspi » (ex « Mon pack AG ») figure toujours dans le menu, même quand l'organisation n'a aucun pack (Val 2026-11-02 : onglet pour tous les rôles clients ; l'ancien masquage « sans pack » de la CDC l.73, sa règle entreesNavMasquees et le comptage de packs sont retirés). Les sections transverses registre et programmation, qui ont leur propre layout, rendent le même menu que l'espace (défaut E2E 2026-10-06). « Registre réglementaire » (/registre) fait partie des sections du menu ; « Collectes » (/gestionnaire/collectes), réintégrée par Val le 2026-07-06, en sort le 2026-11-05 (_Divergences/NAV-CLIENTS_20261105_menu-sans-collectes.md) : la page reste joignable hors menu. L'entrée « Événements » (/gestionnaire/evenements), retirée le 2026-10-07, est remise par Val le 2026-10-18 (_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md).",
       "ref_divergence": "_Divergences/M3.2_20261102_onglet-mon-pack-anti-gaspi.md"
     },
     {
@@ -818,7 +818,7 @@
       "artefact": "packages/plateforme/src/lib/nav-config.ts",
       "test": "M3.2/nav_ordre_menu_gestionnaire + packages/plateforme/src/lib/routes.test.ts",
       "statut": "implemented",
-      "libelle": "Ordre du menu du gestionnaire (décision Val 2026-10-07, revue d'écran E2E — la liste numérotée du CDC l.69-76 porte cet ordre depuis le sync du 2026-10-09) : Dashboard, Collectes, Traiteurs, Mes lieux, Registre réglementaire, Mon organisation, Paramètres. « Mon pack Anti-Gaspi » (toujours affiché depuis le 2026-11-02) garde sa place juste avant « Mon organisation » (aujourd'hui avant « Paramètres », passé dans le menu de l'utilisateur). « Événements », remise le 2026-10-18, s'insère sous « Collectes » (place validée par Val le 2026-10-18, C1). La barre mobile affichant les 4 premières entrées, elle montre Dashboard, Collectes, Événements, Traiteurs (« Mes lieux » en sort).",
+      "libelle": "Ordre du menu du gestionnaire (décision Val 2026-10-07, revue d'écran E2E — la liste numérotée du CDC l.69-76 porte cet ordre depuis le sync du 2026-10-09) : Dashboard, Collectes, Traiteurs, Mes lieux, Registre réglementaire, Mon organisation, Paramètres. « Mon pack Anti-Gaspi » (toujours affiché depuis le 2026-11-02) garde sa place juste avant « Mon organisation » (aujourd'hui avant « Paramètres », passé dans le menu de l'utilisateur). « Événements », remise le 2026-10-18, s'insère sous « Collectes » (place validée par Val le 2026-10-18, C1). La barre mobile affichant les 4 premières entrées, elle montre Dashboard, Collectes, Événements, Traiteurs (« Mes lieux » en sort). Depuis le 2026-11-05 (« Collectes » retirée, _Divergences/NAV-CLIENTS_20261105_menu-sans-collectes.md) : Dashboard · Événements · Traiteurs · Mes lieux · Registre réglementaire · Mon pack Anti-Gaspi · Paramètres ; la barre mobile montre Dashboard, Événements, Traiteurs, Mes lieux.",
       "ref_divergence": "_Divergences/M3.2_20261007_ordre-menu-gestionnaire.md"
     },
     {
@@ -916,7 +916,7 @@
       "artefact": null,
       "test": null,
       "statut": "descoped",
-      "libelle": "Bloc documents du détail événement (route GET /api/v1/gestionnaire/documents/[type]/[id]/download) — RETIRÉ (décision Val 2026-10-07 : la page Événements du gestionnaire doublonnait la page Collectes). Seule la fiche événement appelait cette route : elle est supprimée avec elle. Le gestionnaire télécharge rapport de recyclage et attestation de don depuis la fiche collecte (…/gestionnaire/collectes/[id]/rapport-rse/download, embargo H+24 inchangé) et le bordereau ZD depuis le registre. Toujours retirée au retour de la page Événements (2026-10-18) : la fiche événement ouvre la fiche collecte, qui porte les documents.",
+      "libelle": "Bloc documents du détail événement (route GET /api/v1/gestionnaire/documents/[type]/[id]/download) — RETIRÉ (décision Val 2026-10-07 : la page Événements du gestionnaire doublonnait la page Collectes). Seule la fiche événement appelait cette route : elle est supprimée avec elle. Le gestionnaire télécharge rapport de recyclage et attestation de don depuis la fiche collecte (…/gestionnaire/collectes/[id]/rapport-rse/download, garde disponible_a inchangée, instant d'émission depuis le 2026-11-04) et le bordereau ZD depuis le registre. Toujours retirée au retour de la page Événements (2026-10-18) : la fiche événement ouvre la fiche collecte, qui porte les documents.",
       "ref_divergence": "_Divergences/M3.2_20261007_retrait-page-evenements-gestionnaire.md"
     },
     {
@@ -942,12 +942,12 @@
       "artefact": "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/lib/evenements/fiche-evenement.ts",
       "test": "M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + M3.2/evenement_fiche_bilan_consolide_et_collectes_triees + M3.2/evenement_fiche_404_hors_perimetre_ou_identifiant_invalide + M3.2/evenement_fiche_introuvable + M3.2/evenement_fiche_erreur + M3.2/evenement_fiche_labo_tiret_sans_zd + M3.2/evenement_fiche_echec_d_une_fiche_500 + M3.2/evenement_fiche_collectes_meme_jour_par_heure + M3.2/evenement_fiche_rouverte_et_rechargee",
       "statut": "implemented",
-      "libelle": "Fiche événement du gestionnaire (CDC §2 « Détail événement »), en pop-up sur la liste Événements (livrable M3.2-evenement-fiche-popup), remise par Val le 2026-10-18 après son retrait du 2026-10-07. Depuis le 2026-10-26, son contenu est celui du livrable M3.2-evenement-fiche-trois-onglets : grand en-tête (nom, taille, date, lieu, traiteur, pax, frise d'avancement), onglets « Informations générales », « Informations collectes » et « Bilan & documents ». La route sert, outre l'en-tête et le bilan consolidé, la fiche de chaque collecte par le chargeur de la fiche collecte (mêmes règles de visibilité) ; une collecte dont la fiche ne se charge pas fait échouer la fiche (500). Gestes permis : « Ajouter une collecte » sur ses propres programmations (décision Val 2026-10-21, livrable M1.2-ajout-collecte-depuis-fiches) et la demande urgente des coordonnées d'un chauffeur, la même que sur la fiche collecte ; aucune modification ni annulation depuis la fiche événement. Événement hors périmètre, brouillon ou identifiant mal formé → 404. Lot C1 (2026-10-24, décision Val Q2) : le type d'événement affiché nomme les types de ses collectes, cf. livrable M3.2-evenement-fiche-types-des-collectes.",
+      "libelle": "Fiche événement du gestionnaire (CDC §2 « Détail événement »), en pop-up sur la liste Événements (livrable M3.2-evenement-fiche-popup), remise par Val le 2026-10-18 après son retrait du 2026-10-07. Depuis le 2026-10-26, son contenu est celui du livrable M3.2-evenement-fiche-trois-onglets : grand en-tête (nom, taille, date, lieu, traiteur, pax, frise d'avancement), onglets « Informations générales », « Informations collectes » et « Bilan & documents ». La route sert, outre l'en-tête et le bilan consolidé, la fiche de chaque collecte par le chargeur de la fiche collecte (mêmes règles de visibilité) ; une collecte dont la fiche ne se charge pas fait échouer la fiche (500). Gestes permis : « Ajouter une collecte » sur ses propres programmations (décision Val 2026-10-21, livrable M1.2-ajout-collecte-depuis-fiches) et la demande urgente des coordonnées d'un chauffeur, la même que sur la fiche collecte  ; depuis le 2026-11-05 (#748, _Divergences/M3.2_20261105_modifier-annuler-collecte-fiche-evenement.md) « Modifier la collecte » et « Annuler la collecte » sur ses propres programmations, aux droits de la fiche collecte. Événement hors périmètre, brouillon ou identifiant mal formé → 404. Lot C1 (2026-10-24, décision Val Q2) : le type d'événement affiché nomme les types de ses collectes, cf. livrable M3.2-evenement-fiche-types-des-collectes.",
       "ref_divergence": "_Divergences/M3.2_20261026_fiche-evenement-trois-onglets.md"
     },
     {
       "id": "M3.2-evenements-dechets-labo-zd-seulement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:661",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:663",
       "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx",
       "test": "M3.2/evenements_route_dechets_labo_zd_seulement + M3.2/evenements_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/evenement_fiche_sans_zd_pas_d_estimation_labo + M3.2/evenement_fiche_labo_tiret_sans_zd",
       "statut": "implemented",
@@ -960,7 +960,7 @@
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": "M3.2/collectes_liste_rendue_au_design_system + M3.2/collectes_erreur_chargement_message_et_reessayer + M3.2/collectes_liste_vide_empty_state + M3.2/collectes_etat_chargement_skeleton + M3.2/collectes_ligne_ouvre_la_fiche + M3.2/collectes_erreur_perimee_ninvalide_pas_la_reponse_fraiche + M3.2/collectes_pagination_total_affiche_au_dela_dune_page + M3.2/collectes_pagination_demande_la_page_suivante_au_serveur + M3.2/collectes_pagination_absente_sous_le_seuil + M3.2/collectes_changement_de_filtre_revient_page_1 + M3.2/collectes_page_devenue_hors_bornes_revient_sur_la_derniere_valide + M3.2/collectes_derniere_page_vide_ne_bloque_pas_lecran",
       "statut": "à-vérifier",
-      "libelle": "Liste Collectes gestionnaire (§06.05 nav 4 l.70, section réintégrée l.81 ; liste plate, chip « Filtre actif » du drill-down l.215) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). Pagination DS au-delà d'une page, avec le total exact affiché (décision Val 2026-09-22) ; la page courante est ancrée au périmètre des filtres, donc un drill-down repart en page 1. Une page devenue hors bornes (liste rétrécie pendant la consultation) ramène sur la dernière page valide, au lieu d'afficher l'état vide sans pagination pour en sortir."
+      "libelle": "Liste Collectes gestionnaire (page hors menu depuis le 2026-11-05, NAV-CLIENTS_20261105 : atteinte par les liens du dashboard et des fiches ; liste plate, chip « Filtre actif » du drill-down l.215) — habillage DS §10 : PageHero, DataTable (cards < 640px), EmptyState, et les 3 états système §7 rendus distincts (Error ≠ Empty). Pagination DS au-delà d'une page, avec le total exact affiché (décision Val 2026-09-22) ; la page courante est ancrée au périmètre des filtres, donc un drill-down repart en page 1. Une page devenue hors bornes (liste rétrécie pendant la consultation) ramène sur la dernière page valide, au lieu d'afficher l'état vide sans pagination pour en sortir."
     },
     {
       "id": "M3.2-collectes-pagination-serveur",
@@ -996,7 +996,7 @@
     },
     {
       "id": "M3.2-dashboard-kpi-etat-erreur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:433",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:435",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts",
       "test": "M3.2/dashboard_kpi_erreur_distincte_du_vide + M3.2/dashboard_kpi_reponse_perimee_ignoree",
       "statut": "implemented",
@@ -1101,7 +1101,7 @@
     },
     {
       "id": "M3.2-liste-colonne-client-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:372",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:374",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1117,7 +1117,7 @@
     },
     {
       "id": "M3.2-liste-collectes-colonne-dechets-labo",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:661",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:663",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (partDeLaCollecte)",
       "test": "M3.2/collectes_route_dechets_labo_part_de_la_collecte + M3.2/collectes_route_dechets_labo_zd_seulement + M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne + M3.2/collectes_colonne_dechets_labo_estimes + M3.2/collectes_colonnes_identiques_liste_traiteur",
       "statut": "implemented",
@@ -1125,7 +1125,7 @@
     },
     {
       "id": "M3.2-liste-collectes-colonne-dechets-labo-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:372",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:374",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1133,7 +1133,7 @@
     },
     {
       "id": "M3.2-vue-attributions-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2130",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2132",
       "artefact": "supabase/migrations/20261004190000_plateforme_v_attributions_gestionnaire.sql (vue security_invoker = false + security_barrier = true ; 5 colonnes ; garde de rôle f_app_role() = 'gestionnaire_lieux' + bornage organisations_lieux + événement daté ; REVOKE ALL FROM PUBLIC, anon, authenticated puis GRANT SELECT TO authenticated) + packages/shared/src/database.types.ts",
       "test": "supabase/tests/SECU__v_attributions_gestionnaire.test.sql (24 assertions sous rôle authenticated + claims, base vierge : 1-3 v_attributions_gest_own_lieu_ok ; 4-5 v_attributions_gest_autre_lieu_denied avec contrôle positif ; 6, 21-22 événement sans date ; 7-8 v_attributions_gest_role_non_gestionnaire_denied avec non-vacuité, 8b JWT sans organisation ; 9, 11-13b autres rôles posés sur une organisation RATTACHÉE au lieu ; 10 le traiteur garde la table ; 14-15 v_attributions_gest_colonnes_whitelist_ok ; 16-19 options de vue et privilèges ; 20 aa_select sans branche lieu)",
       "statut": "implemented",
@@ -1157,7 +1157,7 @@
     },
     {
       "id": "M3.2-pack-ag-consommation-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2138",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2140",
       "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
       "test": "M3.2/pack_ag_consommation_repas_objet",
       "statut": "implemented",
@@ -1191,7 +1191,7 @@
     },
     {
       "id": "M3.2-pack-ag-ecran-etat-erreur",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:433",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md:435",
       "artefact": "packages/plateforme/src/components/pack-ag/mon-pack-ag.tsx",
       "test": "M3.2/pack_ag_ecran_erreur_chargement + M3.2/pack_ag_ecran_aucun_pack",
       "statut": "implemented",
@@ -1376,7 +1376,7 @@
     },
     {
       "id": "M3.2-dashboard-pack-ag-credits",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:139",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:140",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx + packages/plateforme/src/components/dashboards/useKpisGestionnaire.ts (type `PackActifGestionnaire`) + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts (route existante, inchangée)",
       "test": "M3.2/dashboard_pack_ag_credits_affiches + M3.2/dashboard_pack_ag_badge_bientot_epuise + M3.2/dashboard_pack_ag_badge_epuise + M3.2/dashboard_pack_ag_absent_sans_pack + M3.2/dashboard_pack_ag_inclus_dans_reponse",
       "statut": "partial",
@@ -1385,7 +1385,7 @@
     },
     {
       "id": "M3.2-dashboard-pack-ag-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:139",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:140",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/page.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -1406,7 +1406,7 @@
       "artefact": "packages/plateforme/src/app/api/v1/evenements/route.ts + packages/plateforme/src/app/api/v1/evenements/filtres/route.ts + packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/filtres-evenements.ts + packages/plateforme/src/components/evenements/liste-evenements.tsx + packages/plateforme/src/lib/nav-config.ts + packages/plateforme/src/lib/routes.ts",
       "test": "M3.2/evenements_liste_ouverte_aux_six_roles + M3.2/evenements_liste_client_selon_role + M3.2/evenements_liste_chemins_rls_par_role + M3.2/evenements_liste_repas_organisateur_par_helper + M3.2/evenements_liste_nom_traiteur_par_referentiel + M3.2/evenements_liste_filtre_client_staff_seul + M3.2/evenements_liste_refuse_hors_role + M3.2/evenements_filtres_derives_du_perimetre + M3.2/evenements_filtres_traiteur_sans_liste_de_traiteurs + M3.2/evenements_filtres_echec_500 + M3.2/liste_evenements_route_commune + M3.2/liste_evenements_traiteur_sans_colonne_ni_filtre_traiteur + M3.2/liste_evenements_admin_filtre_client + M3.2/evenements_liste_dechets_labo_gestionnaire_seul + M3.2/evenements_filtres_staff_referentiels + M3.2/evenements_filtres_types_en_echec_500",
       "statut": "implemented",
-      "libelle": "Liste Événements commune à tous les rôles (décision Val 2026-10-29) : une seule route GET /api/v1/evenements (+ /filtres), une seule implémentation et un seul composant d'écran, montés par la page Événements de chaque espace (Admin, traiteur manager et commercial, agence, gestionnaire, client organisateur), entrée « Événements » sous « Collectes » dans chaque menu ; « Mes événements » du client organisateur renommé « Dashboard ». Périmètre = policies evt_*_select de l'appelant sous sa session (staff en service_role) ; chemins de lecture imposés par la RLS par rôle (repas : v_attributions_gestionnaire pour le gestionnaire, f_volume_repas_realise pour le client organisateur ; noms de traiteurs : v_referentiel_traiteurs hors gestionnaire et staff). Réglages par rôle (C2) : ni colonne ni filtre Traiteur pour le traiteur, filtre Client (organisation programmatrice) pour le staff. « Déchets labo est. » au gestionnaire seul (§05 R_dechets_labo_estimes : fonction non appelée et colonne absente ailleurs, le coefficient du traiteur se déduirait de valeur ÷ pax). Fiche événement au clic pour tous les rôles (livrable M3.2-fiche-evenement-tous-roles).",
+      "libelle": "Liste Événements commune à tous les rôles (décision Val 2026-10-29) : une seule route GET /api/v1/evenements (+ /filtres), une seule implémentation et un seul composant d'écran, montés par la page Événements de chaque espace (Admin, traiteur manager et commercial, agence, gestionnaire, client organisateur), entrée « Événements » dans chaque menu (sous « Collectes » jusqu'au 2026-11-05, seule ensuite dans les espaces clients, l'Admin gardant les deux : _Divergences/NAV-CLIENTS_20261105_menu-sans-collectes.md) ; « Mes événements » du client organisateur renommé « Dashboard ». Périmètre = policies evt_*_select de l'appelant sous sa session (staff en service_role) ; chemins de lecture imposés par la RLS par rôle (repas : v_attributions_gestionnaire pour le gestionnaire, f_volume_repas_realise pour le client organisateur ; noms de traiteurs : v_referentiel_traiteurs hors gestionnaire et staff). Réglages par rôle (C2) : ni colonne ni filtre Traiteur pour le traiteur, filtre Client (organisation programmatrice) pour le staff. « Déchets labo est. » au gestionnaire seul (§05 R_dechets_labo_estimes : fonction non appelée et colonne absente ailleurs, le coefficient du traiteur se déduirait de valeur ÷ pax). Fiche événement au clic pour tous les rôles (livrable M3.2-fiche-evenement-tous-roles).",
       "ref_divergence": "_Divergences/M3.2_20261029_liste-evenements-tous-roles.md"
     },
     {
@@ -1424,7 +1424,7 @@
       "artefact": "packages/plateforme/src/lib/evenements-gestionnaire.ts (consoliderEvenement) + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx (BilanConsolide)",
       "test": "M3.2/evenement_bilan_cumule_les_collectes_zd + M3.2/evenement_bilan_taux_pondere_par_tonnage + M3.2/evenement_bilan_collectes_non_realisees_sans_resultat + M3.2/evenement_bilan_repas_et_associations + M3.2/evenement_bilan_sans_excedent_seul + M3.2/evenement_bilan_mixte_periode_et_statut + M3.2/evenement_bilan_sans_collecte + M3.2/evenement_bilan_embed_en_tableau + M3.2/evenement_fiche_bilan_consolide_affiche + M3.2/evenement_fiche_bilan_en_attente + M3.2/evenement_bilan_associations_par_identifiant + M3.2/evenement_fiche_pax_absent_et_singulier",
       "statut": "implemented",
-      "libelle": "Bilan consolidé de la fiche événement du gestionnaire (demande Val 2026-10-18 : « une vision consolidée d'un événement sur lequel il y a plusieurs collectes ») : cumul des seules collectes réalisées (statut cloturee, et AG sans excédent à 0 repas), comme la colonne Résultats de la liste Collectes et l'onglet Bilan de la fiche collecte. ZD : poids total, CO₂ évité (somme des `co2_evite_kg` figés — décision Val 2026-10-20, ex « CO₂ évité net »), taux de recyclage = moyenne des taux figés pondérée par le poids (règle du dashboard et de l'export Événements), pesée par pax, répartition par flux (donut). AG : repas donnés, repas par pax, CO₂ évité, une ligne par association bénéficiaire (reconnue par son identifiant) avec ses repas. Couverture affichée (« Cumul des N collectes réalisées, sur M collectes de l'événement », accordée au singulier) ; ratios par pax à « — » sans pax ; bandeau d'attente tant qu'aucune n'est réalisée.",
+      "libelle": "Bilan consolidé de la fiche événement du gestionnaire (demande Val 2026-10-18 : « une vision consolidée d'un événement sur lequel il y a plusieurs collectes ») : cumul des seules collectes réalisées (statut realisee ou cloturee depuis le 2026-11-04, et AG sans excédent à 0 repas), comme la colonne Résultats de la liste Collectes et l'onglet Bilan de la fiche collecte. ZD : poids total, CO₂ évité (somme des `co2_evite_kg` figés — décision Val 2026-10-20, ex « CO₂ évité net »), taux de recyclage = moyenne des taux figés pondérée par le poids (règle du dashboard et de l'export Événements), pesée par pax, répartition par flux (donut). AG : repas donnés, repas par pax, CO₂ évité, une ligne par association bénéficiaire (reconnue par son identifiant) avec ses repas. Couverture affichée (« Cumul des N collectes réalisées, sur M collectes de l'événement », accordée au singulier) ; ratios par pax à « — » sans pax ; bandeau d'attente tant qu'aucune n'est réalisée.",
       "ref_divergence": "_Divergences/M3.2_20261018_retour-page-evenements-gestionnaire.md"
     },
     {
@@ -1451,7 +1451,7 @@
       "artefact": "packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx + packages/plateforme/src/lib/evenements/fiche-evenement.ts (fiches des collectes par chargerFicheCollecteClient, lieu_acces_details) + packages/plateforme/src/lib/statut-collecte-labels.ts (friseStatutEvenement) + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx (Chauffeurs, contenu de la carte chauffeur) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (BandeauBilanAttente, Estompe, GrapheEnAttente partagés)",
       "test": "EVT/frise_avancement + EVT/informations_generales + EVT/reference_interne_tiers_absente + EVT/informations_chauffeurs + EVT/documents_par_collecte + M3.2/evenement_fiche_collectes_ouvrent_la_fiche_collecte + EVT-FRISE/etape_la_plus_basse + EVT-FRISE/annulees_ignorees + EVT-FRISE/sans_collecte + M3.2/evenement_fiche_echec_d_une_fiche_500 + EVT/lieu_surcharge_par_collecte + EVT/telechargement_zd_et_echecs + M3.2/evenement_fiche_collecte_introuvable_500",
       "statut": "implemented",
-      "libelle": "Fiche événement du gestionnaire en trois onglets (décisions Val 2026-10-26, revue d'écran en deux temps) : « Informations générales » (Événement : nom, client final, référence interne sur ses propres programmations, traiteur, déchets labo estimés, période de collecte ; Lieu : adresse et instructions d'accès EFFECTIVES (surcharges saisies à la programmation comprises) quand elles sont communes à ses collectes non annulées, sinon « Propre à chaque collecte » et la valeur sur chaque carte ; contrôle d'accès « Oui » dès qu'une collecte non annulée l'exige), « Informations collectes » (une carte par collecte, deux par ligne sur grand écran : type, date et heure, statut, pax et type d'événement de la collecte, contacts principal et de secours — masqués sur la collecte d'un traiteur tiers —, informations supplémentaires, puis chauffeur, plaque et téléphone par camion avec la demande urgente des coordonnées, « Voir la collecte ») et « Bilan & documents » (au format de l'onglet de la fiche collecte : bandeau d'attente, chiffres clés estompés et graphe en attente tant qu'aucune collecte du type n'est réalisée, répartition des tonnages, associations ; sous-onglets « Zéro Déchet » / « Anti-Gaspi » (segmenté de type du DS) quand l'événement mêle ZD et AG, chacun avec son bilan, ses liens et ses rapports, et la couverture nommant le type ; un lien « Accéder au bilan de la collecte du … » par collecte quand un type en compte plusieurs ; le rapport de chaque collecte non annulée — Rapport RSE ZD fabriqué au clic, Rapport de don AG). En-tête : frise Créé · Validé · En cours · Réalisé à la place du badge de statut consolidé ; l'événement passe à l'étape suivante quand toutes ses collectes non annulées l'ont passée ; toutes annulées : Créé · Annulé. Hors lot (Val) : rapports PDF cumulés sur l'événement ; le radar de comparaison reste propre à chaque collecte.",
+      "libelle": "Fiche événement du gestionnaire en trois onglets (décisions Val 2026-10-26, revue d'écran en deux temps) : « Informations générales » (Événement : nom, client final, référence interne sur ses propres programmations, traiteur, déchets labo estimés, période de collecte ; Lieu : adresse et instructions d'accès EFFECTIVES (surcharges saisies à la programmation comprises) quand elles sont communes à ses collectes non annulées, sinon « Propre à chaque collecte » et la valeur sur chaque carte ; contrôle d'accès « Oui » dès qu'une collecte non annulée l'exige), « Informations collectes » (une carte par collecte, deux par ligne sur grand écran : type, date et heure, statut, pax et type d'événement de la collecte, contacts principal et de secours — masqués sur la collecte d'un traiteur tiers —, informations supplémentaires, puis chauffeur, plaque et téléphone par camion avec la demande urgente des coordonnées, « Voir la collecte » côté Admin, « Modifier la collecte » / « Annuler la collecte » côté client depuis le 2026-11-05) et « Bilan & documents » (au format de l'onglet de la fiche collecte : bandeau d'attente, chiffres clés estompés et graphe en attente tant qu'aucune collecte du type n'est réalisée, répartition des tonnages, associations ; sous-onglets « Zéro Déchet » / « Anti-Gaspi » (segmenté de type du DS) quand l'événement mêle ZD et AG, chacun avec son bilan, ses liens et ses rapports, et la couverture nommant le type ; un lien « Accéder au bilan de la collecte du … » par collecte quand un type en compte plusieurs ; le rapport de chaque collecte non annulée — Rapport RSE ZD fabriqué au clic, Rapport de don AG). En-tête : frise Créé · Validé · En cours · Réalisé à la place du badge de statut consolidé ; l'événement passe à l'étape suivante quand toutes ses collectes non annulées l'ont passée ; toutes annulées : Créé · Annulé. Hors lot (Val) : rapports PDF cumulés sur l'événement ; le radar de comparaison reste propre à chaque collecte.",
       "ref_divergence": "_Divergences/M3.2_20261026_fiche-evenement-trois-onglets.md"
     },
     {
@@ -1489,7 +1489,7 @@
     },
     {
       "id": "M3.2-dechets-labo-annee-moins-un-pax-zero",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:676 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:686",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:678 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:688",
       "artefact": "supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (f_dechets_labo_estimes)",
       "test": "C2-LABO-1 + C2-LABO-2 + C2-LABO-3 + C2-LABO-4 + C2-LABO-5 + C2-LABO-6 + C2-SECU",
       "statut": "implemented",
@@ -1594,7 +1594,7 @@
     {
       "id": "M3.2-dechets-labo-reserve-gestionnaire",
       "statut": "implemented",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:665",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:667",
       "artefact": "supabase/migrations/20261029120000_plateforme_dechets_labo_reserve_gestionnaire.sql (garde f_is_staff() OU f_app_role() = 'gestionnaire_lieux' avec son périmètre inchangé ; REVOKE EXECUTE FROM anon, PUBLIC)",
       "test": "supabase/tests/dechets_labo_reserve_gestionnaire.test.sql",
       "libelle": "f_dechets_labo_estimes réservée au gestionnaire de lieux (§05 R_dechets_labo_estimes, « espace gestionnaire de lieux uniquement ») et au staff, qui lit déjà coefficients_perte_labo. Avant le 2026-10-29, tout rôle dont l'organisation portait l'événement obtenait pax × coefficient : une agence programmant pour un traiteur tiers en déduisait le coefficient confidentiel (revue sécurité de la PR #672). Agence, traiteur manager, traiteur commercial et client organisateur reçoivent NULL sur leurs propres événements, avec contre-épreuve staff sur les mêmes événements ; anon n'a plus EXECUTE. Preuve base : 12 assertions, 7 rouges sans la migration."
@@ -1620,7 +1620,7 @@
     {
       "id": "M3.2-viparis-code-site-lieu",
       "statut": "implemented",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:877",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:878",
       "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (lieux.code_site_viparis, CHECK liste fermée) + packages/plateforme/src/app/api/v1/admin/lieux/route.ts + packages/plateforme/src/app/api/v1/admin/lieux/[id]/route.ts + packages/plateforme/src/components/admin/lieu-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx",
       "test": "supabase/tests/codes_viparis.test.sql + Lieux / Code site VIPARIS + VIPARIS/fiche_lieu_code_site + VIPARIS/fiche_lieu_code_site_illisible_500",
       "libelle": "Code site VIPARIS du lieu (demande VIPARIS, décision Val C3 2026-11-02) : liste fermée PCP, PCC, CNIT2, CDL, CHAMP, PDV, PNV, PLB, saisie par l'Admin seul dans la fiche lieu (onglet Informations) ; code inconnu refusé (422 à la route, 23514 en base). Divergence M3.2_20261102_codes-viparis-site-affaire. Lisible par le gestionnaire dans sa fiche lieu (section « Adresse et capacité »), lu en service-role pour le lieu que la RLS vient de rendre (Val 2026-11-02)."
@@ -1628,7 +1628,7 @@
     {
       "id": "M3.2-viparis-code-affaire-evenement",
       "statut": "implemented",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1465",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1466",
       "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (evenements.code_affaire_viparis, CHECK ^[A-Z0-9]{7}$) + packages/plateforme/src/app/api/v1/evenements/[id]/code-affaire-viparis/route.ts",
       "test": "packages/plateforme/tests/api/evenements/code-affaire-viparis.test.ts + supabase/tests/codes_viparis.test.sql",
       "libelle": "Code affaire VIPARIS de l'événement (décisions Val C1–C2 2026-11-02) : facultatif, 7 caractères alphanumériques normalisés ; corrigeable par l'équipe Savr et les rôles programmateurs qui voient l'événement sous leur RLS (traiteur, agence, gestionnaire du lieu), jamais par le client organisateur ; sans ordre au prestataire, tracé dans audit_log. Aucun droit nouveau : colonnes hors listes blanches, écriture en service_role."
@@ -1675,14 +1675,14 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c3e83ae82b87b9a2b1490321e617f63dda47bea50de2c5ff30b2dd1e8f0d8e8d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "8217fcbe55eb780c79fa1cee886dd961b880ec5f1656e36d78526975ef0d9001",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "959bfb8b3cf89a8881c1b0e8b372bbe8a798c3bce2fcca334973fa14c23befbc",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "34d83ae54048a0ffadb80ace6175cc5a3cd0bbf9710544f21a780949457afd97",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "91b17a8401a9c1c878b793c58420719d9453a33fc7661f1b9b73f2cd703d7574",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "1bd6a37c1ff937a32f2e10ab68e05027fcafd18f615cf63e1b525232fa67184c",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "316d5f3d7e8b2a4c3ed80e09f4a3a62a8a9e175ac28b87c2a94a476090e6e65c",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "5557f63f4c2f64caa2cd89f802a7fd19aed2dc55d2f0d35ba45c12b6e808e901",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "c957507b8789dd429a600c8b84a11e336625486cd6d28ee3b6c0fe0b161ae26b",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "f00f20f9682e9e8d4db52204b3814cbff5cdf5a467bf8205db90a9083531bc20",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "8141ddcee2b121871dd2417bd3b200d424d7eb6ceb2a3861438f3e88ecad6d72",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "aabcfbe22f6b9aad2d5ce225d0642a53556abad174e0240583dce0955e7b3db7",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "3308fe45eac93a047d85d6d44e04f6995a23940375b5a79c3761612911632e38",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "d2739591c4a1caad4fcb181d46ceea184e2cdc20918001c3b9d884033c8473a2",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "98d1143e3b8d5941acddf69162564b27cf2cf55aaccaa703f421f27f692cf057"
   }
 }

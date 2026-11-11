@@ -20,7 +20,7 @@
 | Catégorie | Nb scénarios | Couverture |
 |-----------|-------------|------------|
 | 1. Happy path | 10 | Dashboard Admin actions/revenus/coûts, CA économique AG (patch M3.5), batch J+1, attestation AG, synthèse à la demande, CSV, rapport sans excédent |
-| 2. Cas limites | 13 | Bornes embargo H+24, k-anonymat =5/4 + seuil 3 acteurs, seuils g/pax min/max, taux NULL/0, marge NULL/négative, ≥2 lieux, kg→t |
+| 2. Cas limites | 13 | Documents visibles dès l'émission, email à la clôture (48 h), k-anonymat =5/4 + seuil 3 acteurs, seuils g/pax min/max, taux NULL/0, marge NULL/négative, ≥2 lieux, kg→t |
 | 3. Cas d'erreur | 9 | Embargo applicatif, périodes invalides, garde traiteur_ids, régénérations interdites, format export |
 | 4. Isolation RLS | 11 | rapports_rse (4 chemins org), bordereaux, attestations, exports_registre, documents_generaux, matrice CSV |
 | 5. Idempotence / états | 10 | Versions régénération, snapshots figés (caps, co2, benchmark), batch re-run, synthèse sans stockage |
@@ -47,11 +47,22 @@ Scénario : dashboard_admin_quatre_cartes_actions
 ```
 
 ```gherkin
+# Source : §11 §1.1 Bloc 2 — camembert de répartition (décision Val 2026-11-05, divergence M0.6_20261105)
+# Couche : ui | Priorité : P2-important
+Scénario : dashboard_admin_repartition_revenus_par_client
+  Quand l'admin_savr consulte le Bloc 2 Revenus
+  Alors un camembert affiche les 6 premiers clients par montant total HT et une part « Autres » égale au total de la période moins ces 6 clients
+  Quand il bascule sur « ZD » puis « AG »
+  Alors la répartition porte sur le montant ZD HT puis AG HT
+    Et chaque bascule rejoue l'animation d'entrée du camembert, contrairement à un changement de filtre
+```
+
+```gherkin
 # Source : §11 Bloc 2 Revenus — filtre unique et défaut de période (décisions Val 2026-07-18, divergences M3.5 / M35)
 # Couche : ui | Priorité : P2-important
 Scénario : dashboard_admin_revenus_defaut_12_mois
   Étant donné un `admin_savr` qui ouvre /admin/dashboard
-  Alors le Bloc 2 Revenus affiche l'histogramme et le tableau côte à côte (50/50 à partir de lg)
+  Alors le Bloc 2 Revenus affiche l'histogramme et le camembert de répartition par client côte à côte (50/50 à partir de lg), puis le tableau en pleine largeur dessous
     Et une SEULE barre de filtres (Période, Lieux, Traiteur, Agence, Gestionnaire de lieux) pilote les deux blocs
     Et la période par défaut est les 12 derniers mois glissants, alignés au 1er du mois (12 buckets mensuels pleins)
     Et ce n'est PAS le mois en cours (l'ancien défaut isolé du §11 est supprimé)
@@ -86,7 +97,7 @@ Scénario : dashboard_admin_revenus_filtres_lieu_organisation
 
 Scénario : tableau_revenus_imputation_programmateur
   Étant donné une collecte ZD programmée par l'agence Mathilde M. avec traiteur opérationnel shadow "Maison X", facturée 450 € HT (facture "emise"), date_collecte dans le mois en cours
-  Quand l'admin_savr consulte le tableau "Revenus par organisation" sur le mois en cours
+  Quand l'admin_savr consulte le tableau "Revenu par client" sur le mois en cours
   Alors la ligne porte le nom "Mathilde M." (organisation programmatrice, `evenements.organisation_id`)
   Et "Maison X" (traiteur opérationnel) n'apparaît sur aucune ligne du tableau
   Et le montant ZD HT de la ligne = 450,00 €
@@ -99,11 +110,11 @@ Scénario : tableau_revenus_imputation_programmateur
 
 Scénario : revenus_ag_ca_economique_pas_facture_pack
   Étant donné un Pack 30 acheté par Kaspia en janvier (montant_total_ht 13 800 €, prix_unitaire_ht 460 €) avec facture achat_pack_antigaspi "payee" + un avoir de 300 € sur cette facture, et 2 collectes AG "realisee" en mars
-  Quand l'admin_savr consulte l'histogramme Revenus et le tableau "Revenus par organisation" sur mars
+  Quand l'admin_savr consulte l'histogramme Revenus et le tableau "Revenu par client" sur mars
   Alors le montant AG de mars = 920,00 € (2 × 460 €, imputé au mois de date_collecte)
   Et janvier n'affiche aucun montant AG issu de la facture d'achat de pack (pas de double comptage)
   Et l'avoir de 300 € sur le pack n'impacte pas le CA AG de pilotage (exclu, tranché Val 2026-07-07 — reste visible module Facturation)
-  Et le montant ZD reste calculé sur les factures emise/payee par date_emission (inchangé)
+  Et le montant ZD est le montant de la prestation de chaque collecte, au mois de date_collecte, sans lecture des factures (décision Val 2026-11-03)
 ```
 
 ```gherkin
@@ -245,14 +256,15 @@ Scénario : export_csv_format_fr_et_filtres_actifs
 ```
 
 ```gherkin
-# Source : §11 §7 + §05 R_co2_calcul (règle ABC)
+# Source : §11 §7 + §05 R_co2_calcul (allégations CO₂, décision Val 2026-11-09)
 # Couche : ui
 # Priorité : P2-important
 
-Scénario : dashboard_client_organisateur_regle_abc
-  Étant donné un client_organisateur rattaché à des événements ZD clôturés (co2_* figés)
+Scénario : dashboard_client_organisateur_co2_evite_seul
+  Étant donné un client_organisateur rattaché à des événements ZD clôturés
   Quand il consulte l'onglet ZD
-  Alors le CO₂ évité est affiché en headline et induit + net + énergie primaire dans un détail repliable, sur des lignes distinctes
+  Alors seul le CO₂e évité estimé est affiché, suivi de la phrase de garde-fou et du lien « Voir la méthode » vers /methode-co2
+  Et ni CO₂ induit, ni bilan net, ni énergie primaire ne sont affichés pour ce rôle
   Et le bandeau de tête commun affiche la synthèse RSE annuelle YTD
   Et aucune donnée financière ni benchmark n'est visible
 ```
@@ -262,26 +274,26 @@ Scénario : dashboard_client_organisateur_regle_abc
 ## Catégorie 2 — Cas limites métier
 
 ```gherkin
-# Source : §12 Vue d'ensemble (énoncé canonique embargo H+24)
+# Source : §12 Vue d'ensemble (embargo supprimé, décision Val 2026-11-04, divergence M1.6_20261104)
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : embargo_h24_borne_exacte
-  Étant donné un rapport RSE avec disponible_a = realisee_at + 24h, et realisee_at = 2026-06-01T14:00:00Z
-  Quand le traiteur tente d'accéder au rapport à 2026-06-02T13:59:59Z puis à 2026-06-02T14:00:00Z
-  Alors le premier accès est refusé (contrôle applicatif) et le second réussit
+Scénario : document_visible_des_emission
+  Étant donné une collecte realisee_at = 2026-06-01T14:00:00Z dont le rapport RSE est émis à 2026-06-01T15:00:00Z (disponible_a = instant d'émission)
+  Quand le traiteur accède au rapport à 2026-06-01T15:00:01Z
+  Alors l'accès réussit, sans attendre realisee_at + 24h
 ```
 
 ```gherkin
-# Source : §12 §1.1/§1.2 (génération 6h vs embargo 24h)
+# Source : §12 §1.1/§1.2 (batch toutes les 15 min, email à la clôture, décision Val 2026-11-04, divergence M1.6_20261104)
 # Couche : api
 # Priorité : P2-important
 
-Scénario : rapport_genere_avant_fin_embargo_reste_inaccessible
-  Étant donné une collecte realisee hier à 23h00 (realisee_at + 24h = aujourd'hui 23h00)
-  Quand le batch J+1 6h génère le rapport (7h après realisee_at)
-  Alors la ligne `rapports_rse` existe avec disponible_a = aujourd'hui 23h00
-  Et le rapport reste invisible côté traiteur jusqu'à 23h00 malgré sa génération
+Scénario : email_document_part_a_la_cloture
+  Étant donné une collecte realisee hier à 23h00 dont les pesées sont saisies
+  Quand le batch des documents passe
+  Alors la ligne `rapports_rse` existe avec disponible_a = instant d'émission et le rapport est visible tout de suite
+  Et l'email rapport_disponible part une seule fois, à la clôture (realisee_at + 48h)
 ```
 
 ```gherkin
@@ -477,6 +489,8 @@ Scénario : rapport_recyclage_radar_flux_masque_retire
 # Couche : api
 # Priorité : P1-critique
 
+@deprecated
+# Embargo supprimé (décision Val 2026-11-04, divergence M1.6_20261104) : un rapport n'existe qu'une fois émis, et il est alors visible de tous.
 Scénario : acces_direct_rapport_sous_embargo_refuse
   Étant donné un rapport RSE dont disponible_a est dans 10h et un traiteur_manager connaissant l'id du rapport
   Quand il appelle directement l'API de téléchargement (contournement UI)
@@ -780,9 +794,9 @@ Scénario : modification_facteur_sans_effet_sur_collectes_figees
 # Priorité : P2-important
 
 Scénario : co2_forfait_transport_15km
-  Étant donné km_collecte_aller_retour = 15 et un facteur transport de 2,1 kgCO₂e/km
+  Étant donné km_collecte_aller_retour = 25 et un facteur transport de 0,4 kgCO₂e/km (IVECO 20 m³ diesel, décision Val 2026-11-06)
   Quand une collecte ZD est clôturée
-  Alors la part transport de co2_induit_kg vaut 31,5 kg CO₂e, quelle que soit la taille de la collecte
+  Alors la part transport de co2_induit_kg vaut 10 kg CO₂e, quelle que soit la taille de la collecte
   Et une collecte déjà clôturée avant le changement garde ses valeurs figées
 ```
 
@@ -925,7 +939,7 @@ Scénario : s5_pose_realisee_at_base_embargo
   Étant donné un webhook S5 `collecte-terminee` (statut realisee) reçu pour une collecte ZD
   Quand le webhook est traité
   Alors `collectes.realisee_at` est posé à l'horodatage du passage à realisee
-  Et la future ligne rapports_rse aura disponible_a = realisee_at + 24h (chaîne S5 → embargo)
+  Et la clôture est planifiée à realisee_at + 48h ; rapports_rse.disponible_a vaudra l'instant d'émission du document (décision Val 2026-11-04)
 ```
 
 ```gherkin
@@ -1227,6 +1241,21 @@ Scénario : export_evenements_entetes_code_affaire_et_poids_par_flux
   Étant donné un événement au code affaire « 26SIAL1 » avec 2 collectes ZD (biodéchets 120 et 80 kg) et 1 collecte AG
   Quand l'utilisateur exporte la liste Événements
   Alors la colonne `code_affaire_viparis` suit `nom_evenement`
+  Et la colonne `code_site_viparis` (« Code site VIPARIS ») suit `lieu`, avec le code site du lieu de l'événement, vide pour un lieu sans code site
   Et cinq colonnes Biodéchets, Emballages, Cartons, Verre, Déchet résiduel (kg) suivent `tonnage_zd_kg`, cumulées sur les collectes ZD de l'événement (Biodéchets = 200)
   Et la colonne des repas AG donnés garde son libellé
+```
+
+
+```gherkin
+# Source : §11 §1.1 Bloc 2 + §05 R_revenus_imputation_organisation (décisions Val 2026-11-03, divergences M3.5_20261103)
+# Couche : api
+# Priorité : P1-critique
+
+Scénario : revenus_statuts_comptes_et_annulation_tardive
+  Étant donné pour Kaspia sur la période : une ZD programmee (prestation 600 €), une AG realisee débitée d'un pack à 130 €, une ZD annulee 2 h avant le créneau sans incident (annulation_tardive = true, prestation 450 €), une ZD annulee 2 jours avant (annulation_tardive = false), une ZD brouillon et une ZD rejetee_par_prestataire
+  Quand l'admin_savr consulte l'histogramme « Revenus par mois » et le tableau « Revenu par client »
+  Alors Kaspia compte 3 collectes pour 1 180 € HT (600 + 130 + 450)
+  Et ni le brouillon, ni le refus, ni l'annulation non tardive ne sont comptés, et aucune facture n'est lue
+  Et une annulation antérieure au 2026-11-03 (annulation_tardive NULL) n'est pas comptée
 ```

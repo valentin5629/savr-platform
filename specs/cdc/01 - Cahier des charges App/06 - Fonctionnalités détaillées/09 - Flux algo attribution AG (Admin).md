@@ -67,6 +67,7 @@ La sélection du transporteur AG suit **deux logiques distinctes selon la régio
 
 **Cas aucune association éligible**
 - Le tableau top 3 affiche : "Aucune association disponible pour ce créneau. Traitement manuel requis."
+- Lieu sans région ni code postal (`region_inconnue`) : un seul message remplace cet avertissement et celui du cas `aucun_prestataire` : « Aucune recommandation possible : le lieu de cette collecte n’a ni région ni code postal. Complétez le lieu dans le menu Lieux, puis revenez sur cette collecte. Vous pouvez aussi choisir l’association et le transporteur vous-même ci-dessous. » *(choix C1, Val 2026-11-03)*
 - L'Admin doit sélectionner manuellement dans la liste déroulante des associations
 - Log `audit_log` : `action = "attribution_manuelle_aucune_reco"` avec `user_id` Admin
 
@@ -94,7 +95,7 @@ La sélection du transporteur AG suit **deux logiques distinctes selon la régio
 Actif uniquement si une association est sélectionnée ET un transporteur est sélectionné (toujours, depuis refonte 2026-05-09 — A Toute! et Marathon sont des transporteurs explicites).
 
 **Action côté Plateforme — transaction synchrone unique (refonte 2026-05-09 sobriété B5)** :
-1. `attributions_antgaspi.valide_par` = `current_user.id`, `valide_at` = `now()`
+1. `attributions_antgaspi.valide_par` = `current_user.id`, `valide_at` = `now()` ; `branche_attribution` = branche calculée, ou le service choisi quand l'Admin force A Toute! sur une branche qui n'en désigne aucun (décision Val 2026-11-03)
 2. `attributions_antgaspi.mode_validation` = `'manuel_top1'` si reco non modifiée, `'manuel_override'` si override (voir §8 enum)
 3. **La collecte passe au statut `programmee`** (et **non** `validee`). **Alignement machine à états ZD/AG (Sujet AG statuts, 2026-05-29)** : la validation d'attribution Admin = décision de dispatch (choix asso + transporteur), équivalent fonctionnel de l'envoi prestataire en ZD — donc `programmee`, pas `validee`. `statut_tms` reste `non_envoye` à ce stade (l'ordre n'est pas encore parti : étape 5, asynchrone). Le passage `programmee → validee` est dérivé **ultérieurement** par le trigger `fn_sync_statut_collecte_from_tms` à l'acceptation transporteur (cf. cascade ci-dessous + [[05 - Règles métier]] §4). Aucune écriture applicative directe de `statut` sur la plage `programmee ↔ validee`.
 4. Aucun mouvement de pack : le crédit a été décompté à la programmation (la collecte porte déjà son pack, ou aucun si elle a été programmée sans crédit restant) ; la validation ne pose plus de réservation (décision Val 2026-11-02, voir [[05 - Règles métier#Débit d'un crédit]])
@@ -138,6 +139,8 @@ Quand l'Admin sélectionne une association ou un transporteur différent du top 
 
 Stocké dans `attributions_antgaspi.motif_override` (text, code preset ou texte libre si `autre`). `mode_validation = 'manuel_override'`. Log `audit_log` : `action = "attribution_override"`, `details = { motif_code, motif_texte, association_reco, association_choisie, transporteur_reco, transporteur_choisi }`.
 
+**Service du transporteur forcé** *(décision Val 2026-11-03)* : quand l'Admin choisit A Toute! alors que la branche calculée n'est pas l'une de ses branches (`ag_velo_programme`, `ag_velo_express`, `ag_marathon_volume_backup_camion`, `ag_everest_camion_express` — par exemple une branche Marathon), un champ obligatoire « Service du transporteur » s'affiche : Vélo cargo programmé, Vélo cargo express, Camion, Camion express. « Valider » reste grisé tant qu'il n'est pas choisi. Le service choisi est rangé dans `attributions_antgaspi.branche_attribution` (branche retenue, qui désigne le service Everest, cf. [[08 - APIs et intégrations]] §3). Le serveur refuse (422) une branche qui ne désigne aucun service du transporteur choisi. Sans ce choix, l'envoi échouait en définitif (vécu le 2026-11-02).
+
 ---
 
 ## 4. Emails envoyés à la validation
@@ -174,24 +177,21 @@ Template Resend : `ag_attribution_transporteur` (désactivé, revue des emails V
 
 ## 5. Suivi post-attribution
 
-### Onglet "Attributions validées"
-Tableau historique : même structure que la file d'attente, avec colonnes supplémentaires :
-- Association attribuée
-- Transporteur attribué
-- Override (oui/non, avec motif en tooltip)
-- Volume repas réalisé (renseigné post-collecte)
+### Onglet "Attributions validées" — retiré (décision Val 2026-11-10, divergence M0.6_20261103_poids-ag-saisie-fiche-admin)
+
+Cet onglet n'a jamais été construit. L'attribution validée (association, transporteur, forçage et motif) se lit sur la fiche collecte Admin (§06.06 Bloc 5) ; le poids collecté s'y saisit et le nombre de repas réalisés s'y affiche (§ ci-dessous).
 
 ### Saisie du volume repas réalisé (post-collecte)
 
 **Décompte du pack AG sur le programmateur (clarification 2026-05-07)** : à la programmation (passage à `programmee`, décision Val 2026-11-02), le crédit AG est décompté sur le pack actif de l'organisation programmatrice (`evenements.organisation_id`), **pas** du traiteur opérationnel. Si l'organisation programmatrice n'a pas de pack actif → aucun débit, la collecte est facturée à l'unité, jamais de blocage (décision Val 2026-10-16, cf. §06.01 sélection pack AG). Algo de matching prestataire/association reste basé sur le **lieu** (zone géographique), inchangé : la nature du programmateur n'impacte pas le scoring.
 
-**Flux V1 (sans TMS Savr)** : Ops Savr saisit manuellement le `poids_repas_kg` dans l'onglet "Attributions validées" en analysant les **photos de pesées** remontées par le chauffeur. Ni Everest ni MTS-1 ne retournent ce poids en V1. La saisie est loggée dans `audit_log` (`action = 'poids_repas_saisi_ops'`). Permission : `ops_savr` + `admin_savr` peuvent UPDATE `attributions_antgaspi.poids_repas_kg` (à ajouter §09). **Flux V2 (avec TMS Savr)** : le chauffeur saisit le poids sur le TMS Savr ; le TMS pousse via webhook vers la Plateforme. **(Décision 2026-06-07, Val)**
+**Flux V1 (sans TMS Savr)** : Ops Savr saisit manuellement le `poids_repas_kg` depuis la fiche collecte Admin (§06.06 Bloc 5, ligne « Poids collecté » de l'onglet Logistique, bouton « Modifier », collecte réalisée ou clôturée, hors « sans excédent » ; décision Val 2026-11-03) en analysant les **photos de pesées** remontées par le chauffeur. Ni Everest ni MTS-1 ne retournent ce poids en V1. La saisie est loggée dans `audit_log` (`action = 'poids_repas_saisi_ops'`). Permission : `ops_savr` + `admin_savr` peuvent UPDATE `attributions_antgaspi.poids_repas_kg` (à ajouter §09). **Flux V2 (avec TMS Savr)** : le chauffeur saisit le poids sur le TMS Savr ; le TMS pousse via webhook vers la Plateforme. **(Décision 2026-06-07, Val)**
 
 **Conversion automatique — source unique de la formule (§7.2 et §8 y renvoient, dédup sobriété 2026-06-03 C1)** : `volume_repas_realise = ceil(poids_repas_kg / parametres_algo.poids_par_repas_kg)` (défaut `0.45`, soit 450 g = 1 repas — refonte audit sobriété 2026-05-09 B2). **Source unique cross-app** : le paramètre est défini une seule fois dans `parametres_algo` Plateforme. Le TMS V2 lit ce coefficient via cross-schema (`plateforme.parametres_algo.poids_par_repas_kg`) — `m05_equivalent_repas_kg` historiquement présent côté `parametres_tms` est supprimé V2 (cf. M05 §coefs).
 
 Mise à jour automatique de `attributions_antgaspi.volume_repas_realise` et `attributions_antgaspi.poids_repas_kg` (voir §7 Impact data model).
 
-L'Admin voit la valeur mise à jour dans l'onglet "Attributions validées" sans action de sa part. Si la valeur semble aberrante, il peut la corriger manuellement avec motif obligatoire.
+L'Admin voit le nombre de repas mis à jour sur la fiche collecte sans action de sa part ; ce nombre ne se saisit pas, il se corrige en corrigeant le poids. Si le poids semble aberrant, il peut le corriger manuellement avec motif obligatoire (motif non demandé à la 1re saisie). Si le nombre de repas change, le rapport de don émis est refait avec le poids et le nombre corrigés.
 
 ---
 
@@ -222,7 +222,7 @@ Tableau de ~40 lignes maximum (V1) :
 3. `attributions_antgaspi.mode_validation = 'auto_accept'` + `valide_par = null` (aucun humain) — refonte 2026-05-09 sobriété D2
 4. La collecte passe en statut `programmee` (et **non** `validee` — alignement ZD/AG 2026-05-29, cf. §3) (aucun mouvement de pack : crédit décompté à la programmation, décision Val 2026-11-02). `statut_tms = non_envoye` jusqu'à l'envoi de l'ordre (étape 5). `validee` dérivé à l'acceptation transporteur par le trigger.
 5. **Cascade asynchrone** déclenchée (cf. §3) : envoi emails + ordre transporteur via job queue (positionne `statut_tms = attribuee_en_attente_acceptation` à l'envoi, puis `acceptee` à l'acceptation → trigger → `validee`)
-6. L'Admin voit la ligne dans l'onglet "Attributions validées" avec badge "Auto" (pas dans la file à valider)
+6. La collecte n'apparaît pas dans la file à valider ; son attribution se lit sur la fiche collecte Admin (§06.06 Bloc 5), l'onglet « Attributions validées » étant retiré (décision Val 2026-11-10)
 
 ### Cas de non-déclenchement de l'auto-accept
 Si aucune configuration active ne correspond (top 1 différent de l'association configurée — ex : association exclue pour horaires ce jour-là —, transporteur recommandé différent du transporteur fixé, pax de la collecte hors de la fourchette), le workflow revient en validation manuelle normale. Aucun fallback automatique sur une autre association.

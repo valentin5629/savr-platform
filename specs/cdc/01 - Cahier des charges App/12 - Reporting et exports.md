@@ -10,7 +10,7 @@ Deux types de sorties documentaires dans la Plateforme Savr :
 1. **Documents PDF** : générés automatiquement ou à la demande, archivés dans Cloudflare R2
 2. **Exports tabulaires (CSV)** : à la demande, filtrés par RLS selon le profil utilisateur
 
-**Règle embargo H+24 (énoncé canonique — source unique de cette section, revue sobriété §12 2026-06-03 C1)** : aucun rapport de collecte n'est généré ni accessible avant **`collectes.realisee_at` + 24h** (`realisee_at` = horodatage du passage de la collecte à `realisee`, émis par le webhook S5 terminal du TMS). Ce délai laisse à l'Admin Savr le temps de corriger une pesée erronée reçue du TMS avant la première génération automatique. La fenêtre est matérialisée par `rapports_rse.disponible_a` (cf. [[04 - Data Model]]) et la génération automatique tombe au batch J+1 6h. Toutes les sous-sections (§1.2, §1.3) renvoient à cet énoncé sans le redéfinir.
+**Documents dès que les poids sont là (énoncé canonique — décision Val 2026-11-04, remplace l'embargo H+24)** : les documents d'une collecte (bordereau ZD, rapport de recyclage, rapport de don AG) sont émis dès que ses poids sont connus — pesées de tous les camions reçues ou saisies (ZD), poids saisi par l'Admin (AG) — sur une collecte réalisée ou clôturée, et visibles de tous tout de suite (`rapports_rse.disponible_a` et `attestations_don.eligible_at` = instant d'émission, cf. [[04 - Data Model]]). Émission par un passage toutes les 15 min, et juste après une saisie de poids dans la fiche Admin. Une correction de poids refait le document : le bordereau ZD garde son numéro (version suivante), le rapport de don AG prend une nouvelle version avec un nouveau numéro ATT-DON. L'Admin peut corriger une pesée à tout moment ; MTS-1 jusqu'à la clôture, à `realisee_at` + 48 h. Le client est prévenu par email une seule fois, à la clôture (48 h après la collecte), pour laisser à l'Admin le temps de corriger. Toutes les sous-sections (§1.2, §1.3) renvoient à cet énoncé sans le redéfinir.
 
 **Convention de dates (refonte 2026-05-21 D2, mise à jour 2026-05-29)** : sur tous les documents et exports **destinés au client** (rapports de recyclage, attestations, synthèses, CSV), la date de référence affichée est **`evenements.date_evenement`** — champ backend auto-dérivé = `MIN(collectes.date_collecte)` de l'événement (trigger `fn_set_date_evenement`). C'est la date la plus tôt parmi les collectes de cet événement. **La date de collecte** (`collectes.date_collecte`) reste la référence des documents réglementaires/logistiques (bordereau de pesée, constat de présence chauffeur). Plus de distinction "date client vs date logistique" à expliquer côté UX : l'utilisateur ne saisit que `date_collecte`, `date_evenement` est calculé automatiquement.
 
@@ -22,7 +22,7 @@ Deux types de sorties documentaires dans la Plateforme Savr :
 
 ### 1.1 Bordereau de pesée ZD
 
-**Déclenchement** : batch automatique J+1 à 6h (le lendemain matin de la collecte).
+**Déclenchement** : dès que les pesées de la collecte sont là (passage toutes les 15 min, ou juste après une saisie Admin) ; refait si une pesée change (décision Val 2026-11-04).
 
 **Contenu** :
 - En-tête : nom événement, **date de l'événement** (référence client), **date de collecte** (mention "intervention le {{date_collecte}}" si ≠ date événement — vérité réglementaire du bordereau), lieu, traiteur, nombre de convives de LA collecte (`collectes.pax` ; 0 = inconnu → mention omise — lot C2, décision Val Q5 du 2026-10-24)
@@ -41,7 +41,7 @@ Deux types de sorties documentaires dans la Plateforme Savr :
 
 ### 1.2 Rapport de recyclage ZD (PDF agrégé "rapport RSE" — refonte 2026-05-04)
 
-**Déclenchement** : **au téléchargement** (décision Val 2026-10-16). Aucun rapport n'est fabriqué automatiquement : le batch J+1 6h émet le bordereau, crée la ligne `rapports_rse` (fin d'embargo = `disponible_a`) et envoie l'email « rapport disponible » ; le PDF est fabriqué au clic de celui qui le télécharge, avec ou sans le radar de comparaison, et n'est pas stocké (chacun fabrique le sien). Les données mesurées imprimées sont celles figées à la clôture ; la page 2 reprend l'instantané du bordereau émis, quand le demandeur peut lire ce bordereau sous sa RLS (sinon pas de page 2, §1.7).
+**Déclenchement** : **au téléchargement** (décision Val 2026-10-16). Aucun rapport n'est fabriqué automatiquement : le batch émet le bordereau dès que les pesées sont là et crée la ligne `rapports_rse` (`disponible_a` = instant d'émission) ; l'email « rapport disponible » part à la clôture ; le PDF est fabriqué au clic de celui qui le télécharge, avec ou sans le radar de comparaison, et n'est pas stocké (chacun fabrique le sien). Les données mesurées imprimées sont celles figées à la clôture ; la page 2 reprend l'instantané du bordereau émis, quand le demandeur peut lire ce bordereau sous sa RLS (sinon pas de page 2, §1.7).
 
 **Règle embargo** : voir l'énoncé canonique H+24 en Vue d'ensemble (départ = `collectes.realisee_at`, fenêtre `rapports_rse.disponible_a`).
 
@@ -142,15 +142,15 @@ Justification : l'agence partage ce rapport avec son client final, son branding 
 
 ### 1.3 Attestation de don AG
 
-**Déclenchement** : batch automatique J+1 à 6h.
+**Déclenchement** : dès que le poids est saisi par l'Admin (passage toutes les 15 min, ou juste après la saisie) ; refait si le poids change (décision Val 2026-11-04).
 
-**Règle embargo** : même règle H+24 que le rapport de recyclage (énoncé canonique en Vue d'ensemble).
+**Disponibilité** : même règle que le rapport de recyclage, dès l'émission (énoncé canonique en Vue d'ensemble).
 
 **Contenu** :
 - En-tête événement — **date affichée = `evenements.date_evenement`** (date client). Date de collecte en mention secondaire si ≠ date événement.
 - Nom et adresse de l'association bénéficiaire
 - Quantité de repas donnés + estimation poids
-- **CO₂e évité (ajout 2026-06-04 bis)** : « X kg CO₂e évités » + équivalence km voiture, lu depuis `collectes.co2_evite_kg` figé (= `volume_repas_realise × facteur FAO 2,5 kgCO₂e/repas`, snapshot `co2_facteurs_snapshot` AG → reproductibilité du document officiel). Mention méthodo : « Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage ». Cf. [[05 - Règles métier#R_co2_ag]].
+- **CO₂e évité (ajout 2026-06-04 bis)** : « X kg CO₂e évités » + équivalence km voiture, lu depuis `collectes.co2_evite_kg` figé (= `volume_repas_realise × facteur 2,04 kgCO₂e/repas, Base Carbone ADEME`, snapshot `co2_facteurs_snapshot` AG → reproductibilité du document officiel). Mention méthodo : « Base Carbone ADEME — 2,04 kgCO₂e par repas moyen, évité par chaque repas donné ». Cf. [[05 - Règles métier#R_co2_ag]].
 - Mention fiscale 2041-GE si association habilitée, mention neutre sinon
 - **Logo du client** *(décision Val 2026-10-30)* : dans l'en-tête, à côté du logo Savr — emplacement « client » de la cascade §1.2, jamais le logo du traiteur ; omis s'il n'y en a pas
 - Signature Savr
@@ -334,7 +334,7 @@ Déclenché par un user depuis son **dashboard** (bouton "Exporter une synthèse
 | Portée | 1 collecte ou 1 événement | Multi-collectes sur période |
 | Déclenchement auto | J+1 6h | **Aucun (refonte 2026-05-05 — supprimé)** |
 | Génération à la demande | Régénération manager | Bouton "Exporter une synthèse PDF" dashboard |
-| Embargo | H+24 après collecte | Aucun sur la génération — **prédicat d'inclusion des collectes (tranché 2026-06-07, F4 lot ⑫)** : `statut = 'cloturee' AND realisee_at + interval '24h' <= now()` (aligné embargo canonique) |
+| Embargo | Collectes clôturées seules (clôture à `realisee_at` + 48 h, décision Val 2026-11-04) | Aucun sur la génération — **prédicat d'inclusion des collectes (tranché 2026-06-07, F4 lot ⑫)** : `statut = 'cloturee' AND realisee_at + interval '24h' <= now()` (la seconde condition est désormais toujours vraie pour une collecte clôturée) |
 | Filtres utilisateur | Non | Oui (lieux, traiteurs, types, clients organisateurs, commerciaux) |
 | Stockage | DB (`rapports_rse`) | **Aucun (refonte 2026-05-05 — table `rapports_synthese` supprimée)** |
 | Envoi email | Oui | Non (téléchargement direct par l'utilisateur) |
@@ -387,11 +387,11 @@ Disponibles pour tous les profils, filtrés automatiquement par RLS — chaque u
 - **Factures (whitelist client-safe)** : Numéro, Type, Statut, Montant HT, Montant TTC, Date émission, Date échéance, Date paiement. **Jamais** `marge_logistique` ni colonnes synchro internes. Brouillons exclus côté rôles clients, inclus côté staff.
 - **Packs AG** : Référence, Crédits initiaux, Crédits consommés, Crédits restants, Date début, Date fin, Statut, Prix HT, Devise.
 - **Associations bénéficiaires AG** : staff = référentiel (Association, Adresse, Ville, Région, Contact, Email, Habilitée fiscale, Active) ; traiteur_manager et traiteur_commercial (Val 2026-10-30) = bénéficiaires de ses dons uniquement (Association, Ville, Région, Nb collectes, Repas donnés).
-- **Impact RSE consolidé (grain par collecte — décision Val 2026-06-19)** : Date événement, Événement, Lieu, Ville, Traiteur, Type, Tonnage ZD (kg), Taux recyclage (%), CO2 évité (kg), CO2 induit (kg), CO2 net (kg), Énergie primaire évitée (kWh), Repas AG *(0 pour une collecte AG sans excédent, décision Val 2026-10-09)*.
+- **Impact RSE consolidé (grain par collecte — décision Val 2026-06-19)** : Date événement, Événement, Lieu, Ville, Traiteur, Type, Tonnage ZD (kg), Taux recyclage (%), CO2 évité (kg), CO2 induit (kg), CO2 net (kg) *(export de l'équipe Savr seulement, décision Val 2026-11-09)*, Énergie primaire évitée (kWh), Repas AG *(0 pour une collecte AG sans excédent, décision Val 2026-10-09)*.
 
 **Précision gestionnaire de lieux V1 (décision Val 2026-10-07)** : la page Événements côté gestionnaire a été retirée, puis remise le 2026-10-18 ; depuis le 2026-10-30 elle porte le bouton « Exporter CSV » commun (grain événement). L'export tabulaire du gestionnaire au **grain collecte** vit sur la liste **Collectes** (1 ligne CSV = 1 collecte, colonnes « Collectes » ci-dessus). Périmètre = celui de la liste : ses propres programmations et les collectes tenues sur ses lieux.
 
-**Colonnes export Événements** *(export commun, déclenché par le bouton « Exporter CSV » de la liste Événements des 6 rôles, à gauche de « Colonnes » — demande Val 2026-10-30 ; il reprend la sélection de la liste : ses filtres, brouillons et événements sans date écartés comme elle, sans tri d'écran ni page, lecture complète sans troncature, fichier trié du plus récent au plus ancien)* : `date_evenement`, `nom_evenement`, `code_affaire_viparis` *(ajout 2026-11-02, vide si non saisi)*, `lieu`, `traiteur`, `type_evenement` (les types de ses collectes non annulées, sans doublon, ordre de la collecte n°1 ; toutes annulées : les types de ses collectes annulées — décision Val Q2 du 2026-10-24), `taille_bracket` et `pax` (ceux de l'événement : `evenements.pax`, calculé depuis ses collectes — décision Val Q4 du 2026-10-25), `nb_collectes_zd`, `nb_collectes_ag`, `tonnage_zd_kg`, un poids par flux ZD — Biodéchets, Emballages, Cartons, Verre, Déchet résiduel (kg) *(ajout 2026-11-02 : cumul des pesées réelles de ses collectes ZD)*, `taux_recyclage_pct` *(renommé 2026-05-06 — ex `taux_tri_pct`. Moyenne pondérée par tonnage des `collectes.taux_recyclage` ZD de l'événement, formule à captation cf. [[05 - Règles métier#R_taux_recyclage]])*, `repas_ag`, `statut_consolide`, `date_premiere_collecte`, `date_derniere_collecte`.
+**Colonnes export Événements** *(export commun, déclenché par le bouton « Exporter CSV » de la liste Événements des 6 rôles, à gauche de « Colonnes » — demande Val 2026-10-30 ; il reprend la sélection de la liste : ses filtres, brouillons et événements sans date écartés comme elle, sans tri d'écran ni page, lecture complète sans troncature, fichier trié du plus récent au plus ancien)* : `date_evenement`, `nom_evenement`, `code_affaire_viparis` *(ajout 2026-11-02, vide si non saisi)*, `lieu`, `code_site_viparis` *(ajout 2026-11-03 : code site VIPARIS du lieu de l'événement, `lieux.code_site_viparis`, vide hors VIPARIS)*, `traiteur`, `type_evenement` (les types de ses collectes non annulées, sans doublon, ordre de la collecte n°1 ; toutes annulées : les types de ses collectes annulées — décision Val Q2 du 2026-10-24), `taille_bracket` et `pax` (ceux de l'événement : `evenements.pax`, calculé depuis ses collectes — décision Val Q4 du 2026-10-25), `nb_collectes_zd`, `nb_collectes_ag`, `tonnage_zd_kg`, un poids par flux ZD — Biodéchets, Emballages, Cartons, Verre, Déchet résiduel (kg) *(ajout 2026-11-02 : cumul des pesées réelles de ses collectes ZD)*, `taux_recyclage_pct` *(renommé 2026-05-06 — ex `taux_tri_pct`. Moyenne pondérée par tonnage des `collectes.taux_recyclage` ZD de l'événement, formule à captation cf. [[05 - Règles métier#R_taux_recyclage]])*, `repas_ag`, `statut_consolide`, `date_premiere_collecte`, `date_derniere_collecte`.
 
 ### Format
 

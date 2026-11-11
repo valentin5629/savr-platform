@@ -96,7 +96,10 @@
  *     (`q = c ? q.limit(5) : q.range(a, b)`) ;
  *   – une borne posée dans un `try` quand la requête est exécutée après lui ;
  *   – toutes les requêtes d'une variable qui en reçoit plusieurs, dès qu'une de
- *     ses exécutions ne porte pas sa propre borne.
+ *     ses exécutions ne porte pas sa propre borne ;
+ *   – une borne posée AVANT le `.select(colonnes)` d'une requête née d'un
+ *     `.rpc(…)` (`.rpc(…).limit(20).select(colonnes)`) : seule la suite du
+ *     `.select` est lue — écrire la borne après lui.
  *
  * Le détecteur s'auto-teste à chaque exécution : SONDES ; règle des fichiers
  * lus sondée chemin par chemin ; liste `AIDES` relue sur disque ; liste des
@@ -757,12 +760,15 @@ function tableDe(lecture: ts.CallExpression): ts.Expression | null {
  * suit une écriture (`.insert(…).select()`) rend ce qu'elle vient d'écrire : ce
  * n'est pas une lecture de liste. Tout autre APPEL `x.select(…)` ou
  * `x['select'](…)` — `.from(…)` rangé dans une variable, enveloppe maison,
- * résultat d'un `.rpc(…)` (la 519e lecture, entrée avec la PR #775 :
- * `packages/plateforme/src/app/api/v1/programmation/lieux/route.ts`) — est
- * compté dès qu'il nomme ses colonnes, pour qu'une façon nouvelle d'écrire une
- * lecture ne rende pas le gate aveugle ; sans argument, ce peut être le
- * `select()` d'un champ de saisie. Un `.select` détaché (`.bind`, déstructuré)
- * n'est pas un appel de cette forme : il n'est pas vu.
+ * requête née d'un `.rpc(…)` — est compté dès qu'il nomme ses colonnes, pour
+ * qu'une façon nouvelle d'écrire une lecture ne rende pas le gate aveugle ;
+ * sans argument, ce peut être le `select()` d'un champ de saisie. La 519e
+ * lecture, entrée avec la PR #775, est de cette sorte : dans
+ * `packages/plateforme/src/app/api/v1/programmation/lieux/route.ts`, le
+ * `.select(colonnes)` est posé sur le résultat d'une fonction locale qui reçoit
+ * le `.rpc(…)` et le rend tel quel ou avec un filtre de plus. Un `.select`
+ * détaché (`.bind`, déstructuré) n'est pas un appel de cette forme : il n'est
+ * pas vu.
  */
 function estLecture(n: ts.Node): n is ts.CallExpression {
   const select = appelDeMethode(n);
@@ -1074,6 +1080,27 @@ const SONDES: {
     nom: 'select() d’un champ de saisie : pas une lecture',
     source: `champ.current?.select();\ninput.select();`,
     signalees: 0,
+  },
+  // ── Fonctions de base appelées par .rpc(…) ──
+  {
+    nom: '.rpc(…) seul, ou suivi d’un select() sans argument : pas vu',
+    source: `const a = await supabase.rpc('f_lieux', { p: 1 });\nconst b = await supabase.rpc('f_lieux', { p: 1 }).select();`,
+    signalees: 0,
+  },
+  {
+    nom: '.rpc(…) suivi de select(colonnes) : une lecture comme les autres',
+    source: `const a = await supabase.rpc('f_lieux', { p: 1 }).select('id, nom');\nconst b = await supabase.rpc('f_lieux', { p: 1 }).select('id, nom').limit(20);`,
+    signalees: 1,
+  },
+  {
+    nom: 'select(colonnes) posé sur le résultat d’une fonction qui reçoit un .rpc(…)',
+    source: `const a = await filtre(supabase.rpc('f_lieux', { p: 1 }).eq('actif', true), q).select('id').order('nom');\nconst b = await filtre(supabase.rpc('f_lieux', { p: 1 }).eq('actif', true), q).select('id').order('nom').limit(20);`,
+    signalees: 1,
+  },
+  {
+    nom: 'borne posée avant le select(colonnes) d’un .rpc(…) : signalée, du bon côté',
+    source: `const a = await supabase.rpc('f_lieux', { p: 1 }).limit(20).select('id, nom');`,
+    signalees: 1,
   },
   // ── Requête rangée dans une variable ──
   {

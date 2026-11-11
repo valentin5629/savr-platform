@@ -96,6 +96,18 @@ describe('collectes-table / estUrgente (§06.09 §1 — AG à attribuer < 48h)',
     expect(estUrgente(row())).toBe(false);
   });
 
+  it('créneau passé → plus urgente, même non attribuée (Val 2026-11-11)', () => {
+    maintenant('2026-07-08', '20:01'); // 1 min après le créneau du 08/07 20:00
+    expect(estUrgente(row())).toBe(false);
+    maintenant('2026-07-13', '10:00'); // 5 jours après
+    expect(estUrgente(row())).toBe(false);
+  });
+
+  it('créneau à l’instant même → encore urgente (borne basse incluse)', () => {
+    maintenant('2026-07-08', '20:00');
+    expect(estUrgente(row())).toBe(true);
+  });
+
   it('AG déjà attribuée → jamais urgente, même à 1h du créneau', () => {
     maintenant('2026-07-08', '19:00');
     expect(estUrgente(row({ attributions_antgaspi: attribution }))).toBe(false);

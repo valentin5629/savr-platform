@@ -5155,6 +5155,50 @@ export type Database = {
         Returns: undefined
       }
       f_is_staff: { Args: never; Returns: boolean }
+      f_lieux_visibles_organisation: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          acces_details: string | null
+          acces_office:
+            | Database["plateforme"]["Enums"]["acces_difficulte"]
+            | null
+          actif: boolean
+          adresse_acces: string
+          capacite_maximum: number | null
+          code_postal: string
+          code_site_viparis: string | null
+          commentaire_lieu: string | null
+          commentaires_internes: string | null
+          contraintes_horaires: string | null
+          controle_acces_requis_default: boolean
+          created_at: string
+          email_gestionnaire: string | null
+          flux_autorises: string[] | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          nom: string
+          nom_alternatif: string | null
+          photos_urls: string[] | null
+          reference_citeo: boolean
+          region: Database["plateforme"]["Enums"]["region"] | null
+          siren: string | null
+          stationnement:
+            | Database["plateforme"]["Enums"]["acces_difficulte"]
+            | null
+          traiteurs_operant: string[] | null
+          type_vehicule_max: Database["plateforme"]["Enums"]["type_vehicule"]
+          updated_at: string
+          ville: string
+          volume_max_bacs: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "lieux"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       f_log_audit: {
         Args: {
           p_action: string

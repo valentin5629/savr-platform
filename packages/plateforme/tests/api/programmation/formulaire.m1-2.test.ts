@@ -1298,97 +1298,6 @@ describe('M1.2 / Sécurité isolation cross-org', () => {
   });
 });
 
-type ChaineMock = {
-  select: () => ChaineMock;
-  eq: (col?: string, val?: unknown) => ChaineMock;
-  in: (col: string, vals: string[]) => ChaineMock;
-  not: () => ChaineMock;
-  or: () => ChaineMock;
-  order: () => ChaineMock;
-  limit: () => ChaineMock;
-  maybeSingle: () => Promise<{ data: unknown; error: null }>;
-  then: (res: (v: unknown) => void, rej: (e: unknown) => void) => Promise<void>;
-};
-
-// Ids réellement transmis au `.in('id', …)` de la requête finale `lieux` du
-// chemin admin : c'est l'ensemble « lieux proposés à l'autocomplétion ».
-let idsProposes: string[] = [];
-
-/**
- * Route les tables du chemin ADMIN (service_role). Les deux lectures de
- * `evenements` sont distinguées par la COLONNE filtrée, ce qui vérifie au
- * passage que la branche 4 interroge bien
- * `traiteur_operationnel_organisation_id`.
- */
-function setupTablesAdmin(opts: {
-  typeOrg?: string | null;
-  rattaches?: string[];
-  programmes?: string[];
-  operes?: string[];
-}) {
-  idsProposes = [];
-  const ok = (data: unknown) => ({ data, error: null });
-  const lignes = (ids: string[] = []) => ids.map((lieu_id) => ({ lieu_id }));
-
-  const simple = (data: unknown, capture = false): ChaineMock => {
-    const c: ChaineMock = {
-      select: () => c,
-      eq: () => c,
-      in: (_col, vals) => {
-        if (capture) idsProposes = vals;
-        return c;
-      },
-      not: () => c,
-      or: () => c,
-      order: () => c,
-      limit: () => c,
-      maybeSingle: () => Promise.resolve(ok(data)),
-      then: (res, rej) => Promise.resolve(ok(data)).then(res, rej),
-    };
-    return c;
-  };
-
-  // Une chaîne NEUVE par lecture de `evenements` : les deux requêtes sont
-  // construites avant d'être résolues (Promise.all), donc une chaîne partagée
-  // verrait sa colonne écrasée par la seconde et les deux résoudraient pareil.
-  const chaineEvt = (): ChaineMock => {
-    let colonne = '';
-    const evt: ChaineMock = {
-      select: () => evt,
-      eq: (col) => {
-        colonne = col ?? '';
-        return evt;
-      },
-      in: () => evt,
-      not: () => evt,
-      or: () => evt,
-      order: () => evt,
-      limit: () => evt,
-      maybeSingle: () => Promise.resolve(ok(null)),
-      then: (res, rej) =>
-        Promise.resolve(
-          ok(
-            lignes(
-              colonne === 'traiteur_operationnel_organisation_id'
-                ? opts.operes
-                : opts.programmes,
-            ),
-          ),
-        ).then(res, rej),
-    };
-    return evt;
-  };
-
-  mockSupabaseChain.from.mockImplementation((table: string) => {
-    if (table === 'organisations')
-      return simple(opts.typeOrg ? { type: opts.typeOrg } : null);
-    if (table === 'organisations_lieux') return simple(lignes(opts.rattaches));
-    if (table === 'evenements') return chaineEvt();
-    if (table === 'lieux') return simple([], true);
-    throw new Error(`table inattendue dans le chemin admin : ${table}`);
-  });
-}
-
 async function getLieux(url = '/api/v1/programmation/lieux') {
   const { GET } = await import('@/app/api/v1/programmation/lieux/route.js');
   return GET(makeReq('GET', url));
@@ -1500,55 +1409,24 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
     );
   });
 
-  // ── Admin support : service_role, filtre transcrit, aligné sur la policy ──
+  // ── Admin support : périmètre calculé par la base ─────────────────────────
+  // La transcription de la policy ne vit plus dans la route mais dans la
+  // fonction SQL `f_lieux_visibles_organisation` (migration 20261111100000).
+  // Ses branches — lieu opéré proposé à un traiteur, écarté pour une
+  // organisation d'un autre type — sont prouvées sur la vraie base par
+  // supabase/tests/programmation_lieux_visibles_organisation.test.sql
+  // (asserts 10 à 14, égalité avec la RLS 18 à 22). Ce que la route en fait
+  // (appel unique, filtres de l'écran, erreur lue, volumes) est prouvé par
+  // tests/api/programmation/lieux-au-dela-plafond.test.ts.
 
   it('lieux_admin_sans_org_cible — 200 [] (pas de fuite cross-organisation)', async () => {
     setupAuth('admin_savr', 'org-savr');
-    setupTablesAdmin({ typeOrg: 'traiteur', rattaches: ['lieu-a'] });
 
     const res = await getLieux();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
     // Aucune lecture : l'absence d'org cible court-circuite avant toute requête.
     expect(mockSupabaseChain.from).not.toHaveBeenCalled();
-  });
-
-  it('lieux_admin_branche_traiteur_operationnel — le lieu opéré est proposé', async () => {
-    setupAuth('admin_savr', 'org-savr');
-    setupTablesAdmin({
-      typeOrg: 'traiteur',
-      rattaches: ['lieu-rattache'],
-      programmes: ['lieu-programme'],
-      operes: ['lieu-opere'],
-    });
-
-    const res = await getLieux(
-      '/api/v1/programmation/lieux?organisation_id=org-traiteur-1',
-    );
-    expect(res.status).toBe(200);
-    expect([...idsProposes].sort()).toEqual([
-      'lieu-opere',
-      'lieu-programme',
-      'lieu-rattache',
-    ]);
-  });
-
-  it('lieux_admin_org_non_traiteur — la branche 4 reste gardée par le rôle', async () => {
-    setupAuth('admin_savr', 'org-savr');
-    setupTablesAdmin({
-      typeOrg: 'agence',
-      rattaches: ['lieu-rattache'],
-      operes: ['lieu-opere'],
-    });
-
-    const res = await getLieux(
-      '/api/v1/programmation/lieux?organisation_id=org-agence-1',
-    );
-    expect(res.status).toBe(200);
-    // Non-vacuité : la donnée « opérée » EXISTE dans la fixture et a bien été
-    // lue — c'est la garde de rôle de la policy (transposée en type d'org) qui
-    // l'écarte, pas une fixture vide.
-    expect(idsProposes).toContain('lieu-rattache');
-    expect(idsProposes).not.toContain('lieu-opere');
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });

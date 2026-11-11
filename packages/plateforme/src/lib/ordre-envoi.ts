@@ -1,4 +1,9 @@
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import {
+  lireParLots,
+  lireParPages,
+  TAILLE_PAGE,
+} from '@/lib/pdf/selection-par-pages.js';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 type ErreurDb = { code?: string; message: string };
@@ -148,40 +153,52 @@ export async function lireCollectesEnvoiAbandonne(
   collecteIds?: readonly string[],
 ): Promise<{ data: Set<string>; error: ErreurDb | null }> {
   if (collecteIds?.length === 0) return { data: new Set(), error: null };
-  let q = supabase
-    .from('outbox_events')
-    .select('aggregate_id')
-    .eq('aggregate_type', 'collecte')
-    // `collecte.creee` : l'ordre de l'attribution AG (`attribution.validee`)
-    // n'en fait pas partie.
-    .eq('event_type', 'collecte.creee')
-    .eq('statut', 'dead');
-  if (collecteIds) q = q.in('aggregate_id', [...collecteIds]);
-  const { data, error } = await q;
-  if (error) return { data: new Set(), error };
-  const candidats = [
-    ...new Set(
-      ((data as { aggregate_id: string }[] | null) ?? []).map(
-        (l) => l.aggregate_id,
-      ),
-    ),
-  ];
+  // Aucune de ces lectures ne part en une requête (`lib/pdf/selection-par-pages`) :
+  // une réponse est amputée à 1 000 lignes sans erreur, et un filtre `in` de
+  // plusieurs centaines d'identifiants échoue. Avec une liste : par lots
+  // d'identifiants. Sans liste : page après page.
+  const abandons = () =>
+    supabase
+      .from('outbox_events')
+      .select('id, aggregate_id')
+      .eq('aggregate_type', 'collecte')
+      // `collecte.creee` : l'ordre de l'attribution AG (`attribution.validee`)
+      // n'en fait pas partie.
+      .eq('event_type', 'collecte.creee')
+      .eq('statut', 'dead');
+  const lus = collecteIds
+    ? await lireParLots<{ aggregate_id: string }>(
+        [...new Set(collecteIds)],
+        (lot) => abandons().in('aggregate_id', lot),
+      )
+    : await lireParPages<{ id: string; aggregate_id: string }>((apresId) => {
+        const q = abandons();
+        return (apresId ? q.gt('id', apresId) : q)
+          .order('id', { ascending: true })
+          .limit(TAILLE_PAGE);
+      });
+  if (lus.error) return { data: new Set(), error: lus.error };
+  const candidats = [...new Set(lus.data.map((l) => l.aggregate_id))];
   if (candidats.length === 0) return { data: new Set(), error: null };
 
   // Un abandon remplacé par une création plus récente (le renvoi depuis la
   // fiche, Val 2026-11-03) ne compte plus : on garde les collectes dont la
   // DERNIÈRE création est abandonnée — même règle que `estRemplace`.
-  const creations = await supabase
-    .from('outbox_events')
-    .select('aggregate_id, seq, statut')
-    .eq('aggregate_type', 'collecte')
-    .eq('event_type', 'collecte.creee')
-    .in('aggregate_id', candidats);
+  const creations = await lireParLots<{
+    aggregate_id: string;
+    seq: number;
+    statut: string;
+  }>(candidats, (lot) =>
+    supabase
+      .from('outbox_events')
+      .select('aggregate_id, seq, statut')
+      .eq('aggregate_type', 'collecte')
+      .eq('event_type', 'collecte.creee')
+      .in('aggregate_id', lot),
+  );
   if (creations.error) return { data: new Set(), error: creations.error };
   const derniere = new Map<string, { seq: number; statut: string }>();
-  for (const l of (creations.data as
-    | { aggregate_id: string; seq: number; statut: string }[]
-    | null) ?? []) {
+  for (const l of creations.data) {
     const d = derniere.get(l.aggregate_id);
     if (!d || l.seq > d.seq) derniere.set(l.aggregate_id, l);
   }
@@ -190,18 +207,15 @@ export async function lireCollectesEnvoiAbandonne(
     return { data: new Set(ids), error: null };
 
   // Mêmes conditions que l'exception (lib/statut-collecte-admin).
-  const encore = await supabase
-    .from('collectes')
-    .select('id')
-    .in('id', ids)
-    .eq('statut', 'programmee')
-    .eq('statut_tms', 'non_envoye')
-    .is('tms_reference', null);
+  const encore = await lireParLots<{ id: string }>(ids, (lot) =>
+    supabase
+      .from('collectes')
+      .select('id')
+      .in('id', lot)
+      .eq('statut', 'programmee')
+      .eq('statut_tms', 'non_envoye')
+      .is('tms_reference', null),
+  );
   if (encore.error) return { data: new Set(), error: encore.error };
-  return {
-    data: new Set(
-      ((encore.data as { id: string }[] | null) ?? []).map((c) => c.id),
-    ),
-    error: null,
-  };
+  return { data: new Set(encore.data.map((c) => c.id)), error: null };
 }

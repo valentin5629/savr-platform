@@ -364,11 +364,16 @@ export async function loadAdminBenchmarkComparaison(
   };
 }
 
+type OptionNommee = { id: string; nom: string };
+
 export interface AdminBenchmarkFiltresOptions {
-  lieux: { id: string; nom: string }[];
-  traiteurs: { id: string; nom: string }[];
+  lieux: OptionNommee[];
+  traiteurs: OptionNommee[];
   types: { id: string; libelle: string }[];
 }
+
+const parNom = (a: OptionNommee, b: OptionNommee) =>
+  a.nom.localeCompare(b.nom, 'fr');
 
 /**
  * Options des filtres de la ligne de référence (encart « Comparer avec »), en
@@ -383,15 +388,27 @@ export interface AdminBenchmarkFiltresOptions {
 export async function loadAdminBenchmarkFiltres(
   admin: AdminDbClient,
 ): Promise<AdminBenchmarkFiltresOptions> {
+  // Lieux et traiteurs lus page après page (`lireParPages`) : une réponse est
+  // amputée à 1 000 lignes sans erreur, des options manqueraient à l'encart.
+  // La lecture avance sur l'identifiant ; le tri par nom est refait ici.
   const [lieux, traiteurs, types] = await Promise.all([
-    admin.from('lieux').select('id, nom').neq('actif', false).order('nom'),
-    admin
-      .from('organisations')
-      .select('id, nom')
-      .eq('type', 'traiteur')
-      .neq('actif', false)
-      .neq('est_shadow', true)
-      .order('nom'),
+    lireParPages<OptionNommee>((apresId) => {
+      const q = admin.from('lieux').select('id, nom').neq('actif', false);
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    }),
+    lireParPages<OptionNommee>((apresId) => {
+      const q = admin
+        .from('organisations')
+        .select('id, nom')
+        .eq('type', 'traiteur')
+        .neq('actif', false)
+        .neq('est_shadow', true);
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    }),
     admin
       .from('types_evenements')
       .select('id, libelle')
@@ -402,8 +419,8 @@ export async function loadAdminBenchmarkFiltres(
   if (firstError)
     throw erreurInterne(firstError, 'admin.dashboard_client.benchmark.filtres');
   return {
-    lieux: (lieux.data ?? []) as { id: string; nom: string }[],
-    traiteurs: (traiteurs.data ?? []) as { id: string; nom: string }[],
+    lieux: lieux.data.sort(parNom),
+    traiteurs: traiteurs.data.sort(parNom),
     types: (types.data ?? []) as { id: string; libelle: string }[],
   };
 }

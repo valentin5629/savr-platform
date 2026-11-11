@@ -11,6 +11,7 @@ const chain = {
   from: vi.fn().mockReturnThis(),
   select: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
+  limit: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   neq: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
@@ -293,7 +294,7 @@ describe('M0.6/statut_admin_creee_envoi_abandonne — GET /admin/collectes', () 
     const l: Record<string, unknown> = {
       then: (resolve: (r: typeof reponse) => unknown) => resolve(reponse),
     };
-    for (const m of ['select', 'eq', 'in', 'is'])
+    for (const m of ['select', 'eq', 'in', 'is', 'order', 'limit'])
       l[m] = (...args: unknown[]) => {
         filtres.push([m, ...args]);
         return l;
@@ -427,7 +428,8 @@ describe('M3.5/montant_prestation_liste_route — GET /admin/collectes', () => {
       then: (resolve: (r: { data: unknown[]; error: null }) => unknown) =>
         resolve({ data, error: null }),
     };
-    for (const m of ['select', 'eq', 'in', 'is']) l[m] = () => l;
+    for (const m of ['select', 'eq', 'in', 'is', 'order', 'limit'])
+      l[m] = () => l;
     return l;
   }
 

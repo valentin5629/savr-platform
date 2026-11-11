@@ -59,6 +59,9 @@ function makeChain() {
     select: () => sansAbandon,
     eq: () => sansAbandon,
     in: () => sansAbandon,
+    // Lecture par pages des créations abandonnées.
+    order: () => sansAbandon,
+    limit: () => sansAbandon,
     then: (resolve: (r: Result) => unknown) =>
       resolve({ data: [], error: null }),
   };

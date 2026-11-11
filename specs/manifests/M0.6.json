@@ -1808,6 +1808,14 @@
       "test": null,
       "statut": "à-vérifier",
       "libelle": "Rendu de la liste Collectes Admin après la revue écran 2026-10-29 : chevron après « ⋯ », largeur de la colonne Actions, colonne « Client organisateur » vide — preuve écran (geste de Val, GO-VISUAL)."
+    },
+    {
+      "id": "M0.6-envois-abandonnes-pages-et-lots",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:204",
+      "artefact": "packages/plateforme/src/lib/ordre-envoi.ts (lireCollectesEnvoiAbandonne : créations abandonnées lues par lireParPages sans liste, par lireParLots avec liste ; créations des collectes candidates et collectes encore concernées lues par lireParLots)",
+      "test": "M0.6 / envois abandonnés au-delà des plafonds",
+      "statut": "implemented",
+      "libelle": "Collectes dont l'envoi est abandonné (filtre « Créée » / « Programmée » de la liste Admin et de son export, fiche événement) au-delà des plafonds : aucune des lectures ne part en une requête, et la règle reste « dernière création abandonnée, collecte encore concernée ». Une page ou un lot en échec rend l'erreur, sans collecte."
     }
   ],
   "cdc_source_hash": {

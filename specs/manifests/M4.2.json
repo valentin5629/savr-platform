@@ -176,6 +176,14 @@
       "test": "C1/registre_pax_taille_type_de_la_collecte + M4.2/detail_registre_pax_et_type_de_la_collecte + 14. v_registre_dechets garde security_invoker + 15. droits de v_registre_dechets inchangés",
       "statut": "implemented",
       "libelle": "Registre au grain de la COLLECTE (lot C1, 2026-10-24) : la vue v_registre_dechets expose le pax, la taille (taille_bracket) et le type d'événement de la collecte (mêmes colonnes, CREATE OR REPLACE VIEW, security_invoker = false et cloisonnement f_collecte_visible inchangés) ; le détail d'une ligne (bloc 1 « Données événement ») affiche les convives et le type de LA collecte, pas ceux de l'événement."
+    },
+    {
+      "id": "M4.2-zip-bordereaux-par-lots",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
+      "artefact": "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts (bordereaux des collectes de la période lus par lireParLots)",
+      "test": "M4.2 / export ZIP des bordereaux au-delà du plafond d'identifiants",
+      "statut": "implemented",
+      "libelle": "Export ZIP des bordereaux quand la période filtrée porte plus de collectes qu'un filtre in.(…) n'en accepte (402 identifiants échouent, 390 passent : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) : les collectes partent par lots de 100. Le refus « Trop de bordereaux (N) » et le ZIP restent rendus ; un lot en échec rend une erreur, ni ZIP partiel ni trace."
     }
   ],
   "cdc_source_hash": {

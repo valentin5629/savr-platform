@@ -792,10 +792,12 @@ function BlocLogistique({
   f,
   urgence,
   onDemanderUrgence,
+  avecUrgence = true,
 }: {
   f: FicheCollecteClient;
   urgence: Urgence | undefined;
   onDemanderUrgence: () => void;
+  avecUrgence?: boolean;
 }) {
   return (
     <div
@@ -814,6 +816,7 @@ function BlocLogistique({
         urgence={urgence?.etat ?? 'idle'}
         urgenceErreur={urgence?.erreur ?? null}
         onDemanderUrgence={onDemanderUrgence}
+        avecUrgence={avecUrgence}
       />
     </div>
   );
@@ -870,7 +873,9 @@ function CarteCollecte({
   edition?: EditionCarte;
   /** Staff : statut en vue Admin (granularité complète), sinon vue client. */
   statutAdmin?: string;
-  /** Contacts, informations supplémentaires et chauffeurs : fiche collecte client seulement. */
+  /** Contacts et informations supplémentaires : espaces clients et Admin (Val
+   * 2026-11-12), pas le client organisateur. Le chauffeur est sur toutes les
+   * cartes (Val 2026-11-12). */
   detail: boolean;
   // Adresse / instructions d'accès différentes d'une collecte à l'autre : la
   // carte porte les siennes, le bloc Lieu renvoie ici.
@@ -900,9 +905,9 @@ function CarteCollecte({
   );
   const avecBoutons =
     !!onOuvrir || modifier !== 'absent' || annuler !== 'absent';
-  // Espaces clients (gestes + détail) : boutons en bas de la colonne gauche ;
-  // Admin (« Voir la collecte ») : en bas à droite de la carte.
-  const aGauche = detail && !!gestes;
+  // Carte détaillée (espaces clients, Admin depuis le 2026-11-12) : boutons en
+  // bas de la colonne gauche ; carte légère : en bas à droite.
+  const aGauche = detail && avecBoutons;
   const boutons = avecBoutons && (
     <div
       className={cn(
@@ -970,11 +975,9 @@ function CarteCollecte({
           </Heading>
         }
       />
-      <div className={detail ? GRILLE_CARTE : undefined}>
+      <div className={GRILLE_CARTE}>
         <div
-          className={
-            cn(aGauche && COLONNE_INFOS, detail && COLONNE_GAUCHE) || undefined
-          }
+          className={cn(aGauche && COLONNE_INFOS, COLONNE_GAUCHE)}
           data-testid="colonne-infos"
         >
           <dl className={GRILLE_INFOS}>
@@ -1042,13 +1045,14 @@ function CarteCollecte({
           </dl>
           {aGauche && boutons}
         </div>
-        {detail && (
-          <BlocLogistique
-            f={f}
-            urgence={urgence}
-            onDemanderUrgence={onDemanderUrgence}
-          />
-        )}
+        <BlocLogistique
+          f={f}
+          urgence={urgence}
+          onDemanderUrgence={onDemanderUrgence}
+          // Admin (« Voir la collecte ») : il reçoit la demande urgente, il ne
+          // la fait pas.
+          avecUrgence={!onOuvrir}
+        />
       </div>
       {!aGauche && boutons}
     </Card>
@@ -2123,7 +2127,7 @@ export function FicheEvenementModal({
                         avecAdresse={adresseLieu === undefined}
                         avecAcces={accesLieu === undefined}
                         urgence={urgences[f.id]}
-                        detail={!!espaceClient}
+                        detail={!!espaceClient || espace === 'admin'}
                         statutAdmin={evt.statuts_admin?.[f.id]}
                         onDemanderUrgence={() => void demanderUrgence(f.id)}
                         onOuvrir={

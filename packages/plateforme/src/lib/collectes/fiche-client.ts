@@ -9,6 +9,7 @@ import {
   CODE_ALERTE_COORDONNEES_URGENCE,
   STATUTS_ASSOCIATION,
   STATUTS_LOGISTIQUE,
+  chauffeursVisibles,
   statutBilan,
   etatRapport,
   rapportReserveDonneurOrdre,
@@ -36,8 +37,8 @@ import {
 //     bornées à CETTE collecte ; les documents sont lus sous la RLS de
 //     l'utilisateur, pour les trois espaces ;
 //  3. rien de confidentiel ne sort : ni notes internes (Admin), ni nom du
-//     prestataire logistique (marque blanche), ni téléphone du chauffeur hors
-//     de la fenêtre programmee/validee/en_cours ;
+//     prestataire logistique (marque blanche), ni téléphone du chauffeur d'une
+//     collecte annulée (visible aux autres statuts, Val 2026-11-12) ;
 //  4. gestionnaire : l'attribution AG (repas, association) est lue par la vue
 //     v_attributions_gestionnaire (§04) — aa_select n'est jamais élargie, la
 //     vue ne rend que les collectes de SES lieux et 5 colonnes ;
@@ -233,7 +234,10 @@ export async function chargerFicheCollecteClient(
   const c = data as unknown as CollecteRow;
   const evt = one(c.evenement);
   const isAg = c.type === 'anti_gaspi';
-  const avecCamions = STATUTS_LOGISTIQUE.includes(c.statut);
+  // Chauffeurs lus à tous les statuts sauf annulation (Val 2026-11-12) ; la
+  // demande urgente, elle, ne vaut que dans la fenêtre logistique.
+  const avecCamions = chauffeursVisibles(c.statut);
+  const fenetreLogistique = STATUTS_LOGISTIQUE.includes(c.statut);
   const avecAssociation = isAg && STATUTS_ASSOCIATION.includes(c.statut);
   // Frontière 5 : qui a titre aux colonnes réservées de l'événement.
   const programmeParSoi = evt?.organisation_id === ctx.organisationId;
@@ -302,7 +306,7 @@ export async function chargerFicheCollecteClient(
               .eq('collecte_id', id)
               .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      avecCamions
+      fenetreLogistique
         ? admin
             .from('alertes_admin')
             .select('id')

@@ -12,7 +12,7 @@ import {
 
 // « Demander les coordonnées en urgence » (§06.04 Fiche collecte, onglet
 // Logistique — décision Val 2026-09-29, Q3) — commun aux routes
-// POST /api/v1/{traiteur,agence,gestionnaire}/collectes/[id]/coordonnees-urgence.
+// POST /api/v1/{traiteur,agence,gestionnaire,organisateur}/collectes/[id]/coordonnees-urgence.
 //
 //  · alerte in-app Ops SEULE (alertes_admin) : ni email, ni Slack ;
 //  · la visibilité de la collecte est vérifiée sous la RLS de l'UTILISATEUR

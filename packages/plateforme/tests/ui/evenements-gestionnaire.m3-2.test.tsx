@@ -2114,14 +2114,23 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
     tournees: [],
   });
   it(
-    'M3.2/evenement_fiche_admin_ouvre_fiche_collecte_admin — cartes sans contacts ni chauffeurs, « Voir la collecte » ouvre la fiche collecte Admin (Val C6)',
+    'M3.2/evenement_fiche_admin_ouvre_fiche_collecte_admin — cartes au format des traiteurs (contacts, chauffeurs, sans demande urgente), « Voir la collecte » ouvre la fiche collecte Admin (Val C6, 2026-11-12)',
     async () => {
       const d = detail({ dechets_labo_kg: null });
       const fiches = (d.fiches as Record<string, unknown>[]).map((f) => ({
         ...legere(f),
-        // Contacts visibles dans la donnée : c'est `detail` qui doit les masquer.
+        statut: 'validee',
         contacts_visibles: true,
         contact_principal_nom: 'Contact Test',
+        // Coordonnées incomplètes : un client verrait la demande urgente.
+        tournees: [
+          {
+            chauffeur_nom: 'Chauffeur Test',
+            plaque_immatriculation: null,
+            chauffeur_telephone: null,
+            type_vehicule: null,
+          },
+        ],
       }));
       const premier = String((fiches[0] as Record<string, unknown>).id);
       stubFetch(() => ({
@@ -2141,8 +2150,13 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
         undefined,
         ATTENTE_UI,
       );
-      expect(screen.queryByTestId('bloc-logistique')).toBeNull();
-      expect(cartes[0]).not.toHaveTextContent('Contact principal');
+      expect(
+        within(cartes[0]!).getByTestId('bloc-logistique'),
+      ).toHaveTextContent('Chauffeur Test');
+      expect(cartes[0]).toHaveTextContent(/Contact principal\s*Contact Test/);
+      expect(cartes[0]).toHaveTextContent('Informations supplémentaires');
+      // L'équipe Savr reçoit la demande urgente, elle ne la fait pas.
+      expect(screen.queryByTestId('zone-urgence')).toBeNull();
       // Statut en vue Admin : « Rejetée », jamais le « Créée » des clients.
       expect(cartes[0]).toHaveTextContent('Rejetée');
       fireEvent.click(
@@ -2161,11 +2175,23 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
   );
 
   it(
-    'M3.2/evenement_fiche_organisateur_lecture_seule — cartes sans contacts ni chauffeurs ni « Voir la collecte », pas de documents par collecte ni de rapport de don cumulé (Val C7)',
+    'M3.2/evenement_fiche_organisateur_lecture_seule — cartes sans contacts ni « Voir la collecte » mais avec chauffeur et demande urgente (Val 2026-11-12), pas de documents par collecte ni de rapport de don cumulé (Val C7)',
     async () => {
       const d = detail({ dechets_labo_kg: null });
+      const fiches = d.fiches.map((f) => ({
+        ...legere(f),
+        statut: 'validee',
+        tournees: [
+          {
+            chauffeur_nom: 'Chauffeur Test',
+            plaque_immatriculation: null,
+            chauffeur_telephone: null,
+            type_vehicule: null,
+          },
+        ],
+      }));
       stubFetch(() => ({
-        body: { data: { ...d, fiches: d.fiches.map(legere) } },
+        body: { data: { ...d, fiches } },
       }));
       monterFiche({ espace: 'organisateur' });
       await ficheChargee();
@@ -2174,7 +2200,14 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
       expect(
         screen.queryByRole('button', { name: 'Voir la collecte' }),
       ).toBeNull();
-      expect(screen.queryByTestId('bloc-logistique')).toBeNull();
+      const cartes = screen.getAllByTestId('carte-collecte');
+      expect(
+        within(cartes[0]!).getByTestId('bloc-logistique'),
+      ).toHaveTextContent('Chauffeur Test');
+      expect(
+        within(cartes[0]!).getByTestId('zone-urgence'),
+      ).toBeInTheDocument();
+      expect(cartes[0]).not.toHaveTextContent('Contact principal');
       onglet('Bilan & documents');
       await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
       expect(screen.queryByTestId('document-collecte')).toBeNull();

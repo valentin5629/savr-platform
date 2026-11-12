@@ -17,6 +17,7 @@ import { InfoItem } from '@/components/ui/info-item';
 import { FicheSection } from '@/components/ui/fiche/fiche-section';
 import {
   STATUTS_LOGISTIQUE,
+  chauffeursVisibles,
   coordonneesCompletes,
   type AssociationFiche,
   type FicheCollecteClient,
@@ -342,6 +343,8 @@ interface PropsChauffeurs {
   onDemanderUrgence: () => void;
   /** `variante-b` : onglet Logistique de la fiche client (Val 2026-10-27). */
   presentation?: 'standard' | 'variante-b';
+  /** Demande urgente des coordonnées : jamais pour l'équipe Savr, qui la reçoit. */
+  avecUrgence?: boolean;
 }
 
 // Variante B (décision Val 2026-10-27) : la section « Vos chauffeurs » seule
@@ -351,13 +354,14 @@ interface PropsChauffeurs {
 export function OngletLogistique(props: PropsChauffeurs) {
   const fenetre = STATUTS_LOGISTIQUE.includes(props.c.statut);
   const tournees = props.c.tournees;
-  const titre = !fenetre
-    ? 'Logistique'
-    : tournees.length === 0
-      ? 'Chauffeur pas encore affecté'
-      : tournees.length > 1
-        ? 'Vos chauffeurs'
-        : 'Votre chauffeur';
+  const titre =
+    tournees.length === 0 && !fenetre
+      ? 'Logistique'
+      : tournees.length === 0
+        ? 'Chauffeur pas encore affecté'
+        : tournees.length > 1
+          ? 'Vos chauffeurs'
+          : 'Votre chauffeur';
   return (
     <div data-testid="bloc-logistique">
       <FicheSection titre={titre}>
@@ -380,17 +384,21 @@ export function Chauffeurs({
   urgenceErreur,
   onDemanderUrgence,
   presentation = 'standard',
+  avecUrgence = true,
 }: PropsChauffeurs) {
   const vb = presentation === 'variante-b';
   const fenetre = STATUTS_LOGISTIQUE.includes(c.statut);
-  const tournees = c.tournees;
+  // Chauffeurs affichés à tous les statuts sauf annulation (Val 2026-11-12) ;
+  // hors fenêtre logistique, une valeur manquante n'est plus « en attente ».
+  const tournees = chauffeursVisibles(c.statut) ? c.tournees : [];
   const complet = coordonneesCompletes(tournees);
   const demandeEnvoyee =
     urgence === 'envoyee' || c.coordonnees_urgence_demandee;
+  const manquant = fenetre ? <EnAttente /> : <Vide />;
 
   return (
     <>
-      {!fenetre ? (
+      {!fenetre && tournees.length === 0 ? (
         <EmptyState
           size="inline"
           title="Aucune information logistique à afficher pour cette collecte."
@@ -451,7 +459,7 @@ export function Chauffeurs({
                 }
               >
                 <InfoItem label="Chauffeur">
-                  {t.chauffeur_nom?.trim() || <EnAttente />}
+                  {t.chauffeur_nom?.trim() || manquant}
                 </InfoItem>
                 <InfoItem label="Plaque d’immatriculation">
                   {t.plaque_immatriculation?.trim() ||
@@ -461,14 +469,14 @@ export function Chauffeurs({
                         Sans objet (vélo cargo)
                       </span>
                     ) : (
-                      <EnAttente />
+                      manquant
                     ))}
                 </InfoItem>
                 <InfoItem label="Téléphone">
                   {t.chauffeur_telephone?.trim() ? (
                     <TelephoneLien telephone={t.chauffeur_telephone} />
                   ) : (
-                    <EnAttente />
+                    manquant
                   )}
                 </InfoItem>
               </dl>
@@ -478,7 +486,7 @@ export function Chauffeurs({
       )}
 
       {/* Demande urgente (Q3) : alerte in-app Ops seule, 1 par collecte. */}
-      {fenetre && !complet && (
+      {avecUrgence && fenetre && !complet && (
         <div
           data-testid="zone-urgence"
           // Mobile : bouton pleine largeur sous le texte. Au-delà, sur une

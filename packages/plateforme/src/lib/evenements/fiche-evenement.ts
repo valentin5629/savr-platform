@@ -17,7 +17,9 @@
 // organisateur : carte « légère » par collecte (`ficheLegere` : date, type,
 // statut, pax, type d'événement, adresse ; ni contacts, ni chauffeurs, ni
 // documents par collecte) — l'Admin ouvre sa fiche collecte Admin au clic (C6),
-// l'organisateur n'a pas de fiche collecte (C7). Seul le gestionnaire a les
+// l'organisateur n'a pas de fiche collecte (C7). Depuis le 2026-11-12 (Val),
+// les deux reçoivent les chauffeurs, et l'Admin en plus contacts et
+// informations supplémentaires (`completerCartes`). Seul le gestionnaire a les
 // déchets labo estimés et le logo du traiteur.
 
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -26,7 +28,6 @@ import {
   createSupabaseServerClient,
   type UserAuthContext,
 } from '@/lib/api-auth';
-import { statutBilan } from '@/lib/collectes/fiche-client-types';
 import type { EspaceEvenements } from '@/lib/evenements/liste-evenements';
 import { nomOrganisation } from '@/lib/evenements/filtres-evenements';
 import { statutCollecteAdmin } from '@/lib/statut-collecte-admin';
@@ -43,11 +44,20 @@ import {
 import { estUuid } from '@/lib/filtre-csv';
 import { typesEvenementDesCollectes } from '@/lib/collectes/types-evenement-collectes';
 import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client';
-import type {
-  EspaceClient,
-  FicheCollecteClient,
-  LieuFiche,
+import {
+  CODE_ALERTE_COORDONNEES_URGENCE,
+  STATUTS_LOGISTIQUE,
+  chauffeursVisibles,
+  statutBilan,
+  type EspaceClient,
+  type FicheCollecteClient,
+  type LieuFiche,
+  type TourneeFiche,
 } from '@/lib/collectes/fiche-client-types';
+import {
+  COLONNES_CONTACTS_COLLECTE,
+  type ContactsCollecte,
+} from '@/lib/collectes/contacts-collecte';
 import {
   attributionsAgOf,
   embedAttributionsAg,
@@ -61,6 +71,8 @@ type CollecteBrute = CollecteAConsolider & {
   statut_tms?: string | null;
   tms_reference?: string | null;
   prestataire_logistique_id?: string | null;
+  // Staff seul : carte au format des espaces clients (Val 2026-11-12).
+  informations_supplementaires?: string | null;
   heure_collecte: string | null;
   created_at: string | null;
   type_evenement: UnOuListe<{ libelle: string | null }>;
@@ -106,8 +118,9 @@ type Appelant = Pick<UserAuthContext, 'userId' | 'role'> & {
 
 /**
  * Carte « légère » d'une collecte (Admin, client organisateur) : ce que la
- * fiche événement montre sans fiche collecte client. Rien de personnel ni de
- * logistique : contacts masqués, aucun chauffeur, aucune action, documents
+ * fiche événement montre sans fiche collecte client. Ni contacts, ni chauffeur,
+ * ni action (chauffeurs et, pour l'Admin, contacts ajoutés ensuite par
+ * `completerCartes`, Val 2026-11-12), documents
  * absents (l'Admin les a dans sa fiche collecte, l'organisateur sur sa page
  * Documents). Adresse = celle du lieu de l'événement.
  */
@@ -162,6 +175,106 @@ function ficheLegere(
   };
 }
 
+/**
+ * Cartes légères complétées (demandes Val 2026-11-12), lues en service_role sur
+ * les seules collectes que la lecture de l'événement vient de rendre :
+ *  · Admin et client organisateur : chauffeurs de chaque collecte non annulée ;
+ *  · Admin seul (`avecContacts`) : contacts sur place et informations
+ *    supplémentaires, comme la carte des espaces clients et sa fiche collecte.
+ * Rend l'erreur d'une lecture en échec : jamais « aucun contact » par défaut.
+ */
+async function completerCartes(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  collectes: CollecteBrute[],
+  fiches: FicheCollecteClient[],
+  avecContacts: boolean,
+): Promise<unknown> {
+  const ids = fiches.map((f) => f.id);
+  if (ids.length === 0) return null;
+  const avecCamions = fiches
+    .filter((f) => chauffeursVisibles(f.statut))
+    .map((f) => f.id);
+  // Demande urgente déjà ouverte (organisateur : « Demande envoyée »).
+  const enFenetre = fiches
+    .filter((f) => STATUTS_LOGISTIQUE.includes(f.statut))
+    .map((f) => f.id);
+  const [contactsRes, camionsRes, alertesRes] = await Promise.all([
+    // borne-par-nature: une ligne par collecte d'UN événement (quelques-unes)
+    avecContacts
+      ? admin
+          .from('collecte_contacts')
+          .select(`collecte_id, ${COLONNES_CONTACTS_COLLECTE}`)
+          .in('collecte_id', ids)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+    // borne-par-nature: camions des collectes d'UN événement (quelques lignes)
+    avecCamions.length > 0
+      ? admin
+          .from('collecte_tournees')
+          .select(
+            'collecte_id, rang, tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule)',
+          )
+          .in('collecte_id', avecCamions)
+          .order('rang', { ascending: true })
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+    // borne-par-nature: au plus une demande ouverte par collecte (index unique)
+    enFenetre.length > 0
+      ? admin
+          .from('alertes_admin')
+          .select('entity_id')
+          .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
+          .eq('statut', 'ouverte')
+          .in('entity_id', enFenetre)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+  ]);
+  if (contactsRes.error) return contactsRes.error;
+  if (camionsRes.error) return camionsRes.error;
+  if (alertesRes.error) return alertesRes.error;
+  const demandees = new Set(
+    ((alertesRes.data ?? []) as Array<{ entity_id: string }>).map(
+      (a) => a.entity_id,
+    ),
+  );
+  const contacts = new Map(
+    (
+      (contactsRes.data ?? []) as unknown as Array<
+        ContactsCollecte & { collecte_id: string }
+      >
+    ).map((c) => [c.collecte_id, c]),
+  );
+  const camions = new Map<string, TourneeFiche[]>();
+  for (const r of (camionsRes.data ?? []) as Array<{
+    collecte_id: string;
+    tournee: UnOuListe<TourneeFiche>;
+  }>) {
+    const t = un(r.tournee);
+    if (!t) continue;
+    const liste = camions.get(r.collecte_id) ?? [];
+    liste.push({
+      chauffeur_nom: t.chauffeur_nom,
+      plaque_immatriculation: t.plaque_immatriculation,
+      chauffeur_telephone: t.chauffeur_telephone,
+      type_vehicule: t.type_vehicule,
+    });
+    camions.set(r.collecte_id, liste);
+  }
+  const infos = new Map(
+    collectes.map((c) => [c.id, c.informations_supplementaires ?? null]),
+  );
+  for (const f of fiches) {
+    f.tournees = camions.get(f.id) ?? [];
+    f.coordonnees_urgence_demandee = demandees.has(f.id);
+    if (!avecContacts) continue;
+    const ct = contacts.get(f.id);
+    f.contacts_visibles = true;
+    f.contact_principal_nom = ct?.contact_principal_nom ?? null;
+    f.contact_principal_telephone = ct?.contact_principal_telephone ?? null;
+    f.contact_secours_nom = ct?.contact_secours_nom ?? null;
+    f.contact_secours_telephone = ct?.contact_secours_telephone ?? null;
+    f.informations_supplementaires = infos.get(f.id) ?? null;
+  }
+  return null;
+}
+
 export async function chargerFicheEvenement(
   id: string,
   ctx: Appelant,
@@ -196,7 +309,7 @@ export async function chargerFicheEvenement(
        types_evenements!type_evenement_id(libelle),
        collectes(id, type, statut, date_collecte, heure_collecte, created_at,
          pax, taux_recyclage, co2_evite_kg, controle_acces_requis,
-         ${admin ? 'statut_tms, tms_reference, prestataire_logistique_id,' : ''}
+         ${admin ? 'statut_tms, tms_reference, prestataire_logistique_id, informations_supplementaires,' : ''}
          type_evenement:types_evenements!type_evenement_id(libelle),
          collecte_flux(poids_reel_kg, flux_dechets!flux_id(code))
          ${organisateur ? '' : `, ${embedAttributionsAg(ctx.role)}`}),
@@ -337,6 +450,15 @@ export async function chargerFicheEvenement(
   const fiches: FicheCollecteClient[] = [];
   if (!resultats)
     for (const c of collectes) fiches.push(ficheLegere(c, lieuFiche, evt));
+  if (!resultats) {
+    const echec = await completerCartes(
+      clientAdmin ?? createAdminSupabaseClient(),
+      collectes,
+      fiches,
+      admin,
+    );
+    if (echec) return { etat: 'erreur', erreur: echec };
+  }
   for (const r of resultats ?? []) {
     if (!('fiche' in r))
       return {

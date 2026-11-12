@@ -149,29 +149,45 @@ describe('M3.1 / fiche client — réponse GET (sécurité)', () => {
     },
   );
 
-  it.each(['realisee', 'cloturee', 'annulee', 'realisee_sans_collecte'])(
-    'M3.1/fiche_get_telephone_hors_fenetre — %s : aucun camion lu ni servi',
+  const CAMION_PIEGE = {
+    data: [
+      {
+        rang: 1,
+        tournee: {
+          plaque_immatriculation: 'AB-123-CD',
+          chauffeur_nom: 'Léa',
+          chauffeur_telephone: '0612345678',
+          type_vehicule: 'camionnette',
+        },
+      },
+    ],
+    error: null,
+  };
+
+  // Chauffeur visible à tous les statuts sauf annulation (Val 2026-11-12).
+  it.each(['annulee', 'annulation_demandee'])(
+    'M3.1/fiche_get_telephone_annulee — %s : aucun camion lu ni servi',
     async (statut) => {
       rls.results.collectes = { data: ligneCollecte({ statut }), error: null };
       // Piège : la base renverrait un téléphone si on la lisait.
-      admin.results.collecte_tournees = {
-        data: [
-          {
-            rang: 1,
-            tournee: {
-              plaque_immatriculation: 'AB-123-CD',
-              chauffeur_nom: 'Léa',
-              chauffeur_telephone: '0612345678',
-              type_vehicule: 'camionnette',
-            },
-          },
-        ],
-        error: null,
-      };
+      admin.results.collecte_tournees = CAMION_PIEGE;
       const { json } = await getFiche();
       expect(json.data.tournees).toEqual([]);
       expect(admin.calls).not.toContain('collecte_tournees');
       expect(JSON.stringify(json)).not.toContain('0612345678');
+    },
+  );
+
+  it.each(['realisee', 'cloturee', 'realisee_sans_collecte'])(
+    'M3.1/fiche_get_chauffeur_apres_collecte — %s : camion servi, aucune demande urgente lue',
+    async (statut) => {
+      rls.results.collectes = { data: ligneCollecte({ statut }), error: null };
+      admin.results.collecte_tournees = CAMION_PIEGE;
+      const { json } = await getFiche();
+      const t = json.data.tournees as Array<{ chauffeur_telephone: string }>;
+      expect(t[0]?.chauffeur_telephone).toBe('0612345678');
+      // La demande urgente ne vaut que dans la fenêtre logistique.
+      expect(admin.calls).not.toContain('alertes_admin');
     },
   );
 

@@ -151,6 +151,7 @@
     "M3.1/fiche_ui_logistique_multi_camions_en_attente",
     "M3.1/fiche_ui_logistique_aucun_camion",
     "M3.1/fiche_ui_logistique_masquee_terminee",
+    "M3.1/fiche_ui_logistique_chauffeur_apres_collecte",
     "M3.1/fiche_redirect_modale",
     "M3.1/fiche_redirect_edit",
     "M3.1/fiche_redirect_encode",
@@ -177,7 +178,8 @@
     "M3.1/fiche_popup_echap_annulation_garde_la_fiche",
     "M3.1/fiche_get_sans_notes_ni_prestataire",
     "M3.1/fiche_get_telephone_fenetre",
-    "M3.1/fiche_get_telephone_hors_fenetre",
+    "M3.1/fiche_get_telephone_annulee",
+    "M3.1/fiche_get_chauffeur_apres_collecte",
     "M3.1/fiche_get_invisible_404_sans_service_role",
     "M3.1/fiche_get_bilan_flux_zd",
     "M3.1/fiche_get_bilan_flux_avant_realisation",
@@ -822,9 +824,9 @@
       "id": "M3.1-fiche-telephone-fenetre-serveur",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:563",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts",
-      "test": "M3.1/fiche_get_telephone_hors_fenetre",
+      "test": "M3.1/fiche_get_telephone_annulee + M3.1/fiche_get_chauffeur_apres_collecte + M3.1/fiche_ui_logistique_chauffeur_apres_collecte",
       "statut": "implemented",
-      "libelle": "Téléphone du chauffeur filtré CÔTÉ SERVEUR : hors programmee/validee/en_cours, aucun camion n'est lu ni servi (service-role jamais sollicité). Fenêtre prouvée par M3.1/fiche_get_telephone_fenetre. La lecture PostgREST directe de tournees (policy t_select) reste à fermer par colonne — PR séparée (arbitrage Val C5)."
+      "libelle": "Téléphone du chauffeur filtré CÔTÉ SERVEUR : collecte annulée (annulee, annulation_demandee), aucun camion n'est lu ni servi (service-role jamais sollicité). Depuis le 2026-11-12 (Val, tous les utilisateurs), chauffeur lu et affiché à tous les autres statuts, après la collecte comprise (valeur manquante « — » hors fenêtre) ; demande urgente toujours limitée à programmee/validee/en_cours. Fenêtre prouvée par M3.1/fiche_get_telephone_fenetre. La lecture PostgREST directe de tournees (policy t_select) reste à fermer par colonne — PR séparée (arbitrage Val C5)."
     },
     {
       "id": "M3.1-edition-notes-internes-fermee",

@@ -499,28 +499,74 @@ describe('Fiche Événement — Admin et client organisateur', () => {
     };
   };
 
-  it('M3.2/evenement_fiche_admin_cartes_legeres — service_role, cartes de collecte sans contacts ni chauffeurs, sans fiche collecte client, nom de toute organisation', async () => {
-    session = makeClient({});
-    service = makeClient({
+  // Admin (Val 2026-11-12) : contacts, informations supplémentaires et
+  // chauffeurs de chaque collecte, lus en service_role.
+  const COLLECTE_VALIDEE = {
+    ...evtFiche().collectes[0]!,
+    id: 'c-zd',
+    type: 'zero_dechet',
+    statut: 'validee',
+    date_collecte: '2026-10-03',
+    informations_supplementaires: 'Quai B',
+  };
+  const serviceAdmin = (
+    extra: Record<string, { data: unknown; error: unknown }> = {},
+  ) =>
+    makeClient({
       evenements: {
         data: {
           ...evtFiche(),
           // Nom du traiteur lu dans la requête (organisations, service_role).
           organisations: { id: 'T1', nom: null, raison_sociale: 'Potel SAS' },
-          collectes: evtFiche().collectes.map((c) => ({
-            ...c,
-            attributions_antgaspi: [
-              {
-                volume_repas_realise: 80,
-                association_id: 'A1',
-                associations: { id: 'A1', nom: 'Asso', ville: 'Paris' },
-              },
-            ],
-          })),
+          collectes: [
+            ...evtFiche().collectes.map((c) => ({
+              ...c,
+              attributions_antgaspi: [
+                {
+                  volume_repas_realise: 80,
+                  association_id: 'A1',
+                  associations: { id: 'A1', nom: 'Asso', ville: 'Paris' },
+                },
+              ],
+            })),
+            COLLECTE_VALIDEE,
+          ],
         },
         error: null,
       },
+      collecte_contacts: {
+        data: [
+          {
+            collecte_id: 'c-zd',
+            contact_principal_nom: 'Contact Test',
+            contact_principal_telephone: '0600000000',
+            contact_secours_nom: null,
+            contact_secours_telephone: null,
+          },
+        ],
+        error: null,
+      },
+      collecte_tournees: {
+        data: [
+          {
+            collecte_id: 'c-zd',
+            rang: 1,
+            tournee: {
+              chauffeur_nom: 'Chauffeur Test',
+              plaque_immatriculation: 'AA-000-AA',
+              chauffeur_telephone: null,
+              type_vehicule: 'camion',
+            },
+          },
+        ],
+        error: null,
+      },
+      ...extra,
     });
+
+  it('M3.2/evenement_fiche_admin_cartes_detaillees — service_role, contacts, informations supplémentaires et chauffeurs de chaque collecte, sans fiche collecte client, nom de toute organisation', async () => {
+    session = makeClient({});
+    service = serviceAdmin();
     mockCharger.mockClear();
     connecte('admin_savr');
     const res = await fiche();
@@ -537,17 +583,54 @@ describe('Fiche Événement — Admin et client organisateur', () => {
     expect(data.dechets_labo_kg).toBeNull();
     expect(service.rpc).not.toHaveBeenCalled();
     expect(data.bilan.repas_donnes).toBe(80);
-    expect(data.fiches).toHaveLength(1);
+    expect(data.fiches).toHaveLength(2);
+    // Clôturée : chauffeurs demandés (aucun en base ici) ; pas de contact.
     expect(data.fiches[0]).toMatchObject({
       id: 'c-ag',
-      contacts_visibles: false,
+      contacts_visibles: true,
       tournees: [],
       contact_principal_telephone: null,
-    }); // Statut en vue Admin, calculé par la route (clôturée = clôturée).
+    });
+    expect(data.fiches[1]).toMatchObject({
+      id: 'c-zd',
+      contacts_visibles: true,
+      contact_principal_telephone: '0600000000',
+      informations_supplementaires: 'Quai B',
+      tournees: [
+        {
+          chauffeur_nom: 'Chauffeur Test',
+          plaque_immatriculation: 'AA-000-AA',
+          chauffeur_telephone: null,
+          type_vehicule: 'camion',
+        },
+      ],
+    });
+    // Chauffeurs demandés pour toute collecte non annulée (Val 2026-11-12),
+    // demande urgente pour la seule collecte de la fenêtre logistique.
+    const inDe = (table: string) =>
+      service.calls.find((c) => c.table === table && c.m === 'in')?.args;
+    expect(inDe('collecte_tournees')).toEqual([
+      'collecte_id',
+      ['c-ag', 'c-zd'],
+    ]);
+    expect(inDe('alertes_admin')).toEqual(['entity_id', ['c-zd']]);
+    // Statut en vue Admin, calculé par la route (clôturée = clôturée).
     expect(
       (data as unknown as { statuts_admin: Record<string, string> })
-        .statuts_admin,
-    ).toEqual({ 'c-ag': 'cloturee' });
+        .statuts_admin['c-ag'],
+    ).toBe('cloturee');
+  });
+
+  it('M3.2/evenement_fiche_admin_contacts_en_echec_500 — une lecture de contacts ou de chauffeurs en échec fait échouer la fiche, jamais « aucun contact »', async () => {
+    for (const table of ['collecte_contacts', 'collecte_tournees']) {
+      session = makeClient({});
+      service = serviceAdmin({
+        [table]: { data: null, error: { message: 'boom' } },
+      });
+      connecte('admin_savr');
+      const res = await fiche();
+      expect(res.status).toBe(500);
+    }
   });
 
   it('M3.2/evenement_fiche_organisateur_repas_en_echec_500 — un repas illisible fait échouer la fiche, jamais un bilan faux', async () => {
@@ -580,13 +663,20 @@ describe('Fiche Événement — Admin et client organisateur', () => {
     const res = await fiche();
     expect(res.status).toBe(200);
     const { data } = (await res.json()) as Fiche;
-    // Service-role : les seuls codes VIPARIS de CET événement (Val 2026-11-02).
-    expect(service.calls.map((c) => c.table)).toEqual(
-      service.calls.map(() => 'evenements'),
+    // Service-role : les codes VIPARIS de CET événement (Val 2026-11-02) et les
+    // chauffeurs de ses collectes (Val 2026-11-12) ; jamais leurs contacts.
+    expect(new Set(service.calls.map((c) => c.table))).toEqual(
+      new Set(['evenements', 'collecte_tournees']),
     );
     expect(
-      service.calls.filter((c) => c.m === 'select').map((c) => c.args[0]),
+      service.calls
+        .filter((c) => c.table === 'evenements' && c.m === 'select')
+        .map((c) => c.args[0]),
     ).toEqual(['code_affaire_viparis, lieu:lieux!lieu_id(code_site_viparis)']);
+    expect(
+      service.calls.find((c) => c.table === 'collecte_tournees' && c.m === 'in')
+        ?.args,
+    ).toEqual(['collecte_id', ['c-ag']]);
     // Client organisateur : code affaire lu, jamais modifiable (route 403).
     expect(data.code_affaire_modifiable).toBe(false);
     expect(mockCharger).not.toHaveBeenCalled();

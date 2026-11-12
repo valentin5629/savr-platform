@@ -200,10 +200,22 @@ export async function runBatchPdfJ1(
     aRevoir = new Set([options.collecteId]);
   } else if (numerotes) {
     const depuis = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-    const { data: recents, error: recErr } = await supabase
-      .from('collecte_flux')
-      .select('collecte_id')
-      .gte('updated_at', depuis);
+    // Par pages (cf. selection-par-pages) : une lecture unique est amputée à
+    // 1 000 lignes sans erreur, et les bordereaux des collectes laissées de
+    // côté ne seraient pas revus à ce passage. Un chargement en masse de
+    // pesées suffit à dépasser ce nombre en 48 h.
+    const { data: recents, error: recErr } = await lireParPages<{
+      id: string;
+      collecte_id: string;
+    }>((apresId) => {
+      const pesees = supabase
+        .from('collecte_flux')
+        .select('id, collecte_id')
+        .gte('updated_at', depuis);
+      return (apresId ? pesees.gt('id', apresId) : pesees)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    });
     if (recErr) {
       result.fatal = fatalSelection(
         result.errors,
@@ -212,9 +224,7 @@ export async function runBatchPdfJ1(
       );
       return result;
     }
-    aRevoir = new Set(
-      (recents ?? []).map((r: { collecte_id: string }) => r.collecte_id),
-    );
+    aRevoir = new Set(recents.map((r) => r.collecte_id));
   }
   for (const collecte of collectes) {
     const bordereau = existants.get(collecte.id);

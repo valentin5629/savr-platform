@@ -1817,6 +1817,14 @@
       "test": "M0.6 / envois abandonnés au-delà des plafonds",
       "statut": "implemented",
       "libelle": "Collectes dont l'envoi est abandonné (filtre « Créée » / « Programmée » de la liste Admin et de son export, fiche événement) au-delà des plafonds : aucune des lectures ne part en une requête, et la règle reste « dernière création abandonnée, collecte encore concernée ». Une page ou un lot en échec rend l'erreur, sans collecte."
+    },
+    {
+      "id": "M0.6-filtre-statut-envois-abandonnes-bornes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:214",
+      "artefact": "packages/plateforme/src/lib/statut-collecte-admin.ts (MAX_ENVOIS_ABANDONNES_FILTRE, refus de filtreStatutsAdmin au-delà) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (refus rendu par serverError, événement admin.collectes.list.filtre_statut)",
+      "test": "M0.6 / statut Admin — envois abandonnés en nombre borné dans le filtre + M0.6 / liste Collectes Admin — filtre de statut et envois abandonnés en nombre",
+      "statut": "implemented",
+      "libelle": "Filtre « Créée » ou « Programmée » (l'une sans l'autre) de la liste Collectes Admin : les collectes à l'envoi abandonné partent dans l'URL du filtre, qui ne se découpe pas en lots. Il en porte 250 au plus ; au-delà la route répond 500 sans lire la liste, et le journal dit le nombre et le plafond (avant, rien ne bornait cette liste : mesuré sur savr-dev le 2026-11-12, la requête passe avec 360 identifiants et échoue avec 372, sans dire pourquoi). Sans filtre de statut, ou avec « Créée » et « Programmée » ensemble, aucun identifiant ne part dans l'URL : pas de refus, et chaque ligne dit toujours si son envoi est abandonné."
     }
   ],
   "cdc_source_hash": {

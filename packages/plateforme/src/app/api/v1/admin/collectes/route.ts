@@ -76,9 +76,15 @@ async function getHandler(req: NextRequest): Promise<NextResponse> {
   if (abandons.error)
     return serverError(abandons.error, 'admin.collectes.list');
 
-  query = appliquerFiltresCollectesAdmin(query, filtres, new Date(), [
-    ...abandons.data,
-  ]);
+  // Le filtre de statut refuse une liste d'abandons que l'URL ne porterait pas
+  // (`MAX_ENVOIS_ABANDONNES_FILTRE`) : rendu comme toute lecture en échec.
+  try {
+    query = appliquerFiltresCollectesAdmin(query, filtres, new Date(), [
+      ...abandons.data,
+    ]);
+  } catch (e) {
+    return serverError(e, 'admin.collectes.list.filtre_statut');
+  }
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) return serverError(error, 'admin.collectes.list');

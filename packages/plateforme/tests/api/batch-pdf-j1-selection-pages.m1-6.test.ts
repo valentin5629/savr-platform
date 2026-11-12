@@ -86,6 +86,7 @@ function fausseBase(repondre: (q: Requete) => Reponse) {
         q.dans = valeurs;
         return chaine;
       },
+      maybeSingle: () => Promise.resolve(repondre(q)),
       then: (ok: (v: Reponse) => unknown, ko?: (e: unknown) => unknown) =>
         Promise.resolve(repondre(q)).then(ok, ko),
     };
@@ -391,6 +392,155 @@ describe('M1.6 / batch ZD — 402 collectes clôturées (volume qui cassait savr
     });
     expect(result.enqueued).toBe(0);
     expect(base.ecritures()).toEqual([]);
+  });
+});
+
+// Le batch revoit le bordereau de toute collecte dont une pesée a été écrite dans
+// les 48 dernières heures. Cette lecture partait en une requête : au-delà de
+// 1 000 pesées récentes (un chargement en masse y suffit), les collectes des
+// lignes amputées n'étaient pas revues à ce passage, sans erreur.
+describe('M1.6 / batch ZD — pesées récentes au-delà du plafond de lignes', () => {
+  // 260 collectes au bordereau numéroté. Les 250 premières ont 5 pesées
+  // récentes chacune (1 250 lignes) ; les 10 dernières n'en ont aucune.
+  const collectes = ids(260).map((id) => ({
+    id,
+    evenement_id: `ev-${id}`,
+    statut: 'cloturee',
+  }));
+  const avecPeseeRecente = collectes.slice(0, 250);
+  const FILIERES = ['biodechet', 'carton', 'dib', 'emballage', 'verre'];
+  // Triées par id, comme la base les rendrait.
+  const recentes = avecPeseeRecente.flatMap((c) =>
+    FILIERES.map((f) => ({ id: `${c.id}-${f}`, collecte_id: c.id })),
+  );
+  // Seule la dernière de ces collectes a une pesée qui diffère de son
+  // bordereau : elle est au-delà de la 1 000e ligne.
+  const CORRIGEE = avecPeseeRecente.at(-1)!.id;
+
+  /** Lectures des pesées récentes (toutes collectes), sans celles d'UNE collecte. */
+  const pagesRecentes = (base: ReturnType<typeof fausseBase>) =>
+    base.lectures('collecte_flux').filter((l) => !('collecte_id' in l.eq));
+  /** Collectes dont le bordereau a été revu (ses pesées relues). */
+  const revues = (base: ReturnType<typeof fausseBase>) =>
+    base
+      .lectures('collecte_flux')
+      .filter((l) => 'collecte_id' in l.eq)
+      .map((l) => l.eq.collecte_id as string);
+
+  function base(recentesKo?: (rang: number) => boolean) {
+    let rang = 0;
+    return fausseBase((q) => {
+      if (q.table === 'collectes')
+        return { data: pageDe(collectes, q), error: null };
+      if (q.table === 'bordereaux_savr' && q.op === 'select')
+        return {
+          data: (q.dans ?? []).map((collecte_id) => ({
+            id: `bord-${collecte_id}`,
+            collecte_id,
+            statut: 'emis',
+            numero: `BSAV-${collecte_id}`,
+            version: 1,
+            detail_flux: [
+              {
+                nom: 'Verre',
+                poids_kg: 10,
+                nb_bacs: null,
+                equivalent_roll: null,
+              },
+            ],
+          })),
+          error: null,
+        };
+      if (q.table === 'collecte_flux') {
+        // Pesées d'UNE collecte, relues quand son bordereau est revu.
+        if ('collecte_id' in q.eq)
+          return {
+            data: [
+              {
+                flux_id: 'f1',
+                poids_reel_kg: q.eq.collecte_id === CORRIGEE ? 25 : 10,
+                flux: { nom: 'Verre' },
+              },
+            ],
+            error: null,
+          };
+        // Pesées écrites dans les 48 h, toutes collectes confondues.
+        return recentesKo?.(++rang)
+          ? { data: null, error: { message: 'TypeError: fetch failed' } }
+          : { data: pageDe(recentes, q), error: null };
+      }
+      // Dernier rendu du bordereau à refaire.
+      if (q.table === 'jobs_pdf' && q.op === 'select')
+        return { data: { payload: { numero: 'BSAV' } }, error: null };
+      // Écritures : aucun rendu en attente à reprendre, mise en file acceptée.
+      return { data: [], error: null };
+    });
+  }
+
+  it('1 250 pesées récentes : les 250 collectes concernées sont revues, elles seules, et le bordereau de la dernière est refait', async () => {
+    const b = base();
+
+    const result = await runBatchPdfJ1(b.client);
+
+    expect(result.fatal).toBeUndefined();
+    expect(result.errors).toEqual([]);
+    expect(recentes.length).toBeGreaterThan(PLAFOND_SERVEUR);
+    // Chaque collecte à pesée récente est revue, une fois, y compris au-delà de
+    // la 1 000e ligne ; les collectes sans pesée récente ne le sont pas.
+    expect(revues(b).sort()).toEqual(avecPeseeRecente.map((c) => c.id));
+    // Seul le bordereau dont les pesées ont changé est refait.
+    expect(result.refaits).toBe(1);
+    expect(
+      b
+        .ecritures()
+        .filter((e) => e.table === 'bordereaux_savr')
+        .map((e) => [e.op, e.eq.id]),
+    ).toEqual([['update', `bord-${CORRIGEE}`]]);
+    // Les pesées récentes sont lues par pages : 6 pleines et une de 50.
+    const pages = pagesRecentes(b);
+    attendrePagesTrieesEtBornees(pages);
+    expect(pages.map((p) => p.apresId)).toEqual([
+      null,
+      ...[1, 2, 3, 4, 5, 6].map((n) => recentes[n * TAILLE_PAGE - 1]!.id),
+    ]);
+  });
+
+  it('la 2e page des pesées récentes en échec : échec de sélection, aucun bordereau revu ni refait', async () => {
+    const b = base((rang) => rang === 2);
+
+    const result = await runBatchPdfJ1(b.client);
+
+    expect(result.fatal).toMatchObject({
+      etape: 'selection',
+      message: 'Sélection pesées récentes : échec de lecture',
+    });
+    expect(pagesRecentes(b)).toHaveLength(2);
+    expect(revues(b)).toEqual([]);
+    expect(result.refaits).toBe(0);
+    expect(b.ecritures()).toEqual([]);
+  });
+
+  it('aucun bordereau numéroté : les pesées récentes ne sont pas lues', async () => {
+    const sansNumero = fausseBase((q) => {
+      if (q.table === 'collectes')
+        return { data: pageDe(collectes.slice(0, 3), q), error: null };
+      if (q.table === 'bordereaux_savr' && q.op === 'select')
+        return {
+          data: (q.dans ?? []).map((collecte_id) => ({
+            id: `bord-${collecte_id}`,
+            collecte_id,
+            statut: 'emis',
+            numero: null,
+          })),
+          error: null,
+        };
+      return { data: [], error: null };
+    });
+
+    const result = await runBatchPdfJ1(sansNumero.client);
+
+    expect(result.fatal).toBeUndefined();
+    expect(sansNumero.lectures('collecte_flux')).toEqual([]);
   });
 });
 

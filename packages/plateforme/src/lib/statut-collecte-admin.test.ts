@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
+  MAX_ENVOIS_ABANDONNES_FILTRE,
   filtreStatutsAdmin,
   statutCollecteAdmin,
   type EnvoiCollecte,
@@ -283,6 +284,73 @@ describe('M0.6 / statut Admin — filtre « Statut » de la liste Collectes', ()
     expect(
       filtreStatutsAdmin(['creee', 'brouillon', 'x),statut.neq.zz']),
     ).toEqual(filtreStatutsAdmin(['creee']));
+  });
+});
+
+// Les collectes à l'envoi abandonné partent dans l'URL du filtre, et cette
+// liste-là ne se découpe pas en lots (filtre d'une liste triée et paginée).
+// Passé quelques centaines d'identifiants la requête échoue sans dire pourquoi
+// (mesures : lib/pdf/selection-par-pages.ts). Le filtre en accepte un nombre
+// borné et refuse au-delà, en nommant la cause.
+describe('M0.6 / statut Admin — envois abandonnés en nombre borné dans le filtre', () => {
+  const uuids = (n: number): string[] =>
+    Array.from(
+      { length: n },
+      (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+    );
+  const MAX = MAX_ENVOIS_ABANDONNES_FILTRE;
+
+  /** Identifiants que le filtre met dans son expression. */
+  const portes = (cles: string[], ids: string[]): string[] => {
+    const filtre = filtreStatutsAdmin(cles, ids);
+    if (!filtre || !('or' in filtre)) throw new Error('expression attendue');
+    const liste = /id\.(?:not\.)?in\.\(([^)]*)\)/.exec(filtre.or)?.[1] ?? '';
+    return liste ? liste.split(',') : [];
+  };
+
+  it.each([[['creee']], [['programmee']], [['creee', 'validee']]])(
+    `sélection %j, ${MAX} envois abandonnés : le filtre les porte tous`,
+    (cles) => {
+      expect(portes(cles, uuids(MAX))).toEqual(uuids(MAX));
+    },
+  );
+
+  it.each([[['creee']], [['programmee']], [['programmee', 'en_cours']]])(
+    `sélection %j, ${MAX + 1} envois abandonnés : refus qui dit le nombre et le plafond`,
+    (cles) => {
+      expect(() => filtreStatutsAdmin(cles, uuids(MAX + 1))).toThrow(
+        `${MAX + 1} collectes à l'envoi abandonné, ${MAX} au plus`,
+      );
+    },
+  );
+
+  it.each([
+    [['creee', 'programmee']],
+    [['creee', 'programmee', 'validee']],
+    [['validee', 'cloturee']],
+  ])(
+    'sélection %j : aucun identifiant ne part dans l’URL, donc aucun refus quel que soit leur nombre',
+    (cles) => {
+      const filtre = filtreStatutsAdmin(cles, uuids(MAX * 4));
+      expect(filtre).toEqual(filtreStatutsAdmin(cles));
+      expect(filtre && 'statuts' in filtre).toBe(true);
+    },
+  );
+
+  it('les identifiants illisibles, écartés de l’URL, ne comptent pas dans le plafond', () => {
+    const illisibles = Array.from({ length: 40 }, (_, i) => `pas-un-uuid-${i}`);
+    expect(portes(['creee'], [...uuids(MAX), ...illisibles])).toEqual(
+      uuids(MAX),
+    );
+  });
+
+  it('le plafond laisse la place d’une centaine d’identifiants aux autres filtres de la barre', () => {
+    // Mesuré sur savr-dev le 2026-11-12 : la requête de la liste passe avec 360
+    // identifiants d'envois abandonnés et échoue avec 372. Un identifiant coché
+    // dans un autre filtre (lieu, traiteur) pèse autant dans l'URL : 39
+    // caractères. Relever le plafond sans refaire la mesure rougit ici.
+    const IDENTIFIANTS_QUI_PASSENT = 360;
+    expect(IDENTIFIANTS_QUI_PASSENT - MAX).toBeGreaterThanOrEqual(100);
   });
 });
 

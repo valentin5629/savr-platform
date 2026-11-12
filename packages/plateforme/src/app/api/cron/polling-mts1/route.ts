@@ -37,6 +37,12 @@ export const POST = withCronObservability(
     const fenetre: FenetreSync = {
       depuis: new Date(maintenant.getTime() - RECUL_RELEVE_MS),
       jusqu_a: new Date(maintenant.getTime() + 48 * 60 * 60 * 1000),
+      // Au-delà, jusqu'à J+30 : l'attribution seule des collectes pas encore
+      // acceptées (décision Val 2026-11-12). Sa mémoire est entretenue par
+      // l'adapter malgré la purge à 7 jours (entretenirMemoireAttribution).
+      attribution_jusqu_a: new Date(
+        maintenant.getTime() + 30 * 24 * 60 * 60 * 1000,
+      ),
     };
 
     const { data: transporteurs } = await supabase

@@ -63,7 +63,7 @@ describe('M1.5b / cron polling-mts1 — fenêtre et relèves', () => {
     delete process.env['CRON_SECRET'];
   });
 
-  it('M1.5b/releve_fenetre_trois_jours — la relève demande de maintenant − 3 jours à maintenant + 48 h', async () => {
+  it('M1.5b/releve_fenetre_trois_jours — la relève demande de maintenant − 3 jours à maintenant + 48 h, et l’attribution seule jusqu’à maintenant + 30 jours', async () => {
     const { POST } = await import('@/app/api/cron/polling-mts1/route.js');
     const res = await POST(appel());
     expect(res.status).toBe(200);
@@ -72,6 +72,8 @@ describe('M1.5b / cron polling-mts1 — fenêtre et relèves', () => {
     expect(sync.mock.calls[0]![0]).toEqual({
       depuis: new Date('2026-10-10T23:30:00.000Z'),
       jusqu_a: new Date('2026-10-15T23:30:00.000Z'),
+      // Décision Val 2026-11-12 : l'attribution d'une collecte lointaine.
+      attribution_jusqu_a: new Date('2026-11-12T23:30:00.000Z'),
     });
   });
 

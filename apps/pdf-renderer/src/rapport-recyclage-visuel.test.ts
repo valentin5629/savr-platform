@@ -350,7 +350,13 @@ suite(
           'Chromium de Playwright absent : pnpm exec playwright install chromium',
         );
       }
-      navigateur = await chromium.launch();
+      // Même rendu du texte que le renderer de production : @sparticuz/chromium
+      // lance Chromium avec --font-render-hinting=none. Sans lui, Chromium sous
+      // Linux (CI) arrondit les chasses et le texte s'élargit : l'encart passe sur
+      // une ligne de plus et la maquette elle-même déborde de la page.
+      navigateur = await chromium.launch({
+        args: ['--font-render-hinting=none'],
+      });
       page = await navigateur.newPage();
     }, 60_000);
     afterAll(async () => {

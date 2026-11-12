@@ -12,9 +12,8 @@
 // - INTER_SYMBOLES_WOFF2_BASE64 et ARCHIVO_SYMBOLES_WOFF2_BASE64 : les deux
 //   glyphes imprimés hors de ces sous-ensembles, ₂ (CO₂) et ≈, servis par Google
 //   Fonts pour ce seul texte (paramètre `text=`). Sans eux, ces glyphes
-//   retombaient sur les polices système, plus hautes sous Linux (DejaVu, CI et
-//   Railway) que sous macOS : les lignes qui les portent grandissaient et la
-//   page débordait (constaté en CI le 2026-11-12).
+//   retombent sur les polices système, qui diffèrent entre le poste (macOS) et
+//   Railway (Linux, DejaVu) : le rendu dépendrait de la machine.
 // Les autres PDF restent en Nunito.
 
 export const INTER_LATIN_WOFF2_BASE64 =

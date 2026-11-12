@@ -41,15 +41,12 @@ const EXPECTED_VERSIONS: Record<string, string> = {
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
-  'rapport-recyclage-evenement': 'rapport-recyclage-evenement@1',
+  'rapport-recyclage-evenement': 'rapport-recyclage-evenement@2',
   'rapport-don-evenement': 'rapport-don-evenement@1',
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
 import type { BordereauZdData } from './templates/bordereau-zd.js';
-import type {
-  RapportRecyclageZdData,
-  SyntheseRecyclageData,
-} from './templates/rapport-recyclage-zd.js';
+import type { RapportRecyclageZdData } from './templates/rapport-recyclage-zd.js';
 import { SAVR_LOGO_MASK } from './templates/assets/marque.js';
 import type { SyntheseDashboardData } from './templates/synthese-dashboard.js';
 import type { RapportEvenementSansExcedentData } from './templates/rapport-evenement-sans-excedent.js';
@@ -76,27 +73,6 @@ function bordereauData(
     ],
     poids_total_kg: 20,
     ...overrides,
-  };
-}
-
-/** Page de synthèse @3, gardée par le rapport cumulé d'un événement. */
-function syntheseRecyclageData(): SyntheseRecyclageData {
-  return {
-    client_nom: 'Groupe Lumière',
-    nom_evenement: 'Gala',
-    traiteur_nom: 'Traiteur SA',
-    date_evenement: '01/07/2026',
-    lieu_nom: 'Pavillon',
-    lieu_adresse: '1 rue X, Paris',
-    nb_pax: 420,
-    taux_recyclage: 72.5,
-    flux: [
-      { nom: 'Biodéchets', code: 'biodechet', poids_kg: 86.4 },
-      { nom: 'Cartons', code: 'carton', poids_kg: 31.7 },
-    ],
-    poids_total_kg: 118.1,
-    co2_evite_kg: 312,
-    co2_induit_kg: 41,
   };
 }
 
@@ -391,9 +367,9 @@ const DATA_BY_TYPE: Record<string, unknown> = {
   'rapport-evenement-sans-excedent': sansExcedentData(),
   facture: factureData(),
   'rapport-recyclage-evenement': {
-    ...syntheseRecyclageData(),
+    ...rapportData(),
     couverture: 'Cumul de 1 collecte réalisée, sur 1 collecte de l’événement.',
-    collectes: [],
+    bordereaux: [],
   },
   'rapport-don-evenement': {
     nom_evenement: 'Gala',

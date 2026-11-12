@@ -19,7 +19,8 @@ import {
 // méthodologie, cadre réglementaire), identique dans les deux cas : elle remplace
 // le bordereau de pesée (C1, qui reste un PDF à part) et suit le rapport, quel que
 // soit le demandeur (C2). Polices Inter et Archivo embarquées (C6).
-// Les rapports d'un événement gardent la page de synthèse @3 (renderSyntheseRecyclage).
+// Le rapport cumulé d'un événement (rapport-recyclage-evenement@2) reprend ce
+// gabarit, avec ses variantes (VarianteRapportV4).
 export const TEMPLATE_VERSION = 'rapport-recyclage-zd@4';
 
 /** Une ligne du benchmark kg/convive (1 par flux pesé). */
@@ -36,8 +37,8 @@ export interface BenchmarkFluxGauge {
 }
 
 /**
- * Données de la page de synthèse @3, que gardent les rapports cumulés d'un
- * événement (recyclage et don).
+ * Données de l'en-tête de la page de synthèse @3, que garde le rapport de don
+ * cumulé d'un événement.
  */
 export interface SyntheseRecyclageData {
   // En-tête
@@ -75,59 +76,25 @@ export interface SyntheseRecyclageData {
   benchmark_legende?: string | null;
 }
 
-// ─── Référentiel d'affichage des flux ────────────────────────────────────────
-// Ordre = ordre d'affichage du référentiel (axes du radar). Reconnaissance par le
-// code quand le payload le porte, sinon par le nom (payloads antérieurs à @3).
+// ─── Couleurs des flux ───────────────────────────────────────────────────────
+// Reconnaissance par le code quand le payload le porte, sinon par le nom.
 // Couleurs = celles des graphiques à l'écran (tokens `--color-savr-flux-*`,
 // décision Val 2026-10-30).
 const FLUX_REF = [
-  { code: 'biodechet', motif: /bio/i, couleur: '#12a459', court: 'Biodéchets' },
-  {
-    code: 'emballage',
-    motif: /emball/i,
-    couleur: '#ffbd59',
-    court: 'Emballages',
-  },
-  { code: 'carton', motif: /carton/i, couleur: '#87684d', court: 'Cartons' },
-  { code: 'verre', motif: /verre/i, couleur: '#09337a', court: 'Verre' },
-  {
-    code: 'dechet_residuel',
-    motif: /r[ée]sidu|ordure/i,
-    couleur: '#a6b1b7',
-    court: 'Résiduel',
-  },
+  { code: 'biodechet', motif: /bio/i, couleur: '#12a459' },
+  { code: 'emballage', motif: /emball/i, couleur: '#ffbd59' },
+  { code: 'carton', motif: /carton/i, couleur: '#87684d' },
+  { code: 'verre', motif: /verre/i, couleur: '#09337a' },
+  { code: 'dechet_residuel', motif: /r[ée]sidu|ordure/i, couleur: '#a6b1b7' },
 ] as const;
-
-const CODE_RESIDUEL = 'dechet_residuel';
-
-interface RefFlux {
-  code: string | null;
-  rang: number;
-  couleur: string;
-  court: string;
-}
-
-function refFlux(code: string | undefined | null, nom: string): RefFlux {
-  const i = FLUX_REF.findIndex((r) =>
-    code ? r.code === code : r.motif.test(nom),
-  );
-  const r = i >= 0 ? FLUX_REF[i] : undefined;
-  return r
-    ? { code: r.code, rang: i, couleur: r.couleur, court: r.court }
-    : {
-        code: code ?? null,
-        rang: FLUX_REF.length,
-        couleur: '#515a72',
-        court: nom,
-      };
-}
 
 /** Couleur figée d'un flux (code, sinon nom) — partagée avec le PDF de synthèse. */
 export function couleurFlux(
   code: string | undefined | null,
   nom: string,
 ): string {
-  return refFlux(code, nom).couleur;
+  const r = FLUX_REF.find((f) => (code ? f.code === code : f.motif.test(nom)));
+  return r?.couleur ?? '#515a72';
 }
 
 // ─── Formats ─────────────────────────────────────────────────────────────────
@@ -142,7 +109,6 @@ export const pct = (n: number) => `${dec(n, 1)}${INSECABLE}%`;
 export const tonnesCo2 = (kilos: number) =>
   `${dec(kilos / 1000, 3)}${INSECABLE}t${INSECABLE}CO₂e`;
 /** kg par convive : 3 décimales sous 0,1 (sinon « 0,06 » et « 0,05 » se confondent). */
-const kgPax = (n: number) => dec(n, n < 0.1 ? 3 : 2);
 
 export function esc(s: string | number | undefined | null): string {
   if (s == null) return '';
@@ -159,87 +125,6 @@ export const LOGO_DEFS = `<svg width="0" height="0" style="position:absolute" ar
 /** Croix « + » du logo Savr ; `base` = couleur du logo, coin vert (contexte ZD). */
 function logoSavr(taille: number, base: string): string {
   return `<svg class="rz-logo-savr" viewBox="2 2 146 146" width="${taille}" height="${taille}" role="img" aria-label="Savr"><rect width="551" height="150" fill="${base}" mask="url(#rz-logo-masque)"/><g clip-path="url(#rz-logo-coin)"><rect width="551" height="150" fill="#16a34a" mask="url(#rz-logo-masque)"/></g></svg>`;
-}
-
-// ─── Radar kg/convive (base 100 = parc) ──────────────────────────────────────
-// Géométrie de la maquette : centre (100,100), parc à 56, anneaux à 28 (50) et
-// 84 (150). Un flux au-delà de 150 % du parc est borné à l'anneau extérieur.
-const R_PARC = 56;
-const R_MAX = 84;
-const R_MIN = 28;
-
-function radarSvg(axes: { libelle: string; ratio: number }[]): string {
-  const n = axes.length;
-  const point = (i: number, r: number) => {
-    const a = ((-90 + (360 * i) / n) * Math.PI) / 180;
-    return { x: 100 + r * Math.cos(a), y: 100 + r * Math.sin(a), a };
-  };
-  const coords = (r: (i: number) => number) =>
-    axes
-      .map((_, i) => {
-        const p = point(i, r(i));
-        return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-      })
-      .join(' ');
-  const rayonVous = (i: number) =>
-    Math.min(R_MAX, Math.max(0, R_PARC * (axes[i]?.ratio ?? 0)));
-
-  const rayons = axes
-    .map((_, i) => {
-      const p = point(i, R_MAX);
-      return `<line class="rz-ax" x1="100" y1="100" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}"></line>`;
-    })
-    .join('');
-  const points = axes
-    .map((_, i) => {
-      const p = point(i, rayonVous(i));
-      return `<circle class="rz-vpt" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.6"></circle>`;
-    })
-    .join('');
-  const libelles = axes
-    .map((axe, i) => {
-      const p = point(i, R_MAX);
-      const cos = Math.cos(p.a);
-      const sin = Math.sin(p.a);
-      const cote = Math.abs(cos) < 0.05 ? 0 : Math.sign(cos);
-      let x = p.x;
-      let y = p.y;
-      let ancre = 'middle';
-      if (sin < -0.9) {
-        y -= 10;
-      } else if (sin > 0.5) {
-        x += cote * 4.6;
-        y += 16;
-      } else {
-        x += cote * 6;
-        y -= 2;
-        ancre = cote > 0 ? 'start' : 'end';
-      }
-      return `<text class="rz-axl" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${ancre}">${esc(axe.libelle)}</text>`;
-    })
-    .join('');
-
-  return `<svg class="rz-radar" viewBox="-30 -8 260 215" role="img" aria-label="Radar kg par convive par flux">
-        <polygon class="rz-ring" points="${coords(() => R_MIN)}"></polygon>
-        <polygon class="rz-ring" points="${coords(() => R_MAX)}"></polygon>
-        ${rayons}
-        <polygon class="rz-parc" points="${coords(() => R_PARC)}"></polygon>
-        <polygon class="rz-vous" points="${coords(rayonVous)}"></polygon>
-        ${points}
-        ${libelles}
-      </svg>`;
-}
-
-/** Ce qui distingue le rapport d'une collecte de celui d'un événement. */
-export interface OptionsSynthese {
-  titre: string;
-  /** Ligne sous le nom du client, dans le bandeau (rien si absente). */
-  sousTitre?: string;
-  /** Phrase sous le taux de recyclage. */
-  mentionTaux: string;
-  /** Styles et HTML des pages qui suivent la page 1. */
-  cssSuite: string;
-  suite: string;
 }
 
 /** Ce que l'en-tête des rapports imprime (bandeau et ligne date · lieu · convives). */
@@ -414,308 +299,6 @@ export const CSS_MARQUE = `  @font-face { font-family: 'Nunito'; font-style: nor
   .rz-caps { display: flex; gap: 14px; margin-top: 4px; }
   .rz-caps span { white-space: nowrap; }
   .rz-caps b { color: #161a26; }`;
-
-/**
- * Document complet : page 1 de synthèse (avec ou sans radar, au choix du
- * demandeur), puis les pages de `options.suite`.
- */
-export function renderSyntheseRecyclage(
-  data: SyntheseRecyclageData,
-  options: OptionsSynthese,
-): string {
-  const total = data.poids_total_kg;
-
-  // Flux pesés, du plus lourd au plus léger (ordre de la planche avec radar).
-  const flux = data.flux
-    .map((f) => ({
-      ...f,
-      ref: refFlux(f.code, f.nom),
-      part: total > 0 ? (f.poids_kg / total) * 100 : 0,
-    }))
-    .sort((a, b) => b.poids_kg - a.poids_kg || a.ref.rang - b.ref.rang);
-
-  const { bandeau, meta } = enTeteRapport(
-    data,
-    options.titre,
-    options.sousTitre,
-  );
-  // ── Carbone (règle ABC : évité en chiffre principal, induit et net à part) ──
-  const evite = data.co2_evite_kg;
-  const net = data.co2_net_kg;
-  const eq = data.equivalences;
-  const kmVoiture =
-    evite != null && eq?.km_voiture != null
-      ? `Soit l'équivalent de ≈${INSECABLE}${entier(eq.km_voiture)}${INSECABLE}km en voiture.`
-      : '';
-  const foyers =
-    eq?.foyer != null && eq.foyer >= 1
-      ? ` <span class="rz-n">≈${INSECABLE}${entier(eq.foyer)} foyer${eq.foyer >= 2 ? 's' : ''} / an</span>`
-      : '';
-  const lignesCarbone = (avecFoyers: boolean) => `
-      <div class="rz-l">Émissions induites <span class="rz-n">(transport, traitement)</span></div><div class="rz-r">${data.co2_induit_kg != null ? tonnesCo2(data.co2_induit_kg) : '—'}</div>
-      <div class="rz-l">${net != null && net > 0 ? 'Émissions nettes' : 'Émissions nettes évitées'}</div><div class="rz-r">${net != null ? tonnesCo2(Math.abs(net)) : '—'}</div>
-      <div class="rz-l">Énergie primaire évitée</div><div class="rz-r">${data.energie_primaire_evitee_kwh != null ? `${entier(data.energie_primaire_evitee_kwh)}${INSECABLE}kWh${avecFoyers ? foyers : ''}` : '—'}</div>`;
-  const chiffreEvite = evite != null ? tonnesCo2(evite) : '—';
-  const pastilleEvite =
-    evite != null ? '<span class="rz-pill">évitées</span>' : '';
-  const taux = data.taux_recyclage != null ? pct(data.taux_recyclage) : '—';
-  const mentionTaux = options.mentionTaux;
-
-  // ── Pied de page 1 : encart Savr + méthodologie ────────────────────────────
-  const encartSavr = `
-    <div class="rz-savr">
-      <div class="rz-savr-logo">${logoSavr(40, '#223870')}</div>
-      <div class="rz-savr-txt"><b>Savr, la gestion des déchets événementiels clé en main.</b> Savr collecte, trie et pèse chaque flux sur place, puis l'achemine vers des filières de valorisation agréées. Vous ne gérez aucune logistique et vous recevez des données mesurées et traçables pour votre reporting CSRD, votre conformité AGEC et vos communications RSE.</div>
-    </div>`;
-  const caps = (() => {
-    const c = data.caps_appliques;
-    if (!c) return '';
-    const items = (
-      [
-        ['verre', 'verre'],
-        ['carton', 'carton'],
-        ['biodechet', 'biodéchets'],
-        ['emballage', 'emballages'],
-      ] as const
-    )
-      .flatMap(([cle, libelle]) => {
-        // Filière absente du snapshot : pas de ligne (Number(null) vaudrait 0 %).
-        const brut = c[cle];
-        if (brut == null || brut === '') return [];
-        const v = Number(brut);
-        if (!Number.isFinite(v)) return [];
-        const p = Math.round(v * 1000) / 10;
-        return [{ libelle, txt: dec(p, Number.isInteger(p) ? 0 : 1) }];
-      })
-      // « Captation » ouvre la ligne, quelle que soit la première filière présente.
-      .map(
-        (f, k) =>
-          `<span>${k === 0 ? 'Captation ' : ''}${f.libelle} <b>${f.txt}${INSECABLE}%</b></span>`,
-      )
-      .join('');
-    return items ? `<div class="rz-caps">${items}</div>` : '';
-  })();
-  const methodologie = `
-    <div class="rz-metho">
-      <b>Méthodologie.</b> Données mesurées : pesée individuelle par flux, bordereaux horodatés, exutoires référencés. Niveau de qualité conforme à la norme ESRS E5 (mesurée, niveau primaire le plus élevé). Taux de recyclage selon la méthode UE 2019/1004${caps ? ' avec les taux de captation ci-dessous' : ''}. Facteurs carbone ADEME. Rapport utilisable comme pièce justificative pour le reporting CSRD, la conformité AGEC et la sécurisation des communications environnementales. Document confidentiel destiné à l'organisation productrice.
-      ${caps}
-    </div>`;
-
-  // ── Benchmark : lignes comparables, dans l'ordre du référentiel ────────────
-  const lignesBench = (data.benchmark_flux ?? [])
-    .filter((g) => g.collecte_kg_pax != null)
-    .map((g) => {
-      const vous = g.collecte_kg_pax as number;
-      const parc = g.benchmark_kg_pax ?? null;
-      const comparable = parc != null && parc > 0;
-      return {
-        ref: refFlux(g.flux_code, g.flux_nom),
-        nom: g.flux_nom,
-        vous,
-        parc,
-        ratio: comparable ? vous / parc : null,
-      };
-    })
-    .sort((a, b) => a.ref.rang - b.ref.rang);
-  const avecRadar = data.options?.benchmark === true && lignesBench.length > 0;
-
-  const corps = avecRadar ? corpsAvecRadar() : corpsSansRadar();
-
-  function corpsAvecRadar(): string {
-    const segments = flux
-      .filter((f) => f.poids_kg > 0)
-      .map(
-        (f) =>
-          `<div class="rz-seg" style="flex:0 0 calc(${f.part.toFixed(2)}% - 2px);background:${f.ref.couleur}">${f.part >= 7 ? `<span>${pct(f.part)}</span>` : ''}</div>`,
-      )
-      .join('');
-    const legende = flux
-      .map(
-        (f) =>
-          `<div class="rz-leg-item"><span class="rz-leg-dot" style="background:${f.ref.couleur}"></span><div><div class="rz-leg-nom">${esc(f.nom)}</div><div class="rz-leg-kg">${kg(f.poids_kg)}</div></div></div>`,
-      )
-      .join('');
-
-    // Un flux sans repère parc (segment masqué) sort du radar ; sous 3 axes, la
-    // liste est affichée seule.
-    const axes = lignesBench
-      .filter((l) => l.ratio != null)
-      .map((l) => ({ libelle: l.ref.court, ratio: l.ratio as number }));
-    const radar = axes.length >= 3 ? radarSvg(axes) : '';
-    const lignes = lignesBench
-      .map((l) => {
-        // Seuils de l'écran (BenchmarkRadar) : comparés sur le ratio, pas sur
-        // l'écart arrondi — à 130 % du parc exactement, le badge reste orange.
-        const ecart = l.ratio != null ? (l.ratio - 1) * 100 : null;
-        const classe =
-          l.ratio == null
-            ? 'rz-nd'
-            : l.ratio <= 1
-              ? 'rz-ok'
-              : l.ratio <= 1.3
-                ? 'rz-wn'
-                : 'rz-bd';
-        const badge =
-          ecart == null
-            ? 'n/d'
-            : `${ecart < 0 ? '−' : '+'}${dec(Math.abs(ecart), 0)}${INSECABLE}%`;
-        return `<div class="rz-brow"><span class="rz-f"><span class="rz-dot" style="background:${l.ref.couleur}"></span>${esc(l.nom)}</span><span class="rz-kgp">${kgPax(l.vous)} kg/pax</span><span class="rz-pk">${l.parc != null ? `parc ${kgPax(l.parc)}` : 'parc n/d'}</span><span class="rz-bdg ${classe}">${badge}</span></div>`;
-      })
-      .join('');
-    const masque = lignesBench.some((l) => l.ratio == null)
-      ? '<div class="rz-mention">n/d : données insuffisantes pour comparer ce flux.</div>'
-      : '';
-    const legendeFiltres = data.benchmark_legende
-      ? `<div class="rz-mention">Benchmark parc Savr calculé sur : ${esc(data.benchmark_legende).replace(' · lieux', '<br>lieux')}.</div>`
-      : '';
-
-    return `
-  <div class="rz-body rz-body-radar">
-    ${meta}
-    <div class="rz-duo">
-      <div class="rz-card rz-hero rz-pave">
-        <div class="rz-h2">Impact carbone</div>
-        <div class="rz-chiffre-ligne"><div class="rz-chiffre">${chiffreEvite}</div>${pastilleEvite}</div>
-        ${kmVoiture ? `<div class="rz-eq-fort">${kmVoiture}</div>` : ''}
-        <div class="rz-kv rz-kv-aere">${lignesCarbone(false)}
-        </div>
-      </div>
-      <div class="rz-card rz-pave">
-        <div class="rz-h2">Taux de recyclage</div>
-        <div class="rz-chiffre">${taux}</div>
-        <div class="rz-methode rz-methode-12">${mentionTaux}</div>
-      </div>
-    </div>
-
-    <div class="rz-card">
-      <div class="rz-h2">Tonnages par flux</div>
-      <div class="rz-barre">${segments}</div>
-      <div class="rz-leg-grille" style="grid-template-columns:repeat(${Math.max(flux.length, 1)},minmax(0,1fr))">${legende}</div>
-      <div class="rz-total">Total collecté <b>${kg(total)}</b></div>
-    </div>
-
-    <div class="rz-card">
-      <div class="rz-h2">Vos déchets par convive, comparés aux autres événements Savr</div>
-      <div class="rz-bench${radar ? '' : ' rz-bench-liste'}">
-        ${radar}
-        <div>
-          <div class="rz-blist">${lignes}</div>
-          <div class="rz-leg"><span><span class="rz-sw"></span>Vous</span><span><span class="rz-sw2"></span>Parc Savr (base 100)</span><span>Vert ≤ parc · orange jusqu'à +30${INSECABLE}% · rouge au-delà</span></div>
-          ${masque}
-          ${legendeFiltres}
-        </div>
-      </div>
-    </div>
-
-    ${encartSavr}
-    ${methodologie}
-  </div>`;
-  }
-
-  function corpsSansRadar(): string {
-    // Planche sans radar : flux valorisés du plus lourd au plus léger, le
-    // résiduel fermant le tableau et l'anneau.
-    const estResiduel = (f: (typeof flux)[number]) =>
-      f.ref.code === CODE_RESIDUEL;
-    const fluxTries = [
-      ...flux.filter((f) => !estResiduel(f)),
-      ...flux.filter(estResiduel),
-    ];
-    const lignesFlux = fluxTries
-      .map(
-        (f) =>
-          `<tr><td><span class="rz-dot" style="background:${f.ref.couleur}"></span>${esc(f.nom)}</td><td class="rz-num">${kg(f.poids_kg)}</td><td class="rz-num">${total > 0 ? pct(f.part) : '—'}</td></tr>`,
-      )
-      .join('');
-    const residuel = flux
-      .filter(estResiduel)
-      .reduce((s, f) => s + f.poids_kg, 0);
-    const repartition =
-      total > 0
-        ? `<div class="rz-split"><span>Valorisé <b>${kg(total - residuel)}</b> (${pct(((total - residuel) / total) * 100)})</span><span>Résiduel <b>${kg(residuel)}</b> (${pct((residuel / total) * 100)})</span></div>`
-        : '';
-    // Anneau : circonférence normalisée à 100, même point de départ (décalage
-    // 175) et même sens que la maquette.
-    let cumul = 0;
-    const anneau = fluxTries
-      .filter((f) => f.poids_kg > 0)
-      .map((f) => {
-        const s = `<circle r="15.915" cx="21" cy="21" fill="transparent" stroke="${f.ref.couleur}" stroke-width="6" stroke-dasharray="${f.part.toFixed(2)} ${(100 - f.part).toFixed(2)}" stroke-dashoffset="${(175 - cumul).toFixed(2)}"></circle>`;
-        cumul += f.part;
-        return s;
-      })
-      .join('');
-    const nbFlux = flux.filter((f) => f.poids_kg > 0).length;
-
-    return `
-  <div class="rz-body rz-body-simple">
-    ${meta}
-    <div class="rz-card rz-hero rz-taux-large">
-      <div class="rz-taux-bloc">
-        <div class="rz-h2">Taux de recyclage</div>
-        <div class="rz-chiffre rz-chiffre-64">${taux}</div>
-      </div>
-      <div class="rz-methode rz-methode-11">${mentionTaux}</div>
-    </div>
-
-    <div class="rz-card rz-card-large">
-      <div class="rz-h2">Impact carbone</div>
-      <div class="rz-duo-egal">
-        <div>
-          <div class="rz-chiffre rz-chiffre-40">${chiffreEvite} ${pastilleEvite}</div>
-          ${kmVoiture ? `<div class="rz-eq">${kmVoiture}</div>` : ''}
-        </div>
-        <div class="rz-kv rz-kv-125">${lignesCarbone(true)}
-        </div>
-      </div>
-    </div>
-
-    <div class="rz-card rz-card-large">
-      <div class="rz-h2">Tonnages par flux</div>
-      <div class="rz-flux">
-        <div>
-          <table class="rz-tbl">
-            <tr><th>Flux</th><th class="rz-num">Poids</th><th class="rz-num">Part</th></tr>
-            ${lignesFlux}
-            <tr class="rz-tot"><td>Total collecté</td><td class="rz-num">${kg(total)}</td><td class="rz-num">${total > 0 ? `100${INSECABLE}%` : '—'}</td></tr>
-          </table>
-          ${repartition}
-        </div>
-        <svg class="rz-donut" viewBox="0 0 42 42" role="img" aria-label="Répartition par flux">
-          <circle r="15.915" cx="21" cy="21" fill="transparent" stroke="#eef0f5" stroke-width="6"></circle>
-          ${anneau}
-          <text x="21" y="20.5" text-anchor="middle" font-size="6.5" font-weight="800" fill="#223870">${entier(total)} kg</text>
-          <text x="21" y="25.5" text-anchor="middle" font-size="3.2" font-weight="700" fill="#6e7790">${nbFlux} FLUX</text>
-        </svg>
-      </div>
-    </div>
-
-    ${encartSavr}
-    ${methodologie}
-  </div>`;
-  }
-
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8"/>
-<style>
-${CSS_MARQUE}
-${options.cssSuite}</style>
-</head>
-<body>
-${LOGO_DEFS}
-
-<!-- PAGE 1 — Synthèse (${avecRadar ? 'avec radar' : 'sans radar'}) -->
-<div class="rz-page" data-version="${avecRadar ? 'avec-radar' : 'sans-radar'}">
-  ${bandeau}
-  ${corps}
-</div>
-
-${options.suite}
-</body>
-</html>`;
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Rapport de recyclage d'une collecte — gabarit @4
@@ -929,8 +512,34 @@ a{color:#223870}a:hover{color:#15213f}
 .box{border:1.5px solid #e3e7ef;border-radius:12px;padding:10px 12px}
 .pg ul{margin:0;padding-left:15px} .pg li{margin:0 0 3px} .pg li::marker{color:#12a459}`;
 
+/**
+ * Ce qui change quand le gabarit @4 imprime le rapport CUMULÉ d'un événement
+ * (rapport-recyclage-evenement@2) au lieu de celui d'une collecte.
+ */
+export interface VarianteRapportV4 {
+  /** Sur-titre du bandeau de la page 1. */
+  surTitre: string;
+  /** Série du radar : « Votre collecte » ou « Votre événement ». */
+  votre: string;
+  /** Ligne des références sous le titre de l'annexe (HTML déjà échappé). */
+  references: string;
+  /** Forfait transport compté une fois par collecte cumulée. */
+  forfaitParCollecte: boolean;
+  /** Majoration transport déjà sommée (kg CO₂e) ; sinon calculée sur le forfait. */
+  majorationTransportKg?: number | null;
+}
+
 /** Rapport de recyclage d'une collecte ZD (gabarit @4). */
-export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
+export function renderRapportRecyclageZd(
+  data: RapportRecyclageZdData,
+  varianteEvenement?: VarianteRapportV4,
+): string {
+  const variante: VarianteRapportV4 = varianteEvenement ?? {
+    surTitre: 'RAPPORT DE RECYCLAGE',
+    votre: 'Votre collecte',
+    references: `Bordereau n° ${esc(data.bordereau_numero)} · Date d'émission : ${esc(data.bordereau_date_emission)}`,
+    forfaitParCollecte: false,
+  };
   const total = data.poids_total_kg;
   const pax = data.nb_pax != null && data.nb_pax > 0 ? data.nb_pax : null;
 
@@ -996,7 +605,7 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
       ${logoSavrComplet(140, 38, 'display: block;')}
       ${logos ? `<div style="position: absolute; right: 0; top: 0; display: flex; gap: 10px;">${logos}</div>` : ''}
     </div>
-    <p style="position: relative; margin: 2px 0 0; font-size: 12px; font-weight: 800; letter-spacing: 0.22em; color: #ffbd59;">RAPPORT DE RECYCLAGE</p>
+    <p style="position: relative; margin: 2px 0 0; font-size: 12px; font-weight: 800; letter-spacing: 0.22em; color: #ffbd59;">${esc(variante.surTitre)}</p>
     <h1 style="position: relative; margin: 2px 0 0; max-width: 440px; font-family: Archivo, Inter, sans-serif; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.08;${TITRE_DEUX_LIGNES}">${nom}</h1>
     <p style="position: relative; margin: 4px 0 0; font-size: 16px; font-weight: 600; color: #dde4f5;${UNE_LIGNE}">${lieu}</p>
     <div style="position: relative; display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px;">
@@ -1074,7 +683,7 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
       return `<text x="${a.x}" y="${a.y}" text-anchor="${a.ancre}">${libelle}</text>
             <text x="${a.x}" y="${a.y + 18}" text-anchor="${a.ancre}" font-size="16.5" font-weight="500" fill="#515a72"><tspan font-weight="800" fill="#161a26">${g(b?.collecte_kg_pax)}</tspan> · moy. ${g(b?.benchmark_kg_pax)}</text>`;
     }).join('\n            ');
-    return `<svg role="img" aria-label="Radar des grammes par convive : votre collecte face à la moyenne des événements comparables" viewBox="-140 -32 476 244" width="322" height="165" style="display: block; margin: 6px auto 0;">
+    return `<svg role="img" aria-label="Radar des grammes par convive : ${esc(variante.votre.toLowerCase())} face à la moyenne des événements comparables" viewBox="-140 -32 476 244" width="322" height="165" style="display: block; margin: 6px auto 0;">
           <polygon points="${poly(84)}" fill="#f7f8fb" stroke="#e3e7ef" stroke-width="1"></polygon>
           <polygon points="${poly(28)}" fill="none" stroke="#eef0f5" stroke-width="1"></polygon>
           <polygon points="${poly(56)}" fill="none" stroke="#223870" stroke-width="1.2" stroke-dasharray="3 2.5"></polygon>
@@ -1100,7 +709,7 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
       <div style="margin-top: 8px; border: 1.5px solid #e3e7ef; border-radius: 16px; padding: 10px 16px; display: flex; flex-direction: column;">
         ${radarV4()}
         <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px; font-size: 10.5px; color: #515a72; margin-top: 14px;">
-          <span><span style="display: inline-block; width: 14px; height: 9px; border-radius: 3px; background: #ffd699; border: 1.5px solid #ff9b00; margin-right: 6px; vertical-align: middle;"></span>Votre collecte</span>
+          <span><span style="display: inline-block; width: 14px; height: 9px; border-radius: 3px; background: #ffd699; border: 1.5px solid #ff9b00; margin-right: 6px; vertical-align: middle;"></span>${esc(variante.votre)}</span>
           <span><span style="display: inline-block; width: 16px; border-top: 1.5px dashed #223870; margin-right: 6px; vertical-align: middle;"></span>Moyenne des événements comparables</span>
         </div>
       </div>
@@ -1221,7 +830,7 @@ ${LOGO_DEFS}
 <!-- PAGE 1 — ${avecRadar ? 'avec radar' : 'sans radar (jauge)'} -->
 ${page1}
 <!-- PAGE 2 — annexe technique -->
-${annexeTechnique(data, flux, avecRadar)}
+${annexeTechnique(data, flux, avecRadar, variante)}
 </body>
 </html>`;
 }
@@ -1245,6 +854,7 @@ function annexeTechnique(
     picto: string;
   }[],
   avecRadar: boolean,
+  variante: VarianteRapportV4,
 ): string {
   const pax = data.nb_pax != null && data.nb_pax > 0 ? data.nb_pax : null;
   const sousTitre = [
@@ -1287,7 +897,12 @@ function annexeTechnique(
   const evite = data.co2_evite_kg;
   const forfait = data.forfait_transport;
   const majoration =
-    forfait != null ? Math.round(forfait.km * forfait.fe_camion_kg_km) : null;
+    variante.majorationTransportKg != null
+      ? Math.round(variante.majorationTransportKg)
+      : forfait != null
+        ? Math.round(forfait.km * forfait.fe_camion_kg_km)
+        : null;
+  const parCollecte = variante.forfaitParCollecte ? ' par collecte' : '';
   const kgCo2 = (v: number | null | undefined) =>
     v != null ? `${entier(v)}${INSECABLE}kg CO₂e` : '—';
 
@@ -1314,8 +929,8 @@ function annexeTechnique(
   })();
 
   const transport = forfait
-    ? `Transport : déjà compté dans les facteurs ADEME ; Savr ajoute par prudence un forfait de ${dec(forfait.km, Number.isInteger(forfait.km) ? 0 : 1)}${INSECABLE}km aller-retour × ${dec(forfait.fe_camion_kg_km, 1)}${INSECABLE}kg CO₂e/km (camion 20 m³, diesel)`
-    : 'Transport : déjà compté dans les facteurs ADEME ; Savr ajoute par prudence un forfait de transport (camion 20 m³, diesel)';
+    ? `Transport : déjà compté dans les facteurs ADEME ; Savr ajoute par prudence un forfait de ${dec(forfait.km, Number.isInteger(forfait.km) ? 0 : 1)}${INSECABLE}km aller-retour × ${dec(forfait.fe_camion_kg_km, 1)}${INSECABLE}kg CO₂e/km${parCollecte} (camion 20 m³, diesel)`
+    : `Transport : déjà compté dans les facteurs ADEME ; Savr ajoute par prudence un forfait de transport${parCollecte} (camion 20 m³, diesel)`;
   const comparaison = avecRadar
     ? `<li>Comparaison aux événements : moyenne Savr sur 24 mois${data.benchmark_effectif ? `, ${entier(data.benchmark_effectif)} collecte${data.benchmark_effectif > 1 ? 's' : ''}` : ''}${data.benchmark_criteres ? `, critères ${esc(data.benchmark_criteres)}` : ''}</li>`
     : '';
@@ -1327,7 +942,7 @@ function annexeTechnique(
       <p style="margin:0;font-size:10.5px;font-weight:800;letter-spacing:0.2em;color:#ffbd59">RAPPORT DE RECYCLAGE · ANNEXE</p>
       <h1 style="margin:2px 0 0;font-family:Archivo,Inter,sans-serif;font-size:21px;font-weight:800;letter-spacing:-0.01em;line-height:1.15">Annexe technique – Traçabilité et méthodologie</h1>
       <p style="margin:3px 0 0;font-size:11.5px;font-weight:600;color:#dde4f5">${sousTitre}</p>
-      <p style="margin:3px 0 0;font-size:11px;color:#dde4f5">Bordereau n° ${esc(data.bordereau_numero)} · Date d'émission : ${esc(data.bordereau_date_emission)}</p>
+      <p style="margin:3px 0 0;font-size:11px;color:#dde4f5">${variante.references}</p>
     </div>
     ${logoSavrComplet(110, 30, 'position:relative;display:block;flex-shrink:0')}
   </header>

@@ -1,8 +1,8 @@
 /**
  * Prédicats purs de la Data Table Collectes Admin (`components/admin/collectes-table`) —
  * `estUrgente` (criticité §06.09 §1 élargie par Val 2026-11-12 : AG ou ZD non
- * acceptée par le prestataire ET créneau dans les 48 h à venir) et
- * `urgentesEnTete` (urgences remontées en tête de liste, tri stable).
+ * acceptée par le prestataire ET créneau dans les 48 h à venir). Le badge ne
+ * change pas l'ordre de la liste : la chronologie prévaut (Val 2026-11-12).
  *
  * `estUrgente` a été recâblée sur les helpers de fuseau (#287) : `instantParis`
  * pour le créneau. Les helpers sont couverts en propre (packages/shared/src/temps),
@@ -21,7 +21,6 @@ import { instantParis } from '@savr/shared/src/temps/index.js';
 import {
   colonnesCollectesAdmin,
   estUrgente,
-  urgentesEnTete,
   type CollecteRow,
 } from '@/components/admin/collectes-table';
 
@@ -223,68 +222,6 @@ describe('collectes-table / estUrgente (§06.09 §1 — non acceptée par le pre
     expect(estUrgente(tardif)).toBe(true);
     maintenant('2026-01-14', '00:00');
     expect(estUrgente(tardif)).toBe(false);
-  });
-});
-
-describe('collectes-table / urgentesEnTete', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('urgentes remontées en tête, ordre reçu conservé de part et d’autre (tri stable)', () => {
-    maintenant('2026-07-07', '10:00'); // < 48h des créneaux du 08/07
-    const lignes = urgentesEnTete([
-      // Non urgentes (déjà acceptées par le prestataire) — gardent l'ordre reçu.
-      row({
-        id: 'attr-mar',
-        date_collecte: '2026-07-07',
-        heure_collecte: '08:00:00',
-        attributions_antgaspi: attribution,
-        statut: 'validee',
-        statut_tms: 'acceptee',
-      }),
-      row({
-        id: 'urgent-tot',
-        date_collecte: '2026-07-08',
-        heure_collecte: '07:00:00',
-      }),
-      row({
-        id: 'attr-mer',
-        date_collecte: '2026-07-08',
-        heure_collecte: '09:00:00',
-        attributions_antgaspi: attribution,
-        statut: 'validee',
-        statut_tms: 'acceptee',
-      }),
-      row({
-        id: 'urgent-tard',
-        date_collecte: '2026-07-08',
-        heure_collecte: '20:00:00',
-      }),
-    ]);
-    expect(lignes.map((i) => i.id)).toEqual([
-      'urgent-tot',
-      'urgent-tard',
-      'attr-mar',
-      'attr-mer',
-    ]);
-  });
-
-  it('ne mute pas le tableau reçu (état React)', () => {
-    maintenant('2026-07-07', '10:00');
-    const recu = [
-      row({ id: 'a', statut: 'validee', statut_tms: 'acceptee' }),
-      row({ id: 'u' }),
-    ];
-    urgentesEnTete(recu);
-    expect(recu.map((r) => r.id)).toEqual(['a', 'u']);
-  });
-
-  it('liste vide → liste vide', () => {
-    expect(urgentesEnTete([])).toEqual([]);
   });
 });
 

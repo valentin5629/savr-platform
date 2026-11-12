@@ -56,11 +56,11 @@ const DOSSIER_CAPTURES = process.env.RAPPORT_VISUEL_DOSSIER;
 async function comparer(nom: string, gabarit: Buffer, maquette: Buffer) {
   const { part: e, carte } = await ecart(gabarit, maquette);
   if (DOSSIER_CAPTURES) {
+    mkdirSync(DOSSIER_CAPTURES, { recursive: true });
     writeFileSync(
       path.join(DOSSIER_CAPTURES, `${nom}-ecart.png`),
       Buffer.from(carte.split(',')[1] as string, 'base64'),
     );
-    mkdirSync(DOSSIER_CAPTURES, { recursive: true });
     writeFileSync(path.join(DOSSIER_CAPTURES, `${nom}-gabarit.png`), gabarit);
     writeFileSync(path.join(DOSSIER_CAPTURES, `${nom}-maquette.png`), maquette);
     writeFileSync(

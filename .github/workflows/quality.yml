@@ -413,6 +413,15 @@ jobs:
         run: pnpm exec vitest run apps/pdf-renderer/src/rapport-recyclage-visuel.test.ts
         env:
           RAPPORT_VISUEL_OBLIGATOIRE: '1'
+          RAPPORT_VISUEL_DOSSIER: ${{ runner.temp }}/rapport-visuel
+      # Captures du gabarit, de la maquette et carte des pixels qui diffèrent
+      # (données fictives de la maquette), pour comprendre un écart.
+      - if: failure() && steps.perimetre.outputs.build != 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-visuel
+          path: ${{ runner.temp }}/rapport-visuel
+          retention-days: 7
       - if: steps.perimetre.outputs.build != 'false'
         name: Attendre que le serveur soit prêt
         run: |

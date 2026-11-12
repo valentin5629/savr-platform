@@ -483,7 +483,7 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     ]);
   });
 
-  it('M1.5b/releve_fil_flux_repete —un même flux répété sur l’arrêt garde sa dernière valeur, stable d’un passage à l’autre', async () => {
+  it('M1.5b/releve_fil_flux_repete — un même flux répété sur l’arrêt garde sa dernière valeur, stable d’un passage à l’autre', async () => {
     const base = baseSimulee({
       collecteStatut: 'en_cours',
       tournees: [TOURNEE_1],

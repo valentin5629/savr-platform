@@ -2,13 +2,17 @@ name: cron-dev
 
 # Vercel ne lance les crons que sur le déploiement de PRODUCTION : sur l'alias
 # `dev` (Preview, base savr-dev) rien d'asynchrone ne partait seul. Ce workflow
-# appelle donc, toutes les 5 minutes, les deux seules routes cron utiles aux tests
+# appelle donc, toutes les 5 minutes, les trois seules routes cron utiles aux tests
 # de bout en bout de la logistique :
 #   - outbox-worker          : envoie les ordres en file vers les prestataires ;
-#   - process-attributions-ag : traite les attributions AG en attente.
-# Volontairement PAS les autres crons (clôture, PDF, factures, polling MTS-1,
-# relance d'emails) : ils écrivent de façon irréversible dans la base de dev
-# partagée ; `pnpm documents:dev` reste le moyen de les rejouer, à la demande de Val.
+#   - process-attributions-ag : traite les attributions AG en attente ;
+#   - polling-mts1           : relit chez MTS-1 statuts, attribution, transporteur,
+#     pesées et photos (décision Val 2026-11-12 : filet des notifications MTS-1).
+#     Elle écrit dans la base de dev partagée comme en production : une fin de
+#     mission passe la collecte « Réalisée », ce qui ne se défait pas.
+# Volontairement PAS les autres crons (clôture, PDF, factures, relance d'emails) :
+# ils écrivent de façon irréversible dans la base de dev partagée ;
+# `pnpm documents:dev` reste le moyen de les rejouer, à la demande de Val.
 # Attention : outbox-worker fait de vrais appels HTTP aux prestataires (MTS-1, A Toute!)
 # et consomme l'arriéré d'events en attente (10 par appel) ; process-attributions-ag
 # envoie des emails, redirigés vers EMAIL_REDIRECT_TO ou supprimés hors production.
@@ -50,7 +54,7 @@ jobs:
           echo "::add-mask::$CRON_SECRET_DEV"
           echo "::add-mask::$VERCEL_BYPASS_DEV"
           statut=0
-          for route in outbox-worker process-attributions-ag; do
+          for route in outbox-worker process-attributions-ag polling-mts1; do
             code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 60 \
               -H "Authorization: Bearer $CRON_SECRET_DEV" \
               -H "x-vercel-protection-bypass: $VERCEL_BYPASS_DEV" \

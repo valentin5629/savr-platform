@@ -1,9 +1,13 @@
-// Notifications entrantes MTS-1 — étape 1 : enregistrement seul.
+// Notifications entrantes MTS-1 — étape 1 : enregistrement ; étape 2 (décision
+// Val 2026-11-12) : relecture chez MTS-1 des commandes désignées, après la
+// réponse.
 //
 // Ce qui est prouvé : la route refuse tout sans jeton configuré ou avec un
-// mauvais jeton, sans rien écrire ; avec le bon jeton elle enregistre la
-// notification dans `integrations_inbox` et ne touche à AUCUNE autre table
-// (aucun effet sur les collectes ni les tournées).
+// mauvais jeton, sans rien écrire ni rien relire ; avec le bon jeton elle
+// enregistre la notification dans `integrations_inbox`, sans toucher à aucune
+// autre table pendant la requête, puis programme après la réponse la relecture
+// des commandes qu'elle désigne (par l'adapter : jamais d'appel direct à MTS-1).
+// Un rejeu ne relance rien.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -31,6 +35,22 @@ vi.mock('@savr/shared/src/supabase-client.js', () => ({
     },
   }),
 }));
+
+// Tâches programmées après la réponse : retenues ici, jouées à la main.
+const taches: Array<() => Promise<void>> = [];
+vi.mock('next/server', async (origine) => ({
+  ...(await origine<typeof import('next/server')>()),
+  after: (tache: () => Promise<void>) => {
+    taches.push(tache);
+  },
+}));
+
+const { releverNotificationMts1 } = vi.hoisted(() => ({
+  releverNotificationMts1: vi.fn<
+    (supabase: unknown, signal: unknown) => Promise<void>
+  >(async () => {}),
+}));
+vi.mock('@savr/adapters/src/index.js', () => ({ releverNotificationMts1 }));
 
 const JETON = 'jeton-de-test-0123456789';
 
@@ -73,6 +93,9 @@ describe('Notifications MTS-1 — enregistrement seul', () => {
   beforeEach(() => {
     insertions.length = 0;
     tablesLues.length = 0;
+    taches.length = 0;
+    releverNotificationMts1.mockReset();
+    releverNotificationMts1.mockResolvedValue(undefined);
     reponseInsertion = { error: null };
     vi.stubEnv('MTS1_WEBHOOK_TOKEN', JETON);
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -145,10 +168,72 @@ describe('Notifications MTS-1 — enregistrement seul', () => {
     });
   });
 
-  it('M1.5b/notifications_mts1_sans_effet_metier — seule la table de réception est touchée', async () => {
+  it('M1.5b/notifications_mts1_sans_effet_metier — pendant la requête, seule la table de réception est touchée ; rien n’est relu avant la réponse', async () => {
     await appeler(requete('{"tourId":"T-1"}'));
 
     expect(tablesLues).toEqual(['integrations_inbox']);
+    expect(releverNotificationMts1).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'de commande (customerOrder/dispatch)',
+      '{"tourId":"TOUR-1","eventType":"DISPATCHED","customerOrderId":"CMD-1"}',
+      { commandes: ['CMD-1'], tournee: 'TOUR-1' },
+    ],
+    [
+      'de tournée seule (tour/update)',
+      '{"tourId":"TOUR-1","eventType":"VALIDATED"}',
+      { commandes: [undefined], tournee: 'TOUR-1' },
+    ],
+    [
+      'de commande sans tournée (customerOrder/update)',
+      '{"eventType":"UPDATED","currentTourId":"TOUR-2","customerOrderId":"CMD-2"}',
+      { commandes: ['CMD-2'], tournee: 'TOUR-2' },
+    ],
+  ])(
+    'M1.5b/notifications_mts1_relecture_programmee — notification %s : relecture programmée après la réponse, avec ce que la notification désigne',
+    async (_cas, corps, signal) => {
+      const res = await appeler(requete(corps));
+
+      expect(res.status).toBe(200);
+      expect(taches).toHaveLength(1);
+      await taches[0]!();
+      expect(releverNotificationMts1).toHaveBeenCalledTimes(1);
+      expect(releverNotificationMts1.mock.calls[0]![1]).toEqual(signal);
+    },
+  );
+
+  it('M1.5b/notifications_mts1_relecture_rejeu — un rejeu (doublon), un refus ou une erreur d’enregistrement ne programment aucune relecture', async () => {
+    reponseInsertion = {
+      error: { code: '23505', message: 'duplicate key value' },
+    };
+    await appeler(requete('{"customerOrderId":"CMD-1"}'));
+    reponseInsertion = { error: { code: '42501', message: 'refus' } };
+    await appeler(requete('{"customerOrderId":"CMD-1"}'));
+    await appeler(
+      requete('{"customerOrderId":"CMD-1"}', {
+        'x-mts1-webhook-token': 'mauvais',
+      }),
+    );
+
+    expect(taches).toHaveLength(0);
+  });
+
+  it('M1.5b/notifications_mts1_relecture_echec — relecture en échec : tracée, sans exception hors de la tâche', async () => {
+    releverNotificationMts1.mockRejectedValueOnce(
+      new Error('MTS-1 indisponible'),
+    );
+
+    await appeler(requete('{"customerOrderId":"CMD-1"}'));
+    await expect(taches[0]!()).resolves.toBeUndefined();
+
+    expect(
+      vi
+        .mocked(console.log)
+        .mock.calls.map((c) => String(c[0]))
+        .some((l) => l.includes('mts1.notification.relecture_echec')),
+    ).toBe(true);
   });
 
   it('le jeton est aussi accepté dans Authorization, avec ou sans préfixe Bearer', async () => {
@@ -249,7 +334,8 @@ describe('Notifications MTS-1 — enregistrement seul', () => {
   });
 });
 
-// ── Cliquet de structure : l'étape 1 n'a pas d'effet métier ──────────────────
+// ── Cliquet de structure : la route n'écrit que la réception, et ne relit MTS-1
+// que par l'adapter ──────────────────────────────────────────────────────────
 
 describe('Notifications MTS-1 — la route d’enregistrement ne sait rien faire d’autre', () => {
   const source = readFileSync(
@@ -262,8 +348,12 @@ describe('Notifications MTS-1 — la route d’enregistrement ne sait rien faire
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
 
-  it('M1.5b/notifications_mts1_structure — ni adapter, ni appel sortant, ni fonction SQL, ni autre écriture que l’insertion en table de réception', () => {
-    expect(source).not.toMatch(/@savr\/adapters/);
+  it('M1.5b/notifications_mts1_structure — ni appel sortant, ni fonction SQL, ni autre écriture que l’insertion en table de réception ; de l’adapter, la seule relecture', () => {
+    expect(
+      source.match(/import \{([^}]*)\} from '@savr\/adapters[^']*'/g),
+    ).toEqual([
+      "import { releverNotificationMts1 } from '@savr/adapters/src/index.js'",
+    ]);
     expect(source).not.toMatch(/\bfetch\(/);
     expect(source).not.toMatch(/\.rpc\(/);
     // Une seule lecture de table, et c'est une insertion (le `.update(` du

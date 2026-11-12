@@ -273,6 +273,21 @@ export function numeroPorteLaCle(numero: unknown, cle: string): boolean {
 
 // ─── Lecture du détail d'un tour (forme mesurée le 2026-10-13) ───────────────
 
+/**
+ * La tournée a-t-elle été acceptée avant cet instant ? `status.dispatchedAt`
+ * illisible ou absent, instant absent : non (rien n'en est conclu).
+ */
+function accepteeAvant(
+  tour: Mts1Tour | null,
+  instant: string | null | undefined,
+): boolean {
+  const acceptee: unknown = tour?.status?.dispatchedAt;
+  if (typeof acceptee !== 'string' || !instant) return false;
+  const a = Date.parse(acceptee);
+  const i = Date.parse(instant);
+  return Number.isFinite(a) && Number.isFinite(i) && a < i;
+}
+
 function sertLaCommande(stop: Mts1TourStop, customerOrderId: string): boolean {
   return (stop.customerOrders ?? []).some(
     (c) => c?.customerOrderId === customerOrderId,
@@ -807,7 +822,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     const { data, error } = await this.supabase
       .from('collectes')
       .select(
-        'id, statut, statut_tms, prestataire_logistique_id, collecte_tournees!inner(rang, tournees!inner(id, statut, tms_reference, external_ref_commande, prestataire_logistique_id))',
+        'id, statut, statut_tms, statut_tms_at, prestataire_logistique_id, collecte_tournees!inner(rang, tournees!inner(id, statut, tms_reference, external_ref_commande, prestataire_logistique_id))',
       )
       .gt('date_collecte', jourParis(apres))
       .lte('date_collecte', jourParis(jusqu_a))
@@ -826,6 +841,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       id: string;
       statut: string;
       statut_tms: string | null;
+      statut_tms_at: string | null;
       prestataire_logistique_id: string | null;
       collecte_tournees: Array<{
         rang: number;
@@ -905,6 +921,7 @@ export class AdapterMts1 implements LogistiqueProvider {
             collecteId: collecte.id,
             collecteStatut: collecte.statut,
             collecteStatutTms: collecte.statut_tms,
+            collecteStatutTmsAt: collecte.statut_tms_at,
             collectePrestataireId: collecte.prestataire_logistique_id,
             tourneeId: tournee.id,
           },
@@ -916,6 +933,50 @@ export class AdapterMts1 implements LogistiqueProvider {
         await this.logEntrantError(
           'SYNC_ATTRIBUTION_FAILED',
           `order ${commande.customerOrderId}: ${String(err)}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Notification MTS-1, étape 2 (décision Val 2026-11-12, C3) : une notification
+   * est un signal, jamais une vérité. Les commandes qu'elle désigne sont relues
+   * chez MTS-1 et traitées exactement comme par la relève (`processOrder` :
+   * statut, tournée, attribution, transporteur, pesées, fin de mission), quelle
+   * que soit leur date. Une notification de tournée sans commande (`tour/update`,
+   * mesuré le 2026-11-12) : les commandes nommées sur les arrêts de la tournée.
+   * Identifiants illisibles ignorés ; 50 commandes au plus ; une commande
+   * inconnue de Savr est ignorée par `processOrder`.
+   */
+  async releverSignal(signal: {
+    commandes: readonly unknown[];
+    tournee: unknown;
+  }): Promise<void> {
+    const ids = new Set(signal.commandes.filter(estIdentifiantMts1));
+    if (ids.size === 0 && estIdentifiantMts1(signal.tournee)) {
+      const tour = await this.client.getTour(signal.tournee);
+      for (const stop of tour.stops ?? []) {
+        for (const c of stop?.customerOrders ?? []) {
+          if (estIdentifiantMts1(c?.customerOrderId))
+            ids.add(c.customerOrderId);
+        }
+      }
+    }
+    if (ids.size === 0) return;
+
+    const fluxById = await this.loadFluxCodes();
+    const seuils = await this.loadSeuils();
+    const commandes = await this.client.findOrdersByIds(
+      [...ids].slice(0, TAILLE_LOT_COMMANDES),
+    );
+    for (const order of commandes) {
+      if (!ids.has(order.customerOrderId)) continue;
+      try {
+        await this.processOrder(order, fluxById, seuils);
+      } catch (err) {
+        await this.logEntrantError(
+          'NOTIFICATION_ORDER_FAILED',
+          `order ${order.customerOrderId}: ${String(err)}`,
         );
       }
     }
@@ -1592,6 +1653,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       collecteId: string;
       collecteStatut: string;
       collecteStatutTms: string | null;
+      collecteStatutTmsAt?: string | null;
       collectePrestataireId: string | null;
       tourneeId: string;
     },
@@ -1650,6 +1712,21 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
     const cible = STATUT_TMS_PAR_NIVEAU[niveau];
     if (!cible) return;
+    // Réacceptation (§08 « réacceptation requise ») : une collecte remise « en
+    // attente d'acceptation » APRÈS que le transporteur a accepté la tournée
+    // n'est pas repassée « acceptée » sur la foi de cette acceptation-là. La
+    // mémoire ci-dessus le tient 7 jours (purge d'integrations_inbox) ; l'heure
+    // d'acceptation de la tournée (`status.dispatchedAt`, vide tant qu'elle n'est
+    // que proposée, mesuré le 2026-11-12) le tient au-delà, sur tous les chemins
+    // (relève, relève lointaine, notification). Rien n'est noté : relu au
+    // passage suivant.
+    if (
+      cible === 'acceptee' &&
+      collecte.collecteStatutTms === 'attribuee_en_attente_acceptation' &&
+      accepteeAvant(tour, collecte.collecteStatutTmsAt)
+    ) {
+      return;
+    }
     if (collecte.collecteStatutTms !== cible) {
       const { data: ecrites, error } = await this.supabase
         .from('collectes')
@@ -1965,6 +2042,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     prestataireId: string | null;
     collectePrestataireId: string | null;
     collecteStatutTms: string | null;
+    collecteStatutTmsAt: string | null;
   } | null> {
     // `prestatairesDuType` garantit un Set NON VIDE (elle lève sinon) : le `.in()`
     // ci-dessous ne peut donc jamais dégénérer en requête toujours fausse, qui
@@ -1974,7 +2052,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     const { data, error } = await this.supabase
       .from('tournees')
       .select(
-        'id, statut, tms_reference, prestataire_logistique_id, collecte_tournees!inner(collecte_id, rang, collectes!inner(id, statut, statut_tms, prestataire_logistique_id))',
+        'id, statut, tms_reference, prestataire_logistique_id, collecte_tournees!inner(collecte_id, rang, collectes!inner(id, statut, statut_tms, statut_tms_at, prestataire_logistique_id))',
       )
       .eq('external_ref_commande', customerOrderId)
       .in('prestataire_logistique_id', [...prestatairesMts1])
@@ -2009,6 +2087,7 @@ export class AdapterMts1 implements LogistiqueProvider {
           id: string;
           statut: string;
           statut_tms?: string | null;
+          statut_tms_at?: string | null;
           prestataire_logistique_id?: string | null;
         };
       }>;
@@ -2029,6 +2108,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       prestataireId: raw.prestataire_logistique_id ?? null,
       collectePrestataireId: collecte.prestataire_logistique_id ?? null,
       collecteStatutTms: collecte.statut_tms ?? null,
+      collecteStatutTmsAt: collecte.statut_tms_at ?? null,
     };
   }
 

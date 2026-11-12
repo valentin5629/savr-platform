@@ -643,6 +643,35 @@ describe('M3.1 / pop-up — onglet Logistique (wording Savr, Q3)', () => {
   );
 
   it(
+    'M3.1/fiche_ui_logistique_chauffeur_apres_collecte — collecte clôturée : chauffeur toujours affiché, valeur manquante « — », sans demande urgente (Val 2026-11-12)',
+    async () => {
+      stubFetchFiche(
+        ficheClient({
+          statut: 'cloturee',
+          tournees: [
+            {
+              chauffeur_nom: 'Léa Martin',
+              plaque_immatriculation: 'AB-123-CD',
+              chauffeur_telephone: null,
+              type_vehicule: 'camion',
+            },
+          ],
+        }),
+      );
+      render(fiche('c1'));
+      await ouvrirOnglet('Logistique');
+
+      const bloc = await screen.findByTestId('bloc-logistique', {}, ATTENTE_UI);
+      expect(bloc).toHaveTextContent('Votre chauffeur');
+      expect(bloc).toHaveTextContent('Léa Martin');
+      expect(bloc).toHaveTextContent('AB-123-CD');
+      expect(bloc).not.toHaveTextContent('En attente');
+      expect(screen.queryByTestId('zone-urgence')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
     'M3.1/fiche_popup_urgence_demande — clic → POST coordonnees-urgence (sans corps) → « Demande envoyée à l’équipe Savr »',
     async () => {
       stubFetchFiche(ficheClient({ tournees: [] }));

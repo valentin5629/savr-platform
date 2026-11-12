@@ -13,10 +13,17 @@ export function motifActionGrisee(espace: EspaceClient): string {
     : 'Seule l’organisation qui a programmé la collecte peut la modifier.';
 }
 
-// Camions : chauffeur, plaque et téléphone visibles tant que la collecte n'est
-// pas terminée (bloc « Logistique », §06.04). Hors de cette fenêtre la route ne
-// renvoie AUCUN camion — le téléphone du chauffeur n'a plus de raison d'être lu.
+// Fenêtre logistique (bloc « Logistique », §06.04) : collecte pas encore faite.
+// Seule fenêtre de la demande urgente des coordonnées et du message « chauffeur
+// pas encore affecté ».
 export const STATUTS_LOGISTIQUE = ['programmee', 'validee', 'en_cours'];
+
+// Camions (chauffeur, plaque, téléphone) : lus et affichés à tous les statuts
+// sauf une collecte annulée, après la collecte comprise (décision Val
+// 2026-11-12, tous les utilisateurs).
+const STATUTS_SANS_CHAUFFEUR = ['annulee', 'annulation_demandee'];
+export const chauffeursVisibles = (statut: string): boolean =>
+  !STATUTS_SANS_CHAUFFEUR.includes(statut);
 
 // Association bénéficiaire AG affichée « dès la validation ».
 export const STATUTS_ASSOCIATION = [

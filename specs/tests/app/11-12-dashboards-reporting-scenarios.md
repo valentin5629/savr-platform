@@ -41,7 +41,7 @@
 Scénario : dashboard_admin_quatre_cartes_actions
   Étant donné 1 collecte ZD "programmee" "statut_tms=non_envoye" "tms_reference IS NULL" (hors 48h), 1 collecte AG "programmee" "statut_tms=non_envoye" (hors 48h), 1 collecte "statut_tms=attribuee_en_attente_acceptation" (hors 48h), et 1 collecte "programmee" "statut_tms=a_attribuer" à J+1 (dans 48h, non verrouillée)
   Quand un admin_savr charge le Dashboard Admin
-  Alors les 4 cartes « Non transmises ZD » / « Non transmises AG » / « En attente prestataire » / « Collectes <48h non validées » affichent respectivement 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
+  Alors les 4 cartes « Non transmises ZD » / « Non transmises AG » / « Attente transporteur » / « Collecte <48h non validée » affichent respectivement 1 / 1 / 1 / 1 (rangée refondue 2026-07-15 : split Non transmises M3.5 + fusion 48h M3.6)
   Et le clic sur chaque carte redirige vers la liste Collectes §3 avec le chip miroir pré-appliqué (`non_transmises_zd` / `non_transmises_ag` / `attente_prestataire` / `collectes_48h_non_validees`), sans page intermédiaire
   Et la carte « non transmises » et son chip miroir comptent exactement le même ensemble : statut_tms='non_envoye' ET tms_reference IS NULL ET statut IN ('programmee','validee') — prédicat canonique tranché Val 2026-09-14
   Et aucune carte « Modifiées sans renvoi TMS » n'est affichée (retirée, décision Val 2026-10-28)
@@ -153,9 +153,9 @@ Scénario : batch_j1_genere_bordereau_et_rapport_rse
 
 Scénario : attestation_don_ag_batch_avec_snapshot
   Étant donné une collecte AG cloturee avec attribution vers une association habilitée 2041-GE et volume_repas_realise = 120
-  Quand le batch J+1 6h tourne
+  Quand le cron `batch-pdf-j1` (toutes les 15 min) tourne
   Alors une `attestations_don` est créée : statut "emise", association_habilitation snapshotée, volume_repas = 120
-  Et le PDF inclut la ligne CO₂e évité = 120 × 2,5 = 300 kg (snapshot `co2_facteurs_snapshot` type anti_gaspi)
+  Et le PDF inclut la ligne CO₂e évité = 120 × 2,04 = 244,8 kg (snapshot `co2_facteurs_snapshot` type anti_gaspi)
   Et la mention fiscale 2041-GE est présente (association habilitée)
 ```
 
@@ -166,8 +166,8 @@ Scénario : attestation_don_ag_batch_avec_snapshot
 
 Scénario : rapport_sans_excedent_genere_batch_nightly
   Étant donné une collecte AG passée en "realisee_sans_collecte" (transition via webhook Everest, course vide AG) avec un motif chauffeur, sans rapport encore généré
-  Quand le batch nightly `runBatchSansExcedent` (monté dans le cron J+1 6h) tourne
-  Alors le PDF "Événement sans excédent alimentaire" (template `rapport_evenement_sans_excedent`) est généré, sans embargo H+24
+  Quand le batch nightly `runBatchSansExcedent` (monté dans le cron `batch-pdf-j1`, toutes les 15 min) tourne
+  Alors le PDF "Événement sans excédent alimentaire" (template `rapport_evenement_sans_excedent`) est généré
   Et une ligne `rapports_rse` standard est créée avec disponible_a = genere_at (F1 tranchée 2026-06-07 — pas de colonne type)
   Et le batch est idempotent (skip si une ligne `rapports_rse` existe déjà pour la collecte)
   Et le PDF contient : heure de présentation chauffeur, nom chauffeur, motif déclaré, mention "Aucun repas n'a été collecté…"
@@ -755,12 +755,12 @@ Scénario : rapport_recyclage_correction_pesee_reprise_au_telechargement
 ```
 
 ```gherkin
-# Source : §12 §1.1 + §1.2 (batch J+1)
+# Source : §12 §1.1 + §1.2 (cron `batch-pdf-j1`)
 # Couche : db
 # Priorité : P1-critique
 
 Scénario : batch_j1_rejoue_sans_doublon
-  Étant donné un batch J+1 6h déjà passé sur une collecte (bordereau + rapport créés)
+  Étant donné un passage du cron `batch-pdf-j1` déjà fait sur une collecte (bordereau + rapport créés)
   Quand le batch est relancé manuellement le même jour (incident, re-run)
   Alors aucune 2e ligne `bordereaux_savr` (UNIQUE collecte_id) ni `rapports_rse` n'est créée
 ```
@@ -790,7 +790,7 @@ Scénario : modification_facteur_sans_effet_sur_collectes_figees
 ```
 
 ```gherkin
-# Source : §04 parametres_co2_divers (km_collecte_aller_retour = 15, décision Val 2026-10-20) + §05 R_co2_calcul
+# Source : §04 parametres_co2_divers (km_collecte_aller_retour = 25, décision Val 2026-11-06 ; ex 15 km, Val 2026-10-20) + §05 R_co2_calcul
 # Couche : db
 # Priorité : P2-important
 
@@ -913,7 +913,7 @@ Scénario : consulte_par_user_at_pose_une_seule_fois
 # Priorité : P1-critique
 
 Scénario : telechargement_rapport_avec_ou_sans_radar
-  Étant donné une collecte ZD clôturée dont l'embargo H+24 est écoulé (ligne rapports_rse posée par le batch J+1, aucun PDF fabriqué)
+  Étant donné une collecte ZD clôturée (ligne rapports_rse posée par le cron `batch-pdf-j1`, aucun PDF fabriqué)
   Quand un utilisateur autorisé à lire le rapport (traiteur manager ou commercial, agence, gestionnaire de lieux) ouvre l'onglet « Bilan & documents » de la fiche collecte
   Alors le bouton bascule « Intégrer la comparaison au rapport à télécharger » (à côté du radar) est désactivé à l'ouverture
   Quand il règle les filtres de comparaison, active le bouton et clique sur « Télécharger le rapport » dans le pied de la fiche
@@ -1029,7 +1029,7 @@ Scénario : historique_partiel_sans_crash_agregats
 
 Scénario : pdf_importes_accessibles_sans_regeneration
   Étant donné des bordereaux/attestations Bubble importés (PDF existants rattachés)
-  Quand le batch J+1 6h tourne après migration
+  Quand le cron `batch-pdf-j1` tourne après migration
   Alors AUCUNE régénération automatique n'est déclenchée sur les collectes migrées (pas d'écrasement des PDF historiques)
   Et les documents importés sont téléchargeables avec la RLS standard
 ```

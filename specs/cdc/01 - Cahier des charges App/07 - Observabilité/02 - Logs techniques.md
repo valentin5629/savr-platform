@@ -18,7 +18,7 @@
 | `job.cron.started` | batch démarré | info | `job_name, trace_id` | pg_cron / Vercel Cron |
 | `job.cron.completed` | batch terminé OK — **éventuellement partiel** | info | `job_name, duree_ms, nb_traite` (+ `nb_errors` si batch par éléments) | Idem |
 | `job.cron.failed` | batch échoué — exception, **ou** échec **global** d'un batch par éléments : (a) `etape='selection'` — toute lecture préalable en échec (collectes éligibles, **documents déjà émis**, entités de facturation AG) : **fail-closed**, car continuer sans la liste des documents déjà émis ré-émettrait bordereaux et attestations fiscales en double, en consommant des numéros gapless ; (b) `etape='traitement'` — **≥ 1 élément tenté et 0 produit** (défaut systémique : colonne renommée, INSERT cassé) | error | `job_name, error_code, etape` (`error_code` = code PostgREST/Postgres réel) | Idem (→ alerte `eleve` + **HTTP 500**, cf. `03`) |
-| `pdf.batch.collecte_failed` | **une** collecte en échec dans un batch PDF J+1, les autres traitées (échec **partiel** : ≥ 1 produit et ≥ 1 en échec → le batch reste `completed` avec `nb_errors`) | warn | `job_name, collecte_id, error` | Batch J+1 6h — debug, **pas d'alerte Slack** : la collecte est re-sélectionnée au batch suivant (idempotence), anti-fatigue §07/03, et une panne sur *toutes* les collectes remonte déjà par `etape='traitement'` |
+| `pdf.batch.collecte_failed` | **une** collecte en échec dans un batch PDF J+1, les autres traitées (échec **partiel** : ≥ 1 produit et ≥ 1 en échec → le batch reste `completed` avec `nb_errors`) | warn | `job_name, collecte_id, error` | Batch des documents (toutes les 15 min) — debug, **pas d'alerte Slack** : la collecte est re-sélectionnée au batch suivant (idempotence), anti-fatigue §07/03, et une panne sur *toutes* les collectes remonte déjà par `etape='traitement'` |
 | `migration.applied` | migration SQL appliquée | info | `migration_file, env` | CI/CD (déploiement) |
 | `webhook.signature_invalid` | HMAC/JWT entrant invalide | warn | `source, ip` | Endpoint webhook (V2 surtout ; V1 = polling) |
 
@@ -30,9 +30,9 @@ Liste alignée sur `CLAUDE.md` §12 (cron) **et sur les crons réellement déplo
 
 | `job_name` | Fréquence | Criticité si échec |
 |---|---|---|
-| `attestations_batch` | J+1 06h00 | élevée (attestation fiscale AG) |
-| `bordereaux_rapports_batch` | J+1 06h00 | élevée (justificatif ZD) |
-| `rapport_sans_excedent_batch` | J+1 06h00 | élevée (rapport client AG sans excédent, §12 §1.3-bis — job créé R21b, monté dans le même cron 6h) |
+| `attestations_batch` | toutes les 15 min (décision Val 2026-11-04) | élevée (attestation fiscale AG) |
+| `bordereaux_rapports_batch` | toutes les 15 min (décision Val 2026-11-04) | élevée (justificatif ZD) |
+| `rapport_sans_excedent_batch` | toutes les 15 min | élevée (rapport client AG sans excédent, §12 §1.3-bis — job créé R21b, monté dans le même cron) |
 | `mts1_polling` | toutes les 15 min | élevée (statut/pesées collectes) |
 | `outbox_worker` | toutes les 15 min | élevée (dispatch de la collecte vers le transporteur) |
 | `pennylane_polling` | J+1 | moyenne (statut paiement) |
@@ -41,7 +41,7 @@ Liste alignée sur `CLAUDE.md` §12 (cron) **et sur les crons réellement déplo
 | `batch_brouillons_j1` | J+1 | moyenne (brouillons de facture) |
 | `email_retry` | toutes les 5 min | moyenne (retry Resend) |
 | `process_attributions_ag` | toutes les 5 min | moyenne (emails association + transporteur après validation d'attribution) |
-| `cloture_embargo` | horaire | moyenne (passage `realisee` → `cloturee` après H+24) |
+| `cloture_embargo` | horaire | moyenne (passage `realisee` → `cloturee` à `realisee_at` + 48 h, décision Val 2026-11-04) |
 | `siret_revalidation` | toutes les 15 min | moyenne (gating facturation INSEE) |
 | `notify_pack_etat` | toutes les 15 min | basse (notification état pack AG) |
 | `refresh_benchmark` | quotidien | basse (benchmark dashboards) |

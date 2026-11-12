@@ -51,7 +51,7 @@
     },
     {
       "id": "M3.5-evolution-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:135",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:136",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts",
       "test": "M3.5/evolution_zd_barres_5_flux_taux_pondere — sommes par flux + taux pondéré (exclut NULL)",
       "statut": "implemented",
@@ -59,7 +59,7 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:209",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
@@ -91,7 +91,7 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:102",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:103",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -99,7 +99,7 @@
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:102",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:103",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -115,7 +115,7 @@
     },
     {
       "id": "M3.5-filtres-type-taille-grain-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:87",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows, buildSyntheseSnapshot)",
       "test": "M3.5/blocs_filtres_type_et_taille_de_la_collecte + M3.5/evolution_filtres_type_et_taille_de_la_collecte + M3.5/synthese_filtres_type_et_taille_de_la_collecte",
       "statut": "implemented",
@@ -141,7 +141,7 @@
     },
     {
       "id": "M3.5-filtre-type-evenement-uuid",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:85",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution : typeEvtIds filtrés par estUuid)",
       "test": "Lot3/blocs_type_evenement_illisible_vide + Lot3/blocs_type_evenement_valeurs_mal_formees_ecartees + Lot3/evolution_type_evenement_illisible_vide",
       "statut": "implemented",
@@ -159,7 +159,7 @@
     },
     {
       "id": "M3.5-dashboards-collectes-par-pages",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:48",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:49",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadEvolution, loadBlocs, loadMargeAttente, loadFiltresParcGestionnaire : lireParPages) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows : lireParPages)",
       "test": "M3.5 / dashboards clients au-delà du plafond",
       "statut": "implemented",
@@ -176,7 +176,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "8141ddcee2b121871dd2417bd3b200d424d7eb6ceb2a3861438f3e88ecad6d72",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "d2739591c4a1caad4fcb181d46ceea184e2cdc20918001c3b9d884033c8473a2"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "2729e3bfb96ff820dc24c62edb4fd05e5149306f7fd8b12be49cc6503199dc38",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "3e6024df5d3f8eaed7d6797ebc0f51d5408b42d2fd3816d0400347724c51d4ac"
   }
 }

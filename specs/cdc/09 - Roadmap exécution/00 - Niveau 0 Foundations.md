@@ -75,7 +75,7 @@ Ordre interne : 0.1 → 0.2 → 0.3 → 0.4 → 0.5 → 0.6 (gate qualité) → 
 
 - **Objectif** : auth Supabase email/password, inscription self-service, JWT avec rôle, middleware Next.js par rôle.
 - **À coder** : login/logout/refresh ; inscription (validation **SIRET INSEE + TVA VIES** + CGV) ; rattachement orga par domaine email ; claims JWT (rôle, org_id) ; middleware de route par rôle ; **emails bienvenue + vérif** (1er usage transverse C → poser `packages/shared/email`).
-- **Hors scope** : 2FA (V1.1), SSO SAML (V2), gestion fine profils secondaires (V3).
+- **Hors scope** : 2FA des clients (V1.1 ; celle de l'équipe Savr et celle des utilisateurs d'une organisation cochée par l'Admin, VIPARIS, sont livrées, décisions Val 2026-11-04 et 2026-11-10), SSO SAML (V2), gestion fine profils secondaires (V3).
 - **Définition de fini** : un compte se crée (SIRET/TVA validés), se connecte, reçoit un JWT avec rôle, accède à une route protégée selon son rôle ; emails partent (Resend).
 - **/goal** : `Le module 0.5 est terminé quand les tests Vitest auth + les tests Playwright login/signup passent ET pnpm test:pgtap reste vert ET un compte de test traverse signup → vérif email → login → route protégée.`
 - **Budget** : 400k (M).

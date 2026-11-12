@@ -1134,12 +1134,12 @@ Scénario : everest_confirmation_positive_statut_tms_acceptee
 
 Scénario : everest_course_vide_refetch_realisee_sans_collecte
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut=en_cours, non terminal)
-    Et Everest envoie un webhook terminal (mission_failed)
-    Et le re-fetch de la mission retourne status_text="Client absent / Marchandise refusée"
+    Et Everest envoie une notification mission_status
+    Et le re-fetch de la mission retourne l'étape client-absent-marchandise-refusee (libellé « Client Absent », relevé le 2026-11-03)
   Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
   Alors collectes.statut = realisee_sans_collecte
     Et collectes.realisee_at = now()
-    Et aucun_repas_motif = "Client absent / Marchandise refusée"
+    Et aucun_repas_motif = "Client Absent" (libellé relu)
     Et aucun_repas_photo_url = NULL (aucune photo de lieu fournie par Everest en V1)
     Et une alerte Ops in-app est créée (type=collecte_aucun_repas)
     Et aucune attestation 2041-GE n'est générée
@@ -1155,8 +1155,8 @@ Scénario : everest_course_vide_refetch_realisee_sans_collecte
 
 Scénario : everest_mission_failed_avant_acceptation_rejetee
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut_tms=attribuee_en_attente_acceptation)
-    Et Everest envoie mission_failed / annulation externe avant acceptation
-  Quand l'adapter Everest traite le webhook (re-fetch status_text)
+    Et Everest envoie une notification mission_status dont l'étape relue est un échec ou une annulation externe, avant acceptation de la collecte entière (aucune course affectée, décision Val 2026-11-03)
+  Quand l'adapter Everest traite la notification (re-fetch de la mission, catégorie de l'étape relue)
   Alors collectes.statut_tms = rejetee_par_prestataire
     Et collectes.statut = rejetee_par_prestataire (visibilité dashboard)
     Et une alerte Admin in-app « réattribution requise » est créée
@@ -1182,14 +1182,14 @@ Scénario : mts1_chaine_polling_complete
 ```
 
 ```gherkin
-# Source : §08 §3 V1 — Everest `mission_dispatched` : coursier relu sur l'API → tournée (décision Val 2026-10-02)
+# Source : §08 §3 V1 — Everest `mission_dispatched` : coursier relu sur l'API → tournée (décision Val 2026-10-02) ; depuis le 2026-11-03, notification `mission_status`, coursier relu à chaque étape
 # Couche : api + db
 # Priorité : P1-critique
 
 Scénario : everest_mission_dispatched_coursier_relu_api_propage_tournee
   Étant donné une collecte AG attribuée à A Toute! dont la tournée porte external_ref_commande = mission_id (mission courante)
     Et la tournée porte déjà chauffeur_nom = "Saisie Ops" et chauffeur_telephone = "0600000000" (saisie Admin)
-    Et Everest envoie un webhook mission_dispatched dont le payload annonce coursier_nom = "Faux Payload"
+    Et Everest envoie une notification mission_status (étape relue « affectée ») dont le payload annonce coursier_nom = "Faux Payload"
     Et le re-fetch de la mission sur l'API Everest retourne le coursier "Léa Martin", sans téléphone
   Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
   Alors tournees.chauffeur_nom = "Léa Martin" et tournees.chauffeur_telephone = NULL (couple écrit ensemble, jamais un nom neuf avec l'ancien téléphone)
@@ -1199,7 +1199,7 @@ Scénario : everest_mission_dispatched_coursier_relu_api_propage_tournee
   Quand l'API Everest ne retourne aucun coursier
   Alors aucune écriture sur la tournée (saisie Admin conservée)
   Quand le re-fetch échoue
-  Alors rien n'est écrit, une trace coursier_refetch_failed est enregistrée, la réponse est 200 et la mission passe quand même assigned
+  Alors rien n'est écrit, la réponse est 500 et la notification reste non traitée dans `integrations_inbox` (rejouée si A Toute! la renvoie) ; une alerte Admin in-app « Événement A Toute! non enregistré » (`everest_webhook_non_enregistre`) est posée (décision Val 2026-11-03)
   Quand la mission n'est pas la mission courante de la collecte
   Alors l'API Everest n'est pas appelée pour le coursier et la tournée est intacte
 ```

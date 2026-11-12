@@ -23,7 +23,7 @@
   "deliverables": [
     {
       "id": "M1.2-evt-patch-unifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:515",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:516",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement par traiteur_manager : 200 + fn_modifier_evenement (E2 par collecte)",
       "statut": "implemented",
@@ -47,7 +47,7 @@
     },
     {
       "id": "M1.2-patch-evenement-reponse-filtree",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:522",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:523",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2/edition_evenement_reponse_filtree",
       "statut": "implemented",
@@ -63,7 +63,7 @@
     },
     {
       "id": "M1.2-col-edit-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:523",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md:522",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts",
       "test": "M1.2 — édition collecte gestionnaire : 200 + fn_modifier_collecte",
       "statut": "implemented",
@@ -103,7 +103,7 @@
     },
     {
       "id": "M1.2-perimetre-ecriture",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:544",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:545",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts",
       "test": "M1.2 — édition événement commercial hors organisation → 403",
       "statut": "implemented",
@@ -119,7 +119,7 @@
     },
     {
       "id": "M1.2-ui-edition-fiche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:507",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:508",
       "artefact": "packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
       "test": null,
       "statut": "à-vérifier",
@@ -472,7 +472,7 @@
     },
     {
       "id": "M1.2-fiches-collecte-type-contacts",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:405 + specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:209",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:406 + specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:209",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts + packages/plateforme/src/lib/collectes/champs-editables.ts + packages/plateforme/src/lib/collectes/type-contacts-collecte.ts + packages/plateforme/src/components/collecte/editer-collecte-form.tsx + packages/plateforme/src/lib/collectes/email-modification.ts",
       "test": "M1.2/evenement_type_contacts_refuses + M1.2/collecte_type_contacts_modifiables + M1.2/collecte_contacts_avant_illisibles_500 + M1.2/collecte_type_evenement_inconnu + M1.2/collecte_type_evenement_invalide + M1.2/collecte_type_evenement_lecture_500 + M3.1/fiche_get_type_evenement_collecte + M3.1/edition_contacts_avant_illisibles_500 + M1.2 / EditerCollecteForm — type d’événement et contacts de la collecte (lot B1) + M1.2 / dupliquer — type d’événement et contacts de la collecte (lot B1) + packages/plateforme/src/lib/collectes/email-modification.m3-1.test.ts « contact et type d’événement de la collecte : chacun sa ligne dans l’email (lot B1) »",
       "statut": "implemented",
@@ -481,7 +481,7 @@
     },
     {
       "id": "M1.2-benchmark-grain-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2158-2159",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2159-2160",
       "artefact": "supabase/migrations/20261024120000_plateforme_benchmark_registre_grain_collecte.sql (f_benchmark_kg_pax_zd, f_benchmark_single_collecte, f_rapport_benchmark_zd)",
       "test": "C1/benchmark_grain_collecte_fixture + C1/benchmark_parc_segment_type_et_taille_de_la_collecte + C1/benchmark_parc_filtre_type_sur_la_collecte + C1/benchmark_parc_filtre_taille_sur_la_collecte + C1/benchmark_parc_pax_zero_ecarte + C1/benchmark_fiche_point_vous_de_la_collecte + C1/benchmark_fiche_pax_zero_sans_point_vous + BENCH-PDF-9 : collectes à 0 convive hors du parc + BENCH-PDF-10 : les collectes à 0 convive ne comptent plus dans le parc + M3.2/benchmark_single_collecte_tiers_sans_donnee_nouvelle",
       "statut": "implemented",
@@ -497,13 +497,13 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "34d83ae54048a0ffadb80ace6175cc5a3cd0bbf9710544f21a780949457afd97",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "91b17a8401a9c1c878b793c58420719d9453a33fc7661f1b9b73f2cd703d7574",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "df488c17cba483f028f5251958f7c6d1808d95086f630a3903bb7acdfeec53b5",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "8141ddcee2b121871dd2417bd3b200d424d7eb6ceb2a3861438f3e88ecad6d72",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "aabcfbe22f6b9aad2d5ce225d0642a53556abad174e0240583dce0955e7b3db7",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "213fe785c7b10e5168750351836cc6f898df191326d400be409ea77c9b09984e",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e306182509f1b929d8b24573e0ea4e3e4988483c81da818841030e4776f9174",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "63628061ea6f6a5dc701b14dd15fe8607830453d78a0a9a13fbf3fb90ecc7e0f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "cc6c3563a0c2eba14231d519788e019cce5b3cc8b767dd91554b1d7fcde338d7",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "2729e3bfb96ff820dc24c62edb4fd05e5149306f7fd8b12be49cc6503199dc38",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "7c59e8dde2edd7021e6fcd7d1f8aac595db9131d3669540c828293a244587e36",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "6911d943445819f29b739aec4ab39a438920cab2c1d10d91dd47ea04e21433f1",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a"
   }
 }

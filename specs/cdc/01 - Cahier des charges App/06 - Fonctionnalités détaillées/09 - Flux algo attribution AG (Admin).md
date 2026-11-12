@@ -25,7 +25,7 @@ Ce module est exclusivement accessible par le profil `admin_savr`.
 Colonnes de la liste Collectes, dans l'ordre (décision Val 2026-06-30) : **Type · Date · Heure · Traiteur · Pax · Lieu · Statut · bouton Attribuer**. La colonne « Statut TMS » est **retirée de cette vue**. Le filtre « Collectes à attribuer » restreint la liste aux collectes AG en attente d'attribution, triées par **créneau de collecte le plus proche** (`collectes.date_collecte` ASC).
 
 ### Indicateur criticité < 48h (reporté sur « Collectes à attribuer » — décision Val 2026-06-30)
-La criticité < 48h vit désormais sur la vue filtrée « Collectes à attribuer » de la page Collectes (la page dédiée disparaît) : badge rouge **« URGENT »** sur la ligne + ligne surlignée (fond rose pâle) si `date_collecte < now() + 48h` ET attribution non validée. Les lignes urgentes sont **automatiquement remontées en tête** de la liste filtrée, avant le tri chronologique général. Pas de notification email Admin pour ce seuil en V1 (traitement visuel uniquement).
+La criticité < 48h vit désormais sur la vue filtrée « Collectes à attribuer » de la page Collectes (la page dédiée disparaît) : badge rouge **« URGENT »** sur la ligne + ligne surlignée (fond rose pâle) si `now() <= date_collecte < now() + 48h` (créneau dans les 48 h à venir ; un créneau passé n'est plus urgent, décision Val 2026-11-11) ET attribution non validée. Les lignes urgentes sont **automatiquement remontées en tête** de la liste filtrée, avant le tri chronologique général. Pas de notification email Admin pour ce seuil en V1 (traitement visuel uniquement).
 
 ---
 

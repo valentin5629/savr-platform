@@ -104,7 +104,7 @@ Sans cette phase, les collectes restent bloquées au statut `programmee` pour to
 - Stockage PDFs dans Cloudflare R2 (bucket de l'environnement, un dossier par nature de document, URLs pré-signées)
 - Accès PDFs depuis back-office Admin
 
-**Jalon** : une collecte réalisée déclenche la génération automatique des 3 documents au batch J+1. Val vérifie le rendu PDF.
+**Jalon** : une collecte réalisée déclenche la génération automatique des 3 documents dès que les poids sont là (passage toutes les 15 min, décision Val 2026-11-04). Val vérifie le rendu PDF.
 
 ---
 

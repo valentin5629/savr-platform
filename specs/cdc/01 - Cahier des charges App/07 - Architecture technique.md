@@ -188,7 +188,7 @@ Puppeteer (bibliothèque de génération PDF via Chrome headless) ne peut pas to
 ### Architecture
 
 ```
-API Route / batch Vercel Cron (J+1 6h)           ← corrigé 2026-06-10 (ex « Edge Function », décision 9.1.16)
+API Route / batch Vercel Cron (toutes les 15 min, décision Val 2026-11-04)           ← corrigé 2026-06-10 (ex « Edge Function », décision 9.1.16)
     → INSERT plateforme.jobs_pdf (file, cf. §04)
     → worker POST /generate-pdf {template, data} → Railway (service Puppeteer)
     → Génère le PDF

@@ -23,10 +23,10 @@ Tous les modules documentés §01→§15, soit :
   - ⚠ **Go-live : facturation hors plateforme (décision Val 2026-10-22)**. Interrupteur `facturationPlateformeActive()` éteint : le batch J+1 ne prépare aucun brouillon ; le traiteur, l'agence et le gestionnaire de lieux ne voient ni leurs factures ni le badge « en attente de facturation » ; l'email `collecte_programmee` ne donne plus le tarif ZD. Back-office Admin inchangé. Retour sur la plateforme plus tard (échéance non fixée), après : date de départ du batch J+1, raccord de la numérotation avec les factures émises hors plateforme, correction du contrat Pennylane v2.
 - [ ] **Dashboards par rôle** : manager, commercial, gestionnaire lieux, agence, client organisateur (§11)
 - [ ] **Reporting + exports CSV** tous profils (§12)
-- [ ] **Registre réglementaire ZD-only** (Module 20 MVP), bordereaux + attestations batch J+1 (§06.03)
+- [ ] **Registre réglementaire ZD-only** (Module 20 MVP), bordereaux + attestations dès que les poids sont là, passage toutes les 15 min (décision Val 2026-11-04) (§06.03)
 - [ ] **CO₂ ADEME modélisé** : ZD (induit/évité/net) + AG (évité seul, 2,04 kgCO₂e/repas, Base Carbone ADEME), snapshot figé (§04/§11/§12)
 - [ ] **Migration Bubble** : ~1 500 collectes AG + ~175 ZD + lieux + orgas + users (§13)
-- [ ] **Resend** : emails transactionnels (18 templates actifs en seed DB, catalogue §06.02 au 2026-11-02)
+- [ ] **Resend** : emails transactionnels (19 templates actifs en seed DB, catalogue §06.02 au 2026-11-06)
 
 ---
 

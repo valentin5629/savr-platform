@@ -43,7 +43,7 @@ Dimensionné An 1 ([[01 - Volumes attendus]] = 50 users simultanés en pic).
 
 ## Scénario 3 — Batch concurrent ⏸ V1.1
 
-- **Charge** : batch attestations J+1 lancé pendant la charge nominale (scénario 1).
+- **Charge** : batch attestations (toutes les 15 min) lancé pendant la charge nominale (scénario 1).
 - **Critère** : le front continue de répondre dans ses SLA, le batch termine dans son SLA (< 10 min), pas de contention sur le pool DB.
 
 ---

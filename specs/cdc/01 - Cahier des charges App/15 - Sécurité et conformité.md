@@ -129,7 +129,7 @@ Tous les droits RGPD sont exercés via :
 
 Un document "Politique de confidentialité" doit être rédigé et publié avant le go-live. Il documente : les données collectées, leur usage, la durée de conservation, les sous-traitants, les droits des utilisateurs et le contact DPO (ou contact RGPD si pas de DPO désigné).
 
-**Format** : page web accessible sans authentification (`/confidentialite`) + lien sous les écrans de connexion et d'inscription, dans le menu de l'utilisateur (pied de la barre latérale) et dans le pied de page des emails envoyés par la plateforme. L'email de réinitialisation du mot de passe, envoyé par Supabase, porte le lien quand son gabarit hébergé est à jour (console Supabase).
+**Format** : page web accessible sans authentification (`/confidentialite`) + lien sous les écrans de connexion et d'inscription, dans le menu de l'utilisateur (pied de la barre latérale) et dans le pied de page des emails envoyés par la plateforme. L'email de réinitialisation du mot de passe part par Resend depuis le 2026-11-06 (Supabase ne fabrique plus que le lien, `auth.admin.generateLink`), avec le gabarit `reset_password` en base : il porte le lien dans le pied de page commun des emails (`packages/shared/src/email/enveloppe.ts`). Le gabarit `supabase/templates/recovery.html` ne sert plus qu'à un envoi déclenché directement par Supabase Auth (console, instance locale).
 
 **À faire avant go-live** : rédiger ce document (hors scope CDC technique, à déléguer à un juriste ou rédiger avec l'aide de Claude).
 
@@ -249,7 +249,7 @@ Actions obligatoires avant mise en production avec clients réels :
 | DPAs à signer avant go-live | Couverture par CGU fournisseurs | Non-conformité formelle RGPD sans DPA. Risque aggravé en cas d'incident. Procédure simple (30 min max). |
 | `DENY ALL` par défaut sur RLS | Permissions larges restreintes au besoin | Toute permission non documentée = accès refusé. Principe de moindre privilège. |
 | Audit log non modifiable | Modifiable par Admin | Intégrité de la traçabilité — un Admin ne doit pas pouvoir effacer ses propres actions |
-| 2FA V1 pour l'équipe Savr seule *(décision Val 2026-11-04)* | 2FA hors scope V1 ; 2FA pour tous les rôles | Exigence IAM1 du questionnaire sécurité VIPARIS : l'accès du fournisseur aux données client exige un second facteur. Les clients en sont exemptés (aucune exigence, friction inutile), sauf les utilisateurs d'une organisation cochée par l'Admin *(VIPARIS, décision Val 2026-11-10 : exigence IAM3, à la place du SAML)*. |
+| 2FA V1 pour l'équipe Savr et pour les utilisateurs d'une organisation cochée par l'Admin *(décisions Val 2026-11-04 et 2026-11-10)* | 2FA hors scope V1 ; 2FA pour tous les rôles | Exigence IAM1 du questionnaire sécurité VIPARIS : l'accès du fournisseur aux données client exige un second facteur. Les clients en sont exemptés (aucune exigence, friction inutile), sauf les utilisateurs d'une organisation cochée par l'Admin *(VIPARIS, décision Val 2026-11-10 : exigence IAM3, à la place du SAML)*. |
 | Soft delete par défaut | Hard delete immédiat | Permet de corriger une erreur de suppression dans les 48h. Hard delete sur demande RGPD explicite uniquement |
 | Registre déchets sans Trackdéchets V1 | Intégration Trackdéchets V1 | Complexité disproportionnée en V1. Renvoi Veolia en cas d'audit. Trackdéchets V2 si requis réglementairement. |
 

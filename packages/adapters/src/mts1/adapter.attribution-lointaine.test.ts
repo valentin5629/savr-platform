@@ -49,6 +49,7 @@ interface CollecteSimulee {
   date_collecte: string;
   statut: string;
   statut_tms: string;
+  statut_tms_at?: string;
   prestataire_logistique_id: string;
   tournee: {
     id: string;
@@ -98,6 +99,7 @@ function baseSimulee(
     op: string,
     data: Ligne,
     filtres: Array<[string, string, unknown]>,
+    colonnes = '',
   ): { data: unknown; error: { code?: string; message: string } | null } {
     const valeur = (col: string) =>
       filtres.find(([, c]) => c === col)?.[2] as unknown;
@@ -179,6 +181,10 @@ function baseSimulee(
             id: c.id,
             statut: c.statut,
             statut_tms: c.statut_tms,
+            // Rendue seulement si la requête la demande, comme en base.
+            ...(/\bstatut_tms_at\b/.test(colonnes)
+              ? { statut_tms_at: c.statut_tms_at ?? null }
+              : {}),
             prestataire_logistique_id: c.prestataire_logistique_id,
             collecte_tournees: [{ rang: 1, tournees: { ...c.tournee } }],
           })),
@@ -192,13 +198,15 @@ function baseSimulee(
     let op = 'select';
     let data: Ligne = {};
     const filtres: Array<[string, string, unknown]> = [];
-    const resoudre = () => Promise.resolve(executer(table, op, data, filtres));
+    let colonnes = '';
+    const resoudre = () =>
+      Promise.resolve(executer(table, op, data, filtres, colonnes));
     const filtre = (nom: string) => (c: string, v: unknown) => (
       filtres.push([nom, c, v]),
       b
     );
     const b: Record<string, unknown> = {
-      select: () => b,
+      select: (c?: string) => ((colonnes = c ?? ''), b),
       insert: (d: Ligne) => ((op = 'insert'), (data = d), b),
       update: (d: Ligne) => ((op = 'update'), (data = d), b),
       eq: filtre('eq'),
@@ -244,10 +252,15 @@ function commande(id: string, tourId?: string, statut = 'VALIDATED') {
   } as Mts1CustomerOrder;
 }
 
-function tournee(tourId: string, dispatch: string, transporteur?: string) {
+function tournee(
+  tourId: string,
+  dispatch: string,
+  transporteur?: string,
+  dispatchedAt?: string,
+) {
   return {
     tourId,
-    status: { dispatch, validation: 'VALIDATED' },
+    status: { dispatch, validation: 'VALIDATED', dispatchedAt },
     stops: [],
     ...(transporteur
       ? { dispatch: { carrierShareableCode: transporteur } }
@@ -469,6 +482,28 @@ describe('Relève MTS-1 — attribution lointaine (J+3 à J+30)', () => {
     expect(
       base.journal.filter((l) => l.startsWith('SYNC_ATTRIBUTION_FAILED:')),
     ).toHaveLength(1);
+  });
+});
+
+describe('Relève MTS-1 — réacceptation au-delà de la mémoire de 7 jours', () => {
+  it('reacceptation_lointaine — collecte remise en attente après l’acceptation, mémoire purgée : reste « en attente »', async () => {
+    const c = collecte('col-1', '2027-03-26', {
+      statut_tms: 'attribuee_en_attente_acceptation',
+      statut_tms_at: '2027-03-18T12:00:00.000Z',
+    });
+    const base = baseSimulee([c]);
+    armer([commande('CMD-col-1', 'TOUR-X')], {
+      'TOUR-X': tournee(
+        'TOUR-X',
+        'ACCEPTED',
+        undefined,
+        '2027-03-10T09:00:00.000Z',
+      ),
+    });
+
+    await relever(base);
+
+    expect(c.statut_tms).toBe('attribuee_en_attente_acceptation');
   });
 });
 

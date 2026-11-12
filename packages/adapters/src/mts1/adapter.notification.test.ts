@@ -29,12 +29,27 @@ const ADAPTER = {
 
 type Ligne = Record<string, unknown>;
 
-function baseSimulee(init: { statutTms: string; commande?: string }) {
+/** Les champs de `ligne` nommés dans `<embed>!inner(…)` de la sélection. */
+function colonnesDe(selection: string, embed: string, ligne: Ligne): Ligne {
+  const m = new RegExp(`${embed}!inner\\(([^)]*)\\)`).exec(selection);
+  if (!m) return {};
+  const noms = m[1]!.split(',').map((c) => c.trim());
+  return Object.fromEntries(
+    Object.entries(ligne).filter(([k]) => noms.includes(k)),
+  );
+}
+
+function baseSimulee(init: {
+  statutTms: string;
+  statutTmsAt?: string;
+  commande?: string;
+}) {
   const etat = {
     collecte: {
       id: 'col-001',
       statut: 'programmee',
       statut_tms: init.statutTms,
+      statut_tms_at: init.statutTmsAt ?? null,
       prestataire_logistique_id: PRESTA_MTS1 as string,
     },
     tournee: {
@@ -55,6 +70,7 @@ function baseSimulee(init: { statutTms: string; commande?: string }) {
     op: string,
     data: Ligne,
     f: Ligne,
+    colonnes = '',
   ): { data: unknown; error: { code?: string; message: string } | null } {
     if (table === 'flux_dechets' || table === 'parametres_algo') {
       return { data: [], error: null };
@@ -109,7 +125,9 @@ function baseSimulee(init: { statutTms: string; commande?: string }) {
                   {
                     collecte_id: etat.collecte.id,
                     rang: t.rang,
-                    collectes: { ...etat.collecte },
+                    // Seules les colonnes demandées : une colonne oubliée
+                    // dans la requête manque ici comme en base.
+                    collectes: colonnesDe(colonnes, 'collectes', etat.collecte),
                   },
                 ],
               },
@@ -138,10 +156,12 @@ function baseSimulee(init: { statutTms: string; commande?: string }) {
   function requete(table: string) {
     let op = 'select';
     let data: Ligne = {};
+    let colonnes = '';
     const f: Ligne = {};
-    const resoudre = () => Promise.resolve(executer(table, op, data, f));
+    const resoudre = () =>
+      Promise.resolve(executer(table, op, data, f, colonnes));
     const b: Record<string, unknown> = {
-      select: () => b,
+      select: (c?: string) => ((colonnes = c ?? ''), b),
       insert: (d: Ligne) => ((op = 'insert'), (data = d), b),
       update: (d: Ligne) => ((op = 'update'), (data = d), b),
       upsert: (d: Ligne) => ((op = 'upsert'), (data = d), b),
@@ -193,11 +213,19 @@ function commande(
 function tournee(
   tourId: string,
   dispatch: string,
-  options: { transporteur?: string; commandes?: string[] } = {},
+  options: {
+    transporteur?: string;
+    commandes?: string[];
+    dispatchedAt?: string;
+  } = {},
 ): Mts1Tour {
   return {
     tourId,
-    status: { dispatch, validation: 'VALIDATED' },
+    status: {
+      dispatch,
+      validation: 'VALIDATED',
+      dispatchedAt: options.dispatchedAt ?? null,
+    },
     stops: (options.commandes ?? []).map((c, i) => ({
       stopId: `S-${i}`,
       stopType: 'CUSTOMER_ORDER',
@@ -337,6 +365,67 @@ describe('Notification MTS-1 — relecture de la commande désignée', () => {
       base.journal.filter((l) => l.startsWith('NOTIFICATION_ORDER_FAILED:')),
     ).toHaveLength(1);
     expect(base.etat.collecte.statut_tms).toBe('a_attribuer');
+  });
+});
+
+describe('Notification MTS-1 — réacceptation après une modification de créneau', () => {
+  // Collecte remise « en attente d'acceptation » par Savr à 12 h (modification de
+  // créneau) ; la mémoire du dernier état vu a été purgée (7 jours) ; la tournée
+  // est toujours « acceptée » chez MTS-1.
+  const REMISE_EN_ATTENTE = '2027-04-01T12:00:00.000Z';
+
+  it('M1.5b/notification_reacceptation_anterieure — acceptation antérieure à la remise en attente : la collecte reste « en attente »', async () => {
+    const base = baseSimulee({
+      statutTms: 'attribuee_en_attente_acceptation',
+      statutTmsAt: REMISE_EN_ATTENTE,
+    });
+    armer([commande('CMD-1', 'TOUR-X')], {
+      'TOUR-X': tournee('TOUR-X', 'ACCEPTED', {
+        dispatchedAt: '2027-03-25T09:00:00.000Z',
+      }),
+    });
+
+    await relever(base, { commandes: ['CMD-1'], tournee: 'TOUR-X' });
+
+    expect(base.etat.collecte.statut_tms).toBe(
+      'attribuee_en_attente_acceptation',
+    );
+  });
+
+  it.each([
+    ['postérieure à la remise en attente', '2027-04-01T15:00:00.000Z'],
+    ['non fournie par MTS-1', undefined],
+  ])(
+    'M1.5b/notification_reacceptation_posterieure — acceptation %s : « acceptée »',
+    async (_cas, dispatchedAt) => {
+      const base = baseSimulee({
+        statutTms: 'attribuee_en_attente_acceptation',
+        statutTmsAt: REMISE_EN_ATTENTE,
+      });
+      armer([commande('CMD-1', 'TOUR-X')], {
+        'TOUR-X': tournee('TOUR-X', 'ACCEPTED', { dispatchedAt }),
+      });
+
+      await relever(base, { commandes: ['CMD-1'], tournee: 'TOUR-X' });
+
+      expect(base.etat.collecte.statut_tms).toBe('acceptee');
+    },
+  );
+
+  it('M1.5b/notification_reacceptation_a_attribuer — collecte « à attribuer » : l’heure d’acceptation n’empêche rien', async () => {
+    const base = baseSimulee({
+      statutTms: 'a_attribuer',
+      statutTmsAt: REMISE_EN_ATTENTE,
+    });
+    armer([commande('CMD-1', 'TOUR-X')], {
+      'TOUR-X': tournee('TOUR-X', 'ACCEPTED', {
+        dispatchedAt: '2027-03-25T09:00:00.000Z',
+      }),
+    });
+
+    await relever(base, { commandes: ['CMD-1'], tournee: 'TOUR-X' });
+
+    expect(base.etat.collecte.statut_tms).toBe('acceptee');
   });
 });
 

@@ -56,7 +56,16 @@ export interface FiltresBenchmarkFiche {
 }
 
 export type BenchmarkFiche =
-  | { etat: 'ok'; flux: FluxBenchmarkFiche }
+  | {
+      etat: 'ok';
+      flux: FluxBenchmarkFiche;
+      /**
+       * Collectes du segment comparé : le plus grand effectif parmi les flux
+       * (segments sous le seuil k-anonymat exclus). Imprimé dans l'annexe du
+       * rapport de recyclage @4.
+       */
+      effectif?: number;
+    }
   /** Collecte visible sous la RLS, mais refusée par la fonction : pas de radar pour elle. */
   | { etat: 'sans_radar' }
   | { etat: 'introuvable' }
@@ -97,6 +106,7 @@ export async function chargerBenchmarkFiche(
   if (parc.etat !== 'ok') return parc;
   return {
     etat: 'ok',
+    effectif: parc.effectif,
     flux: Object.fromEntries(
       ((data ?? []) as LigneSingle[]).map((l) => [
         l.flux_code,
@@ -119,22 +129,31 @@ export async function chargerParcBenchmark(
   ctx: UserAuthContext,
   filtres: FiltresBenchmarkFiche,
 ): Promise<
-  | { etat: 'ok'; parc: Record<string, number> }
+  | { etat: 'ok'; parc: Record<string, number>; effectif: number }
   | Extract<BenchmarkFiche, { etat: 'filtre_interdit' | 'erreur' }>
 > {
   let parc: Record<string, number>;
+  let effectif = 0;
   try {
+    const lignes = (await loadBenchmark(supabase, ctx, {
+      tailleCodes: filtres.tailleCodes,
+      bracket: null,
+      typeIds: filtres.typeIds,
+      lieuIds: filtres.lieuIds,
+      traiteurIds: filtres.traiteurIds,
+    })) as BenchmarkRow[];
     // aggregateBenchmarkPerFlux (R24) recombine les segments type × taille en une
     // valeur par flux ; un flux sous le seuil k-anonymat est absent de la map.
-    parc = aggregateBenchmarkPerFlux(
-      (await loadBenchmark(supabase, ctx, {
-        tailleCodes: filtres.tailleCodes,
-        bracket: null,
-        typeIds: filtres.typeIds,
-        lieuIds: filtres.lieuIds,
-        traiteurIds: filtres.traiteurIds,
-      })) as BenchmarkRow[],
-    );
+    parc = aggregateBenchmarkPerFlux(lignes);
+    // Effectif : collectes des segments visibles, flux par flux ; le plus grand.
+    const parFlux = new Map<string, number>();
+    for (const l of lignes) {
+      parFlux.set(
+        l.flux_code,
+        (parFlux.get(l.flux_code) ?? 0) + (Number(l.nb_collectes_segment) || 0),
+      );
+    }
+    effectif = Math.max(0, ...parFlux.values());
   } catch (e) {
     // Deux erreurs métier atteignables ici (403), une par famille de rôles : la
     // garde de périmètre pour le gestionnaire (§06.05), la garde §04
@@ -149,7 +168,7 @@ export async function chargerParcBenchmark(
     throw e;
   }
 
-  return { etat: 'ok', parc };
+  return { etat: 'ok', parc, effectif };
 }
 
 /** 403 au libellé FIXE, choisi sur le motif (écran et régénération du rapport). */

@@ -131,6 +131,8 @@ const RADAR = {
     },
   ],
   benchmark_legende: 'période 13/10/2024 → 13/10/2026 · lieux : tous',
+  benchmark_effectif: 42,
+  benchmark_criteres: 'taille M',
   filtres_benchmark: {
     periode_debut: '2024-10-13',
     periode_fin: '2026-10-13',
@@ -172,9 +174,10 @@ describe('M1.6 / rapport de recyclage fabriqué au clic — accès (RPT-04)', ()
     );
     expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(Buffer.from(await res.arrayBuffer()).equals(PDF)).toBe(true);
-    // Données mesurées lues en service-role, une fois l'accès établi ; le
-    // bordereau de la page 2 testé sous la RLS du demandeur (§12 §1.7).
-    expect(mockPayload).toHaveBeenCalledWith(admin, rls, 'c1');
+    // Données mesurées lues en service-role, une fois l'accès établi ; l'annexe
+    // suit le rapport quel que soit le demandeur (C2, Val 2026-11-12) : plus
+    // aucune lecture du bordereau sous sa RLS.
+    expect(mockPayload).toHaveBeenCalledWith(admin, 'c1');
     expect(mockPdf.mock.calls[0]![0]).toBe('rapport-recyclage-zd');
   });
 
@@ -362,6 +365,9 @@ describe('M1.6 / rapport fabriqué au clic — avec ou sans radar, au choix de c
         options: { benchmark: true },
         benchmark_flux: RADAR.benchmark_flux,
         benchmark_legende: RADAR.benchmark_legende,
+        // Annexe @4 : effectif du segment et critères en clair.
+        benchmark_effectif: 42,
+        benchmark_criteres: 'taille M',
       });
     }
   });

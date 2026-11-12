@@ -1,18 +1,20 @@
-// Données du rapport de recyclage ZD (gabarit @3), rassemblées au moment où un
+// Données du rapport de recyclage ZD (gabarit @4), rassemblées au moment où un
 // utilisateur le télécharge — décision Val 2026-10-16 : plus aucun rapport n'est
 // fabriqué automatiquement, chaque téléchargement le fabrique au clic.
 //
 // Les données MESURÉES sont celles figées à la clôture : taux, CO₂, taux de
-// captation et facteurs d'équivalence sur la collecte, pesées dans
-// `collecte_flux`, page 2 = l'instantané `bordereaux_savr` écrit par le batch J+1
-// (le même que le bordereau PDF). Noms et logos sont lus au moment du clic.
+// captation, facteurs d'équivalence et forfait transport sur la collecte, pesées
+// dans `collecte_flux`. Le numéro et la date du bordereau viennent de
+// l'instantané `bordereaux_savr`. Le code déchet, l'exutoire habituel et le code
+// R/D de chaque flux sont lus dans le référentiel `flux_dechets` au clic et
+// figés dans le PDF fabriqué. Noms et logos sont lus au moment du clic.
 //
 // Lecture en service-role : l'appelant a déjà vérifié, sous l'identité du
-// demandeur, que la collecte et son rapport lui sont visibles. Le bordereau a
-// sa propre RLS, plus étroite que celle du rapport (traiteur opérationnel tiers,
-// gestionnaire qui programme hors de ses lieux) : la page 2 n'est jointe que si
-// le demandeur le lit sous son identité, sinon le rapport s'arrête à la page 1
-// (décision Val 2026-10-27, §12 §1.7).
+// demandeur, que la collecte et son rapport lui sont visibles. La page 2 est
+// l'annexe technique (décisions Val 2026-11-12) : elle remplace le bordereau de
+// pesée (C1) et suit le rapport, numéro du bordereau compris, quel que soit le
+// demandeur (C2) — la règle qui retirait la page 2 quand le demandeur ne lisait
+// pas le bordereau sous sa RLS (2026-10-27) ne vaut plus.
 
 import type { SupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { formatDateParis } from '@savr/shared/src/temps/index.js';
@@ -56,13 +58,12 @@ export function buildEquivalences(
 
 interface CollecteRapportRow {
   date_collecte: string;
-  // Convives de LA collecte, imprimés en page 1 et sur le bordereau de la page 2
-  // (Val Q5 du 2026-10-24), comme le kg/pax du radar.
+  // Convives de LA collecte, imprimés en page 1 et dans l'annexe (Val Q5 du
+  // 2026-10-24), comme le kg/pax du radar.
   pax: number | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   co2_induit_kg: number | null;
-  co2_net_kg: number | null;
   energie_primaire_evitee_kwh: number | null;
   co2_facteurs_snapshot: Record<string, unknown> | null;
   caps_appliques: Record<string, unknown> | null;
@@ -94,18 +95,50 @@ interface BordereauRow {
   numero: string | null;
   date_emission: string | null;
   date_collecte: string | null;
-  producteur_raison_sociale: string | null;
-  producteur_siret: string | null;
-  producteur_adresse: string | null;
-  transporteur_nom: string | null;
-  exutoire_nom: string | null;
-  detail_flux: unknown;
-  poids_total_kg: number | null;
 }
 
 interface FluxRow {
   poids_reel_kg: number | null;
-  flux: { nom: string; code: string } | null;
+  flux: { code: string } | null;
+}
+
+/** Ligne du référentiel `flux_dechets` (5 flux, contrainte CHECK sur le code). */
+interface ReferentielFluxRow {
+  code: string;
+  nom: string;
+  code_dechet_europeen: string | null;
+  exutoire: string | null;
+  exutoire_adresse: string | null;
+  code_traitement: string | null;
+  filiere_valorisation: string | null;
+}
+
+/**
+ * Commune d'une adresse du référentiel, au format « voie, CP ville » : ce qui
+ * suit la dernière virgule, sans le code postal. Autre forme : null.
+ */
+export function communeDeLAdresse(adresse: string | null): string | null {
+  if (!adresse) return null;
+  const fin = adresse.slice(adresse.lastIndexOf(',') + 1).trim();
+  const m = /^\d{5}\s+(.+)$/.exec(fin);
+  return m?.[1]?.trim() || null;
+}
+
+/**
+ * Forfait transport ajouté par prudence au CO₂ induit, figé à la clôture dans
+ * `co2_facteurs_snapshot.forfait_collecte` (km aller-retour × kg CO₂e/km).
+ */
+export function forfaitTransport(
+  snapshot: Record<string, unknown> | null,
+): { km: number; fe_camion_kg_km: number } | null {
+  const f = (snapshot as { forfait_collecte?: Record<string, unknown> } | null)
+    ?.forfait_collecte;
+  if (!f) return null;
+  const km = Number(f.km);
+  const fe = Number(f.fe_camion);
+  return Number.isFinite(km) && Number.isFinite(fe) && km > 0 && fe > 0
+    ? { km, fe_camion_kg_km: fe }
+    : null;
 }
 
 export type PayloadRapport =
@@ -182,21 +215,18 @@ export async function enTeteRapport(ev: EvenementRapportRow) {
 
 /**
  * Rapport de recyclage d'une collecte ZD, version SANS radar. L'appelant ajoute
- * le radar quand le demandeur l'a coché (cf. rapport-a-la-demande). `lecteur` =
- * client du demandeur, sous sa RLS : il dit seulement si le bordereau lui est
- * lisible.
+ * le radar quand le demandeur l'a coché (cf. rapport-a-la-demande).
  */
 export async function construirePayloadRapport(
   admin: SupabaseClient,
-  lecteur: SupabaseClient,
   collecteId: string,
 ): Promise<PayloadRapport> {
-  const [colRes, bordRes, fluxRes, lisibleRes] = await Promise.all([
+  const [colRes, bordRes, fluxRes, refRes] = await Promise.all([
     admin
       .from('collectes')
       .select(
         `
-      date_collecte, pax, taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg,
+      date_collecte, pax, taux_recyclage, co2_evite_kg, co2_induit_kg,
       energie_primaire_evitee_kwh, co2_facteurs_snapshot, caps_appliques,
       evenements ( ${SELECT_EVENEMENT_RAPPORT} )`,
       )
@@ -204,24 +234,25 @@ export async function construirePayloadRapport(
       .maybeSingle(),
     admin
       .from('bordereaux_savr')
-      .select(
-        'numero, date_emission, date_collecte, producteur_raison_sociale, producteur_siret, producteur_adresse, transporteur_nom, exutoire_nom, detail_flux, poids_total_kg',
-      )
+      .select('numero, date_emission, date_collecte')
       .eq('collecte_id', collecteId)
       .order('version', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // borne-par-nature: une ligne par flux de la collecte, 5 au plus
     admin
       .from('collecte_flux')
-      .select('poids_reel_kg, flux:flux_id ( nom, code )')
+      .select('poids_reel_kg, flux:flux_id ( code )')
       .eq('collecte_id', collecteId),
-    lecteur
-      .from('bordereaux_savr')
-      .select('id')
-      .eq('collecte_id', collecteId)
-      .limit(1),
+    // borne-par-nature: 5 flux, contrainte CHECK sur flux_dechets.code
+    admin
+      .from('flux_dechets')
+      .select(
+        'code, nom, code_dechet_europeen, exutoire, exutoire_adresse, code_traitement, filiere_valorisation',
+      )
+      .order('ordre_affichage'),
   ]);
-  for (const r of [colRes, bordRes, fluxRes, lisibleRes]) {
+  for (const r of [colRes, bordRes, fluxRes, refRes]) {
     if (r.error) return { ok: false, code: 'DB_ERROR', erreur: r.error };
   }
 
@@ -230,19 +261,30 @@ export async function construirePayloadRapport(
   const ev = collecte?.evenements;
   if (!collecte || !ev || !bordereau) return { ok: false, code: 'INCOMPLET' };
 
-  const flux = ((fluxRes.data ?? []) as unknown as FluxRow[])
-    .filter((f) => f.poids_reel_kg != null)
-    .map((f) => ({
-      nom: f.flux?.nom ?? '',
-      code: f.flux?.code ?? undefined,
-      poids_kg: Number(f.poids_reel_kg),
-    }));
+  // Les 5 flux du référentiel, toujours imprimés : un flux non pesé vaut 0 kg
+  // (C5, Val 2026-11-12).
+  const poidsParCode = new Map<string, number>();
+  for (const f of (fluxRes.data ?? []) as unknown as FluxRow[]) {
+    if (f.flux?.code && f.poids_reel_kg != null) {
+      poidsParCode.set(
+        f.flux.code,
+        (poidsParCode.get(f.flux.code) ?? 0) + Number(f.poids_reel_kg),
+      );
+    }
+  }
+  const flux = ((refRes.data ?? []) as ReferentielFluxRow[]).map((r) => ({
+    nom: r.nom,
+    code: r.code,
+    poids_kg: poidsParCode.get(r.code) ?? 0,
+    code_dechet_europeen: r.code_dechet_europeen,
+    exutoire: r.exutoire,
+    exutoire_commune: communeDeLAdresse(r.exutoire_adresse),
+    code_traitement: r.code_traitement,
+    filiere_valorisation: r.filiere_valorisation,
+  }));
   const poidsTotalKg = flux.reduce((s, f) => s + f.poids_kg, 0);
 
   const enTete = await enTeteRapport(ev);
-  const { dateEvenement, adresseLieu } = enTete;
-  const lieu = ev.lieux;
-  const bordereauLisible = (lisibleRes.data ?? []).length > 0;
 
   return {
     ok: true,
@@ -253,43 +295,20 @@ export async function construirePayloadRapport(
       taux_recyclage: collecte.taux_recyclage,
       flux,
       poids_total_kg: poidsTotalKg,
+      // Induit et évité présentés séparément, jamais soustraits (plus de net).
       co2_evite_kg: collecte.co2_evite_kg,
       co2_induit_kg: collecte.co2_induit_kg,
-      co2_net_kg: collecte.co2_net_kg,
       energie_primaire_evitee_kwh: collecte.energie_primaire_evitee_kwh,
       equivalences: buildEquivalences(
         collecte.co2_evite_kg,
         collecte.energie_primaire_evitee_kwh,
         collecte.co2_facteurs_snapshot,
       ),
+      forfait_transport: forfaitTransport(collecte.co2_facteurs_snapshot),
       caps_appliques: collecte.caps_appliques ?? undefined,
+      bordereau_numero: bordereau.numero ?? '',
+      bordereau_date_emission: dateFr(bordereau.date_emission),
       options: { benchmark: false },
-      // Page 2 = instantané du bordereau émis par le batch J+1, si le demandeur
-      // le lit.
-      bordereau: bordereauLisible
-        ? {
-            numero: bordereau.numero ?? '',
-            date_emission: dateFr(bordereau.date_emission),
-            date_collecte: dateFr(
-              bordereau.date_collecte ?? collecte.date_collecte,
-            ),
-            date_evenement: dateEvenement,
-            nom_evenement: ev.nom_evenement,
-            lieu_nom: lieu?.nom ?? '',
-            lieu_adresse: adresseLieu,
-            producteur_raison_sociale:
-              bordereau.producteur_raison_sociale ?? '',
-            producteur_siret: bordereau.producteur_siret,
-            producteur_adresse: bordereau.producteur_adresse ?? '',
-            transporteur_nom: bordereau.transporteur_nom ?? 'Non renseigné',
-            exutoire_nom: bordereau.exutoire_nom ?? '',
-            nb_pax: convivesImprimes(collecte.pax),
-            flux: Array.isArray(bordereau.detail_flux)
-              ? bordereau.detail_flux
-              : [],
-            poids_total_kg: Number(bordereau.poids_total_kg ?? poidsTotalKg),
-          }
-        : null,
     },
   };
 }

@@ -184,6 +184,14 @@
       "test": "M4.2 / export ZIP des bordereaux au-delà du plafond d'identifiants",
       "statut": "implemented",
       "libelle": "Export ZIP des bordereaux quand la période filtrée porte plus de collectes qu'un filtre in.(…) n'en accepte (402 identifiants échouent, 390 passent : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) : les collectes partent par lots de 100. Le refus « Trop de bordereaux (N) » et le ZIP restent rendus ; un lot en échec rend une erreur, ni ZIP partiel ni trace."
+    },
+    {
+      "id": "M4.2-zip-bordereaux-statuts-retenus",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
+      "artefact": "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts (bordereaux lus avec in('statut', ['emis', 'corrige']))",
+      "test": "M4.2 / export ZIP des bordereaux : statuts retenus",
+      "statut": "implemented",
+      "libelle": "Export ZIP des bordereaux : il porte les bordereaux émis et corrigés de la période, eux seuls, soit la règle « bordereau disponible » du registre (bordereauDisponible). Un brouillon ou un bordereau annulé n'y entre pas ; une période qui n'a que ceux-là répond « Aucun bordereau sur la période »."
     }
   ],
   "cdc_source_hash": {

@@ -83,6 +83,22 @@ const abandonne = (ids: string) =>
 const nonAbandonne = (ids: string) =>
   `id.not.in.(${ids}),statut_tms.neq.non_envoye,tms_reference.not.is.null`;
 
+/**
+ * Collectes à l'envoi abandonné que le filtre accepte au plus. Leurs
+ * identifiants partent dans l'URL de la requête, et cette liste-là ne se découpe
+ * pas en lots : elle fait partie du filtre d'une liste triée et paginée. Or
+ * l'API de données recopie l'URL dans un en-tête de sa réponse, et la lecture
+ * échoue passé 16 Ko d'en-têtes (« fetch failed », cf. l'en-tête de
+ * `lib/pdf/selection-par-pages.ts`). Mesuré sur savr-dev le 2026-11-12 : la
+ * requête de la liste Collectes Admin passe avec 360 identifiants (URL de
+ * 15 388 caractères) et échoue avec 372 (15 856). Chaque identifiant pèse 39
+ * caractères, qu'il vienne d'ici ou d'un autre filtre de la barre (lieux,
+ * traiteurs cochés) : 250 en laisse une centaine aux autres filtres. Au-delà,
+ * `filtreStatutsAdmin` refuse : mieux vaut une erreur qui dit sa cause qu'une
+ * requête qui échoue sans la dire.
+ */
+export const MAX_ENVOIS_ABANDONNES_FILTRE = 250;
+
 // Statuts qu'un Admin peut filtrer : un brouillon n'apparaît pas côté Admin.
 const CLES_FILTRABLES: readonly StatutCollecteAdmin[] = [
   'creee',
@@ -104,6 +120,10 @@ const CLES_FILTRABLES: readonly StatutCollecteAdmin[] = [
  * rien de valide n'est demandé. `idsEnvoiAbandonne` : collectes dont l'ordre de
  * création est abandonné (`lireCollectesEnvoiAbandonne`), validées en UUID ici
  * car elles partent dans un `or=(…)` non paramétré.
+ *
+ * Lève une erreur quand « Créée » ou « Programmée » est choisie sans l'autre et
+ * que plus de `MAX_ENVOIS_ABANDONNES_FILTRE` identifiants devraient partir dans
+ * l'URL. Les autres sélections ne les y mettent pas : elles ne sont pas bornées.
  */
 export function filtreStatutsAdmin(
   cles: readonly string[],
@@ -129,7 +149,13 @@ export function filtreStatutsAdmin(
   if (creee === programmee) {
     return { statuts: creee ? ['programmee', ...autres] : autres };
   }
-  const ids = idsEnvoiAbandonne.filter(estUuid).join(',');
+  const abandonnes = idsEnvoiAbandonne.filter(estUuid);
+  if (abandonnes.length > MAX_ENVOIS_ABANDONNES_FILTRE) {
+    throw new Error(
+      `filtre de statut : ${abandonnes.length} collectes à l'envoi abandonné, ${MAX_ENVOIS_ABANDONNES_FILTRE} au plus dans une requête`,
+    );
+  }
+  const ids = abandonnes.join(',');
   const moitie = creee
     ? ids
       ? `and(statut.eq.programmee,or(and(${DEMANDE_NON_ENVOYEE}),and(${abandonne(ids)})))`

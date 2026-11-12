@@ -150,15 +150,6 @@ export function estUrgente(row: CollecteRow): boolean {
   );
 }
 
-// Urgences (non acceptées par le prestataire, < 48h) remontées en tête de liste (§06.09 §1).
-// Tri stable → l'ordre reçu (celui de la colonne triée) est conservé au sein
-// des urgentes comme des autres.
-export function urgentesEnTete(rows: CollecteRow[]): CollecteRow[] {
-  return [...rows].sort(
-    (a, b) => Number(estUrgente(b)) - Number(estUrgente(a)),
-  );
-}
-
 function poidsTotalZd(row: CollecteRow): number {
   return row.collecte_flux.reduce((s, f) => s + (f.poids_reel_kg ?? 0), 0);
 }

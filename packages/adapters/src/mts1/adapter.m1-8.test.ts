@@ -9,7 +9,7 @@ import { stuffSimule, tourSimule } from './mock-tour.js';
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 // Tours dans la forme mesurée le 2026-10-13 (valeurs inventées) : kilos dans
-// `quantityAfterPickup`, sur l'arrêt d'enlèvement de la commande.
+// `quantityAfterDelivery`, sur l'arrêt d'enlèvement de la commande.
 const TOUR_POIDS_BAS: Mts1Tour = tourSimule({
   tourId: 'MTS1-TOUR-M18-001',
   customerOrderId: 'MTS1-ORDER-M18-VALIDATED',

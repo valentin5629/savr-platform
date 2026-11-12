@@ -25,7 +25,7 @@ import { stuffSimule, tourSimule } from './mock-tour.js';
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 // Tours dans la forme mesurée le 2026-10-13 (valeurs inventées) : les stuffs sont
 // sur l'arrêt d'enlèvement ET répétés sur l'arrêt de dépôt, les kilos dans
-// `quantityAfterPickup`.
+// `quantityAfterDelivery` (`quantityAfterPickup` à 1, mesuré le 2026-11-12).
 
 const TOUR_NOMINAL: Mts1Tour = tourSimule({
   tourId: 'MTS1-TOUR-ZD-001',

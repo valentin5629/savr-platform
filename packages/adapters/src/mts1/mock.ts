@@ -57,9 +57,10 @@ export interface Mts1CustomerOrder {
 // `weight`, aucun stuff de clé `weight` : la forme lue jusque-là n'existait pas.
 
 // Marchandise d'un arrêt. `quantityAfterPickup` et `quantityAfterDelivery` valent
-// `null` tant que le chauffeur n'a rien saisi ; sur le seul tour de déchets
-// terminé du compte, ce sont eux qui portent les kilos, alors que
-// `quantity` vaut 0 et `measurement.weight` 0.
+// `null` tant que le chauffeur n'a rien saisi. Les kilos d'un flux sont dans
+// `quantityAfterDelivery` (lu par Bubble ; mesuré le 2026-11-12 :
+// `quantityAfterPickup` à 1 pour chaque flux) ; `quantity` et
+// `measurement.weight` valent 0.
 export interface Mts1StopStuff {
   name: string;
   task?: string;

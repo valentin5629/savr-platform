@@ -1,5 +1,5 @@
 {
-  "_description": "Tour terminé aux pesées incomplètes : les flux sont présents mais `quantityAfterPickup` vaut null (le chauffeur n'a rien saisi) ; seul le stuff camion est renseigné. Batch J+1 doit skipper. Escalade Admin si > 48h. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterPickup` (`quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff.",
+  "_description": "Tour terminé aux pesées incomplètes : les flux sont présents mais `quantityAfterDelivery` vaut null (le chauffeur n'a rien saisi) ; seul le stuff camion est renseigné. Batch J+1 doit skipper. Escalade Admin si > 48h. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterDelivery`, comme les lit Bubble (`quantityAfterPickup` vaut 1 pour chaque flux pesé, mesuré le 2026-11-12 ; `quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff.",
   "tour": {
     "tourId": "MTS1-TOUR-INCOMPLETE-001",
     "tourNumber": "26/06-11-1",
@@ -212,7 +212,7 @@
     }
   },
   "_assertions": [
-    "tour terminé mais aucun flux n'a de quantityAfterPickup (hors <volume_du_camion>)",
+    "tour terminé mais aucun flux n'a de quantityAfterDelivery (hors <volume_du_camion>)",
     "batch J+1 skippe la collecte : jamais de bordereau avec 0 pesée",
     "escalade saisie manuelle Admin si skip > 48h (R9)",
     "aucune ligne pesees_tournees écrite = pesées incomplètes"

@@ -1302,9 +1302,12 @@ export class AdapterMts1 implements LogistiqueProvider {
    * Pesées de l'arrêt d'enlèvement → `pesees_tournees`, clé `(tournée, arrêt,
    * flux)`. Rend `true` si une pesée a été écrite ou modifiée.
    *
-   * Le poids d'un flux est `quantityAfterPickup` (décision Val 2026-10-13 ;
-   * mesuré sur UN tour de déchets terminé : 17, 2, 35, 9 et 19 kg, `quantity` et
-   * `measurement.weight` à 0 ; non recoupé avec ce que lit Bubble). `null` : le
+   * Le poids d'un flux est `quantityAfterDelivery`, comme dans Bubble (action
+   * « RetrieveWeightsFromTMS », relue le 2026-11-12 : premier stuff du nom du
+   * flux, `quantityAfterDelivery`). Mesuré le 2026-11-12 sur un tour de déchets
+   * du compte de démonstration : `quantityAfterPickup` à 1 pour chaque flux, les
+   * kilos dans `quantityAfterDelivery` ; `quantity` et `measurement.weight` à 0.
+   * `quantityAfterPickup`, lu jusque-là, écrivait 1 kg partout. `null` : le
    * chauffeur n'a rien saisi. 0 : flux non pesé, aucune ligne (décision Val
    * 2026-10-13) — un tour validé sans saisie ne doit pas produire un bordereau à
    * 0 kg ; ce que MTS-1 renvoie dans ce cas n'est pas mesuré.
@@ -1346,7 +1349,7 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
 
       const fluxId = fluxById.get(fluxCode);
-      const poids = stuff.quantityAfterPickup;
+      const poids = stuff.quantityAfterDelivery;
       if (!fluxId || typeof poids !== 'number' || !(poids > 0)) continue;
       lues.set(fluxId, { fluxId, fluxCode, poids });
     }

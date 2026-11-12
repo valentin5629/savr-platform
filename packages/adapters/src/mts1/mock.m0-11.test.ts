@@ -208,7 +208,8 @@ describe('M0.11 / MTS-1 — pesées incomplètes', () => {
     const fluxPeses = (tour.stops ?? [])
       .flatMap((s) => s.stuffs ?? [])
       .filter(
-        (i) => i.name !== '<volume_du_camion>' && i.quantityAfterPickup != null,
+        (i) =>
+          i.name !== '<volume_du_camion>' && i.quantityAfterDelivery != null,
       );
     expect(fluxPeses).toHaveLength(0);
     restore();

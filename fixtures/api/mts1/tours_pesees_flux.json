@@ -1,5 +1,5 @@
 {
-  "_description": "Réponse de GET /v3/tours/{tourId} : un tour de déchets terminé, pesé par flux, et sa variante au stuff inconnu. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterPickup` (`quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff. Libellés des flux : exacts, as-built.",
+  "_description": "Réponse de GET /v3/tours/{tourId} : un tour de déchets terminé, pesé par flux, et sa variante au stuff inconnu. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterDelivery`, comme les lit Bubble (`quantityAfterPickup` vaut 1 pour chaque flux pesé, mesuré le 2026-11-12 ; `quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff. Libellés des flux : exacts, as-built.",
   "tour_nominal": {
     "tourId": "MTS1-TOUR-ZD-001",
     "tourNumber": "26/05-01",
@@ -43,7 +43,7 @@
             "name": "Bio-déchets (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 234.5,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 234.5,
             "measurement": {
               "height": 0,
@@ -56,7 +56,7 @@
             "name": "Carton (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 87.2,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 87.2,
             "measurement": {
               "height": 0,
@@ -69,7 +69,7 @@
             "name": "D.I.B (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 45,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 45,
             "measurement": {
               "height": 0,
@@ -82,7 +82,7 @@
             "name": "Film plastique (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 12.8,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 12.8,
             "measurement": {
               "height": 0,
@@ -95,7 +95,7 @@
             "name": "Verre (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 156.3,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 156.3,
             "measurement": {
               "height": 0,
@@ -140,7 +140,7 @@
             "name": "Bio-déchets (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 234.5,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 234.5,
             "measurement": {
               "height": 0,
@@ -153,7 +153,7 @@
             "name": "Carton (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 87.2,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 87.2,
             "measurement": {
               "height": 0,
@@ -166,7 +166,7 @@
             "name": "D.I.B (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 45,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 45,
             "measurement": {
               "height": 0,
@@ -179,7 +179,7 @@
             "name": "Film plastique (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 12.8,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 12.8,
             "measurement": {
               "height": 0,
@@ -192,7 +192,7 @@
             "name": "Verre (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 156.3,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 156.3,
             "measurement": {
               "height": 0,
@@ -262,7 +262,7 @@
             "name": "Bio-déchets (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 178,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 178,
             "measurement": {
               "height": 0,
@@ -275,7 +275,7 @@
             "name": "Gravats (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 320,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 320,
             "measurement": {
               "height": 0,
@@ -316,7 +316,7 @@
             "name": "Bio-déchets (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 178,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 178,
             "measurement": {
               "height": 0,
@@ -329,7 +329,7 @@
             "name": "Gravats (en kg)",
             "task": "PICKUP",
             "quantity": 0,
-            "quantityAfterPickup": 320,
+            "quantityAfterPickup": 1,
             "quantityAfterDelivery": 320,
             "measurement": {
               "height": 0,

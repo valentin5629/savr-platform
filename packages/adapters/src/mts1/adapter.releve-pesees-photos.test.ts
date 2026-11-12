@@ -398,7 +398,7 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
 
   // ── Pesées ────────────────────────────────────────────────────────────────
 
-  it('M1.5b/releve_fil_pesees_enlevement_seul — les kilos sont lus dans quantityAfterPickup, sur l’arrêt d’enlèvement seul', async () => {
+  it('M1.5b/releve_fil_pesees_enlevement_seul — les kilos sont lus dans quantityAfterDelivery, sur l’arrêt d’enlèvement seul', async () => {
     const base = baseSimulee({
       collecteStatut: 'en_cours',
       tournees: [TOURNEE_1],
@@ -446,6 +446,41 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
     // Deux lectures et rien d'autre : la recherche, puis le tour de la commande.
     expect(fil.chemins()).toEqual([RECHERCHE, '/v3/tours/TOUR-1']);
+  });
+
+  it('M1.5b/releve_fil_poids_a_la_livraison — le poids est quantityAfterDelivery, jamais le 1 de quantityAfterPickup', async () => {
+    // Forme mesurée le 2026-11-12 sur le compte de démonstration : 1 à
+    // l'enlèvement pour chaque flux, les kilos dans quantityAfterDelivery,
+    // champ que lit Bubble.
+    const base = baseSimulee({
+      collecteStatut: 'en_cours',
+      tournees: [TOURNEE_1],
+    });
+    filSimule({
+      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
+      '/v3/tours/TOUR-1': {
+        json: tourA({
+          stuffs: [
+            {
+              ...stuffSimule('Bio-déchets (en kg)', 58),
+              quantityAfterPickup: 1,
+            },
+            { ...stuffSimule('Verre (en kg)', 258), quantityAfterPickup: 1 },
+          ],
+        }),
+      },
+    });
+
+    await releve(base);
+
+    expect(
+      base
+        .de('pesees_tournees', 'upsert')
+        .map((a) => [a.data!['flux_id'], a.data!['poids_kg']]),
+    ).toEqual([
+      [FLUX.biodechet, 58],
+      [FLUX.verre, 258],
+    ]);
   });
 
   it('M1.5b/releve_fil_flux_repete — un même flux répété sur l’arrêt garde sa dernière valeur, stable d’un passage à l’autre', async () => {

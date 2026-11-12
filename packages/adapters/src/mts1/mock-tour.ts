@@ -12,8 +12,10 @@ export const CONNECTEUR_SIMULE = 'https://mts1.test';
 export const JPEG_DE_TEST = JPEG_SIMULE;
 
 /**
- * Stuff d'un arrêt. `pese` est ce que le chauffeur a saisi à l'enlèvement
- * (`null` : rien) ; `quantity` reste à 0 pour un flux, à 1 pour le camion.
+ * Stuff d'un arrêt. `pese` est le poids saisi par le chauffeur, rendu dans
+ * `quantityAfterDelivery` (`null` : rien) ; `quantityAfterPickup` vaut alors 1,
+ * comme mesuré le 2026-11-12 ; `quantity` reste à 0 pour un flux, à 1 pour le
+ * camion.
  */
 export function stuffSimule(
   name: string,
@@ -24,7 +26,7 @@ export function stuffSimule(
     name,
     task: 'PICKUP',
     quantity,
-    quantityAfterPickup: pese,
+    quantityAfterPickup: pese === null ? null : 1,
     quantityAfterDelivery: pese,
     measurement: { weight: 0 },
   };

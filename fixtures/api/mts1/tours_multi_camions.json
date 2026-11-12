@@ -1,5 +1,5 @@
 {
-  "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (OK + PARTIAL), un tour par camion. ≥1 OK/PARTIAL → realisee + alerte Ops. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterPickup` (`quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff.",
+  "_description": "Simulation multi-camions N=2 : deux customerOrders pour 1 collecte, états terminaux distincts (OK + PARTIAL), un tour par camion. ≥1 OK/PARTIAL → realisee + alerte Ops. Forme mesurée sur le compte de démonstration le 2026-10-13 (les valeurs sont inventées) : `status` est un objet, chaque arrêt porte `stopType`, `customerOrders[]`, `stuffs[]` et `photos[]`. Les kilos sont dans `stuffs[].quantityAfterDelivery`, comme les lit Bubble (`quantityAfterPickup` vaut 1 pour chaque flux pesé, mesuré le 2026-11-12 ; `quantity` reste à 0, `measurement.weight` aussi) et les stuffs d'une commande sont répétés sur son arrêt d'enlèvement (`CUSTOMER_ORDER`) et sur son arrêt de dépôt (`CUSTOMER_ORDER_LINKED` ou `DEPOT`) : ne lire que l'enlèvement. Ni `items`, ni `weight` sur l'arrêt ou le stuff.",
   "customerOrders": [
     {
       "customerOrderId": "MTS1-ORDER-MULTI-001",
@@ -66,7 +66,7 @@
               "name": "Bio-déchets (en kg)",
               "task": "PICKUP",
               "quantity": 0,
-              "quantityAfterPickup": 210,
+              "quantityAfterPickup": 1,
               "quantityAfterDelivery": 210,
               "measurement": {
                 "height": 0,
@@ -79,7 +79,7 @@
               "name": "Carton (en kg)",
               "task": "PICKUP",
               "quantity": 0,
-              "quantityAfterPickup": 65,
+              "quantityAfterPickup": 1,
               "quantityAfterDelivery": 65,
               "measurement": {
                 "height": 0,
@@ -120,7 +120,7 @@
               "name": "Bio-déchets (en kg)",
               "task": "PICKUP",
               "quantity": 0,
-              "quantityAfterPickup": 210,
+              "quantityAfterPickup": 1,
               "quantityAfterDelivery": 210,
               "measurement": {
                 "height": 0,
@@ -133,7 +133,7 @@
               "name": "Carton (en kg)",
               "task": "PICKUP",
               "quantity": 0,
-              "quantityAfterPickup": 65,
+              "quantityAfterPickup": 1,
               "quantityAfterDelivery": 65,
               "measurement": {
                 "height": 0,
@@ -199,7 +199,7 @@
               "name": "Bio-déchets (en kg)",
               "task": "PICKUP",
               "quantity": 0,
-              "quantityAfterPickup": 150,
+              "quantityAfterPickup": 1,
               "quantityAfterDelivery": 150,
               "measurement": {
                 "height": 0,
@@ -240,7 +240,7 @@
               "name": "Bio-déchets (en kg)",
               "task": "PICKUP",
               "quantity": 0,
-              "quantityAfterPickup": 150,
+              "quantityAfterPickup": 1,
               "quantityAfterDelivery": 150,
               "measurement": {
                 "height": 0,

@@ -96,6 +96,8 @@ interface RequeteCollectes {
  * `now` est injecté pour les fenêtres 48 h des pastilles et « à venir ».
  * `idsEnvoiAbandonne` : collectes à l'ordre de création abandonné, rangées
  * sous « Créée » (`lireCollectesEnvoiAbandonne`, décision Val 2026-11-02).
+ * Lève l'erreur de `filtreStatutsAdmin` quand le filtre de statut devrait en
+ * porter plus que l'URL n'en accepte : à l'appelant de la rendre.
  */
 export function appliquerFiltresCollectesAdmin<Q>(
   requete: Q,

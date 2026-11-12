@@ -208,6 +208,14 @@
       "test": "packages/plateforme/tests/api/exports/exports-au-dela-plafond.test.ts",
       "statut": "implemented",
       "libelle": "Exports Impact RSE, Pesées par flux, Factures, Packs AG et Associations complets au-delà de 1 000 lignes : lus par tranches jusqu'au total annoncé par la requête, comme l'export Collectes. Repas AG et noms des traiteurs lus par lots d'identifiants (un filtre de 402 identifiants faisait échouer la lecture, 390 passaient : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) ; une lecture ou un appel en échec fait échouer l'export."
+    },
+    {
+      "id": "M4.1-export-collectes-filtre-statut-borne",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:407",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport, branche staff : filtres appliqués par appliquerFiltresCollectesAdmin) + packages/plateforme/src/lib/statut-collecte-admin.ts (refus de filtreStatutsAdmin au-delà de MAX_ENVOIS_ABANDONNES_FILTRE)",
+      "test": "M4.1 / export Collectes Admin — envois abandonnés en nombre dans le filtre de statut",
+      "statut": "implemented",
+      "libelle": "Export Collectes de l'équipe Savr sous le filtre « Créée » ou « Programmée » : même borne que la liste (250 collectes à l'envoi abandonné dans l'URL du filtre). Au-delà l'export échoue en nommant la cause, sans lire aucune ligne ; à 250 le fichier est servi et le filtre les porte toutes ; sans filtre de statut le fichier est servi quel que soit leur nombre."
     }
   ],
   "cdc_source_hash": {

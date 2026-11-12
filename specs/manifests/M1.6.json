@@ -376,6 +376,14 @@
       "statut": "partial",
       "ref_divergence": "_Divergences/M1.6_20261104_documents-des-poids.md",
       "libelle": "Alerte d'échec du batch des documents limitée à une par jour (§07/03 : « un cron 1×/j plafonne à 1 alerte/jour/job »). Dette code notée par la fiche : depuis le passage du batch toutes les 15 min (#743), une collecte en échec persistant déclenche une alerte à chaque passage ; packages/plateforme/src/lib/pdf/batch-fatal.ts ne garde aucune trace de la dernière alerte."
+    },
+    {
+      "id": "M1.6-pesees-recentes-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:13",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (pesées écrites dans les 48 h lues par lireParPages : pages de TAILLE_PAGE triées par id)",
+      "test": "M1.6 / batch ZD — pesées récentes au-delà du plafond de lignes",
+      "statut": "implemented",
+      "libelle": "Reprise des bordereaux après une correction de pesée, au-delà de 1 000 pesées écrites en 48 h (un chargement en masse y suffit) : les pesées récentes sont lues par pages. Avant, une lecture unique était amputée à 1 000 lignes sans erreur et les collectes des lignes manquantes n'étaient pas revues à ce passage. Chaque collecte à pesée récente est revue, elles seules ; une page en échec arrête le passage en échec de sélection, sans rien refaire."
     }
   ],
   "cdc_source_hash": {

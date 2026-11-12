@@ -149,6 +149,13 @@ export interface Transporteur {
 export interface FenetreSync {
   readonly depuis: Date;
   readonly jusqu_a: Date;
+  /**
+   * Borne de la relève d'attribution lointaine (décision Val 2026-11-12) : au-delà
+   * de `jusqu_a` et jusqu'à cet instant, seule l'attribution des collectes pas
+   * encore acceptées est relue. Absente : pas de relève lointaine. Un provider
+   * sans relève d'attribution l'ignore.
+   */
+  readonly attribution_jusqu_a?: Date;
 }
 
 // ---------------------------------------------------------------------------

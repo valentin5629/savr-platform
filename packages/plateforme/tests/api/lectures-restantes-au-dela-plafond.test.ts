@@ -18,6 +18,7 @@ import {
   type Ligne,
 } from '@/test-utils/api-donnees-plafonnee';
 import { TAILLE_LOT, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 type Api = ReturnType<typeof creerApiPlafonnee>;
 type Client = { from: (table: string) => unknown };
@@ -49,6 +50,7 @@ vi.mock('@/lib/registre/trace.js', () => ({
 
 import { getObjectBytes } from '@/lib/pdf/r2-client.js';
 import { traceExport } from '@/lib/registre/trace.js';
+import { bordereauDisponible } from '@/lib/registre/registre.js';
 import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi.js';
 import { loadAdminBenchmarkFiltres } from '@/lib/dashboards/admin-dashboard-client.js';
 
@@ -201,6 +203,92 @@ describe("M4.2 / export ZIP des bordereaux au-delà du plafond d'identifiants", 
     expect(res.status).toBe(500);
     expect(getObjectBytes).not.toHaveBeenCalled();
     expect(traceExport).not.toHaveBeenCalled();
+  });
+
+  // Le ZIP porte les bordereaux « disponibles » au sens du registre
+  // (`bordereauDisponible`) : émis ou corrigés. Un brouillon ou un bordereau
+  // annulé n'y entre pas.
+  describe('M4.2 / export ZIP des bordereaux : statuts retenus', () => {
+    // Tous les statuts de l'enum, à tour de rôle.
+    const STATUTS = Constants.plateforme.Enums.bordereau_statut;
+    const statut = (i: number) => STATUTS[i % STATUTS.length]!;
+    const numero = (i: number) => `BSAV-2026-${String(i).padStart(5, '0')}`;
+    const rangs = suite(40, (i) => i);
+
+    it('émis, corrigés, brouillons et annulés sur la période : le ZIP porte les émis et les corrigés, eux seuls', async () => {
+      connecter();
+      rls = creerApiPlafonnee({
+        v_registre_dechets: suite(40, (i) => ({
+          collecte_id: id('col', i),
+          date_evenement: '2026-04-10',
+        })),
+        bordereaux_savr: suite(40, (i) => ({
+          collecte_id: id('col', i),
+          statut: statut(i),
+          numero: numero(i),
+          pdf_fichier_id: id('fichier', i),
+        })),
+        fichiers: suite(40, (i) => ({
+          id: id('fichier', i),
+          bucket: 'bordereaux',
+          key: `b${i}.pdf`,
+          deleted_at: null,
+        })),
+      });
+
+      const res = await exporter();
+
+      expect(res.status).toBe(200);
+      expect([...STATUTS].sort()).toEqual([
+        'annule',
+        'brouillon',
+        'corrige',
+        'emis',
+      ]);
+      const attendus = rangs.filter((i) =>
+        ['emis', 'corrige'].includes(statut(i)),
+      );
+      expect(attendus).toHaveLength(20);
+      // Les noms de fichiers d'une archive se lisent en clair dans ses octets.
+      const archive = Buffer.from(await res.arrayBuffer()).toString('latin1');
+      expect(rangs.filter((i) => archive.includes(`${numero(i)}.pdf`))).toEqual(
+        attendus,
+      );
+      // Même règle que la colonne « Bordereau » du registre.
+      expect(attendus).toEqual(
+        rangs.filter((i) => bordereauDisponible(statut(i))),
+      );
+      expect(getObjectBytes).toHaveBeenCalledTimes(20);
+      expect(
+        (vi.mocked(traceExport).mock.calls[0]![1] as { nbLignes: number })
+          .nbLignes,
+      ).toBe(20);
+    });
+
+    it('seulement des brouillons et des annulés sur la période : « Aucun bordereau », pas de ZIP', async () => {
+      connecter();
+      rls = creerApiPlafonnee({
+        v_registre_dechets: suite(6, (i) => ({
+          collecte_id: id('col', i),
+          date_evenement: '2026-04-10',
+        })),
+        bordereaux_savr: suite(6, (i) => ({
+          collecte_id: id('col', i),
+          statut: i % 2 === 0 ? 'brouillon' : 'annule',
+          numero: numero(i),
+          pdf_fichier_id: id('fichier', i),
+        })),
+      });
+
+      const res = await exporter();
+
+      expect(res.status).toBe(422);
+      expect(((await res.json()) as { error: string }).error).toBe(
+        'Aucun bordereau sur la période',
+      );
+      expect(getObjectBytes).not.toHaveBeenCalled();
+      expect(traceExport).not.toHaveBeenCalled();
+    });
   });
 });
 

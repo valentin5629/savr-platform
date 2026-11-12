@@ -126,14 +126,22 @@ export function aDispatcherZd(row: CollecteRow): boolean {
   return row.type === 'zero_dechet' && estADispatcher(row);
 }
 
-// Criticité (§06.09 §1 / ALGO-02) : à attribuer ET à moins de 48h.
+// Criticité (§06.09 §1 / ALGO-02) : à attribuer ET créneau dans les 48 h à
+// venir. Un créneau passé n'est plus urgent : il n'y a plus rien à attribuer à
+// temps (Val 2026-11-11), et il ne doit pas rester épinglé en tête des
+// collectes passées.
 export function estUrgente(row: CollecteRow): boolean {
   if (!aAttribuer(row)) return false;
   const ts = instantParis(
     row.date_collecte,
     heureOuMinuit(row.heure_collecte),
   ).getTime();
-  return Number.isFinite(ts) && ts < Date.now() + 48 * 60 * 60 * 1000;
+  const maintenant = Date.now();
+  return (
+    Number.isFinite(ts) &&
+    ts >= maintenant &&
+    ts < maintenant + 48 * 60 * 60 * 1000
+  );
 }
 
 // Urgences (AG à attribuer < 48h) remontées en tête de liste (§06.09 §1).

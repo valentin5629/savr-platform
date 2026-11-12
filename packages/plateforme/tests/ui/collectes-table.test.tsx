@@ -82,12 +82,12 @@ describe('collectes-table / estUrgente (§06.09 §1 — non acceptée par le pre
     vi.useRealTimers();
   });
 
-  it('AG à attribuer dans 47h → urgente', () => {
+  it('AG créée dans 47h → urgente', () => {
     maintenant('2026-07-06', '21:00'); // créneau par défaut : 08/07 20:00 Paris
     expect(estUrgente(row())).toBe(true);
   });
 
-  it('AG à attribuer dans 49h → pas urgente', () => {
+  it('AG créée dans 49h → pas urgente', () => {
     maintenant('2026-07-06', '19:00');
     expect(estUrgente(row())).toBe(false);
   });
@@ -148,10 +148,26 @@ describe('collectes-table / estUrgente (§06.09 §1 — non acceptée par le pre
     }
   });
 
-  it('au-delà de `programmee` (en cours, réalisée, annulée…) → pas urgente', () => {
+  it('`validee` sans acceptation du prestataire (non transmise, rejetée) → urgente, comme la carte du Dashboard', () => {
+    maintenant('2026-07-06', '21:00');
+    for (const statut_tms of ['non_envoye', 'rejetee_par_prestataire'])
+      expect(
+        estUrgente(row({ type: 'zero_dechet', statut: 'validee', statut_tms })),
+      ).toBe(true);
+  });
+
+  it('au-delà de `validee` (en cours, réalisée, annulée…) → pas urgente', () => {
     maintenant('2026-07-06', '21:00');
     for (const statut of ['en_cours', 'realisee', 'annulee', 'cloturee'])
       expect(estUrgente(row({ type: 'zero_dechet', statut }))).toBe(false);
+  });
+
+  it('ZD : mêmes bornes que l’AG (49h → non, créneau passé → non)', () => {
+    const zd = row({ type: 'zero_dechet' });
+    maintenant('2026-07-06', '19:00');
+    expect(estUrgente(zd)).toBe(false);
+    maintenant('2026-07-08', '20:01');
+    expect(estUrgente(zd)).toBe(false);
   });
 
   it('date_collecte corrompue → false (échec fermé, pas de badge Urgent au hasard)', () => {

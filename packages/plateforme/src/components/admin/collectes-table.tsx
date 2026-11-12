@@ -129,14 +129,19 @@ export function aDispatcherZd(row: CollecteRow): boolean {
 
 // Statuts TMS qui disent que le prestataire a accepté la collecte.
 const STATUTS_TMS_ACCEPTES = new Set(['acceptee', 'en_attente_execution']);
+const STATUTS_ACTIFS_URGENCE = new Set(['programmee', 'validee']);
 
 // Criticité (décision Val 2026-11-12, élargit §06.09 §1) : collecte AG ou ZD
-// pas encore acceptée par le prestataire (statut `programmee`, affiché
-// « Créée » ou « Programmée ») ET créneau dans les 48 h à venir. Un créneau
-// passé n'est plus urgent (Val 2026-11-11) : il ne doit pas rester épinglé en
-// tête des collectes passées.
+// encore active (`programmee` ou `validee`) que le prestataire n'a pas acceptée
+// ET créneau dans les 48 h à venir — même population que la carte « Collectes
+// <48h non validées » du Dashboard Admin (§11, lib/collectes-chips). Un
+// créneau passé n'est plus urgent (Val 2026-11-11) : il ne doit pas rester
+// épinglé en tête des collectes passées.
 export function estUrgente(row: CollecteRow): boolean {
-  if (row.statut !== 'programmee' || STATUTS_TMS_ACCEPTES.has(row.statut_tms))
+  if (
+    !STATUTS_ACTIFS_URGENCE.has(row.statut) ||
+    STATUTS_TMS_ACCEPTES.has(row.statut_tms)
+  )
     return false;
   const ts = instantParis(
     row.date_collecte,

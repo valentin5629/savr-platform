@@ -181,10 +181,10 @@ function collectesZdAdmin() {
         taux_recyclage: 70,
         co2_evite_kg: 100,
         co2_induit_kg: 10,
-        co2_net_kg: -90,
         energie_primaire_evitee_kwh: 1000,
         co2_facteurs_snapshot: {
           equivalences: { km_voiture: 0.2, foyer_kwh: 500 },
+          forfait_collecte: { km: 20, fe_camion: 0.9 },
         },
         collecte_flux: [
           {
@@ -200,20 +200,69 @@ function collectesZdAdmin() {
 }
 
 /**
- * Bordereaux que le demandeur lit SOUS SA RLS (§12 §1.7) : les deux versions
- * de celui de z1 (gestionnaire du lieu, bord_gestionnaire_select), ou aucun.
+ * Bordereaux relus en service-role (C2, Val 2026-11-12 : l'annexe suit le
+ * rapport quel que soit le demandeur) : les deux versions de celui de z1.
  */
-function bordereauxLisibles(lisibles = true) {
-  rls.results.bordereaux_savr = {
-    data: lisibles
-      ? [
-          { collecte_id: 'z1', numero: 'BSAV-1', version: 1 },
-          { collecte_id: 'z1', numero: 'BSAV-2', version: 2 },
-        ]
-      : [],
+function bordereaux() {
+  admin.results.bordereaux_savr = {
+    data: [
+      {
+        collecte_id: 'z1',
+        numero: 'BSAV-1',
+        date_emission: '2026-10-15',
+        version: 1,
+      },
+      {
+        collecte_id: 'z1',
+        numero: 'BSAV-2',
+        date_emission: '2026-10-16',
+        version: 2,
+      },
+    ],
     error: null,
   };
 }
+
+/** Référentiel des flux, relu en service-role (exutoire, codes déchet et R/D). */
+const REFERENTIEL = [
+  [
+    'biodechet',
+    'Biodéchets',
+    '20 01 08',
+    'Bionerval',
+    '2 rue X, 77000 Étampes',
+    'R3',
+    'methanisation',
+  ],
+  [
+    'emballage',
+    'Emballages',
+    '15 01 06',
+    'Paprec',
+    '1 voie Y, 93200 Saint-Denis',
+    'R3/R5',
+    'recyclage',
+  ],
+  ['carton', 'Cartons', '20 01 01', 'Veolia', null, 'R3', 'recyclage'],
+  ['verre', 'Verre', '20 01 02', 'Verallia', null, 'R5', 'recyclage'],
+  [
+    'dechet_residuel',
+    'Déchet résiduel',
+    '20 03 01',
+    'Syctom',
+    null,
+    'R1',
+    'valorisation_energetique',
+  ],
+].map(([code, nom, ced, exutoire, adresse, codeTraitement, filiere]) => ({
+  code,
+  nom,
+  code_dechet_europeen: ced,
+  exutoire,
+  exutoire_adresse: adresse,
+  code_traitement: codeTraitement,
+  filiere_valorisation: filiere,
+}));
 
 /** Collectes AG relues SOUS L'IDENTITÉ du demandeur (vue du gestionnaire). */
 function collectesAgVisibles(
@@ -263,6 +312,7 @@ function collectesAgVisibles(
 const payloadEnvoye = () =>
   mockPdf.mock.calls[0]![1] as Record<string, unknown> & {
     collectes: Record<string, unknown>[];
+    flux: Record<string, unknown>[];
   };
 
 beforeEach(() => {
@@ -284,6 +334,7 @@ beforeEach(() => {
     ],
     error: null,
   };
+  admin.results.flux_dechets = { data: REFERENTIEL, error: null };
 });
 
 describe('M3.2 — accès aux routes cumulées', () => {
@@ -352,7 +403,7 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     evenementVisible();
     evenementAdmin();
     collectesZdAdmin();
-    bordereauxLisibles();
+    bordereaux();
     const res = await rapport('rapport-rse', { options: { benchmark: false } });
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('application/pdf');
@@ -361,6 +412,7 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
     );
     expect(admin.inAppels).toEqual([
       { table: 'collectes', col: 'id', valeurs: ['z1'] },
+      { table: 'bordereaux_savr', col: 'collecte_id', valeurs: ['z1'] },
     ]);
     expect(mockPdf.mock.calls[0]![0]).toBe('rapport-recyclage-evenement');
     const p = payloadEnvoye();
@@ -373,63 +425,100 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
       taux_recyclage: 70,
       co2_evite_kg: 100,
       co2_induit_kg: 10,
-      co2_net_kg: -90,
       energie_primaire_evitee_kwh: 1000,
       equivalences: { km_voiture: 500, foyer: 2 },
+      forfait_transport: { km: 20, fe_camion_kg_km: 0.9 },
+      majoration_transport_kg: 18,
       options: { benchmark: false },
+      // Dernière version du bordereau de chaque collecte cumulée.
+      bordereaux: [{ numero: 'BSAV-2', date_emission: '16/10/2026' }],
       // Couverture : 2 collectes ZD dont 1 réalisée, type nommé (événement mixte).
       couverture:
         'Cumul de 1 collecte réalisée, sur 2 collectes Zéro Déchet de l’événement.',
     });
-    expect(p.collectes).toEqual([
-      {
-        date_collecte: '14/10/2026',
-        nb_pax: 450,
-        poids_kg: 150,
-        taux_recyclage: 70,
-        co2_evite_kg: 100,
-        bordereau_numero: 'BSAV-2',
-      },
-    ]);
+    // Plus de CO₂ net ni de tableau des collectes (gabarit @2).
+    expect(p).not.toHaveProperty('co2_net_kg');
+    expect(p).not.toHaveProperty('collectes');
     expect(p).not.toHaveProperty('benchmark_flux');
-  });
-
-  it('EVT/api_zd_bordereau_sous_rls — §12 §1.7 : numéros de bordereau lus SOUS L’IDENTITÉ du demandeur, jamais en service-role', async () => {
-    evenementVisible();
-    evenementAdmin();
-    collectesZdAdmin();
-    bordereauxLisibles();
-    await rapport('rapport-rse');
-    expect(rls.inAppels).toContainEqual({
-      table: 'bordereaux_savr',
-      col: 'collecte_id',
-      valeurs: ['z1'],
+    // Les 5 flux du référentiel, non pesé = 0 kg (C5), exutoire du référentiel.
+    expect(p.flux.map((f) => [f.code, f.poids_kg])).toEqual([
+      ['biodechet', 100],
+      ['emballage', 0],
+      ['carton', 0],
+      ['verre', 50],
+      ['dechet_residuel', 0],
+    ]);
+    expect(p.flux[0]).toEqual({
+      nom: 'Biodéchets',
+      code: 'biodechet',
+      poids_kg: 100,
+      code_dechet_europeen: '20 01 08',
+      exutoire: 'Bionerval',
+      exutoire_commune: 'Étampes',
+      code_traitement: 'R3',
+      filiere_valorisation: 'methanisation',
     });
-    expect(admin.selects.some((x) => x.texte.includes('bordereaux_savr'))).toBe(
-      false,
-    );
-    expect(admin.inAppels.some((x) => x.table === 'bordereaux_savr')).toBe(
-      false,
-    );
   });
 
-  it('EVT/api_zd_bordereau_illisible — §12 §1.7 : bordereau que le demandeur ne peut pas lire → aucun numéro imprimé (« — » au gabarit)', async () => {
+  it('EVT/api_zd_bordereaux_tous — C2 (Val 2026-11-12) : bordereaux de TOUTES les collectes cumulées, relus en service-role, dans l’ordre des collectes ; une collecte sans bordereau n’en imprime pas', async () => {
     evenementVisible();
+    (rls.results.evenements!.data as { collectes: unknown[] }).collectes.push(
+      { id: 'z3', type: 'zero_dechet', statut: 'realisee', pax: 100 },
+      { id: 'z4', type: 'zero_dechet', statut: 'cloturee', pax: 100 },
+    );
     evenementAdmin();
     collectesZdAdmin();
-    bordereauxLisibles(false);
+    const z1 = (admin.results.collectes!.data as Record<string, unknown>[])[0]!;
+    // z3 la veille de z1, z4 sans bordereau.
+    (admin.results.collectes!.data as Record<string, unknown>[]).push(
+      { ...z1, id: 'z3', date_collecte: '2026-10-13' },
+      { ...z1, id: 'z4', date_collecte: '2026-10-15' },
+    );
+    bordereaux();
+    (admin.results.bordereaux_savr!.data as Record<string, unknown>[]).push({
+      collecte_id: 'z3',
+      numero: 'BSAV-3',
+      date_emission: '2026-10-14',
+      version: 1,
+    });
     const res = await rapport('rapport-rse');
     expect(res.status).toBe(200);
+    expect(rls.selects.some((x) => x.texte.includes('bordereaux_savr'))).toBe(
+      false,
+    );
+    expect(admin.inAppels).toContainEqual({
+      table: 'bordereaux_savr',
+      col: 'collecte_id',
+      valeurs: ['z1', 'z3', 'z4'],
+    });
     const p = payloadEnvoye();
-    expect(p.collectes[0]!.bordereau_numero).toBeNull();
-    expect(JSON.stringify(p)).not.toContain('BSAV-');
+    expect(p.bordereaux).toEqual([
+      { numero: 'BSAV-3', date_emission: '14/10/2026' },
+      { numero: 'BSAV-2', date_emission: '16/10/2026' },
+    ]);
+    // Majoration transport : le forfait figé de chacune des 3 collectes.
+    expect(p.majoration_transport_kg).toBeCloseTo(54, 6);
+  });
+
+  it('EVT/api_zd_referentiel_lecture_echec — lecture du référentiel des flux en échec → 500, aucun PDF', async () => {
+    evenementVisible();
+    evenementAdmin();
+    collectesZdAdmin();
+    bordereaux();
+    admin.results.flux_dechets = { data: null, error: { message: 'timeout' } };
+    const res = await rapport('rapport-rse');
+    expect(res.status).toBe(500);
+    expect(mockPdf).not.toHaveBeenCalled();
   });
 
   it('EVT/api_zd_bordereau_lecture_echec — lecture des bordereaux en échec → 500, aucun PDF', async () => {
     evenementVisible();
     evenementAdmin();
     collectesZdAdmin();
-    rls.results.bordereaux_savr = { data: null, error: { message: 'timeout' } };
+    admin.results.bordereaux_savr = {
+      data: null,
+      error: { message: 'timeout' },
+    };
     const res = await rapport('rapport-rse');
     expect(res.status).toBe(500);
     expect(mockPdf).not.toHaveBeenCalled();
@@ -505,6 +594,9 @@ describe('M3.2 — rapport de recyclage cumulé (ZD)', () => {
       },
     ]);
     expect(p.benchmark_legende).toContain('lieux : 1 sélectionné');
+    // Effectif et critères de la comparaison, pour l'annexe.
+    expect(p).toHaveProperty('benchmark_effectif');
+    expect(p).toHaveProperty('benchmark_criteres');
   });
 
   it('EVT/api_zd_radar_tous_roles — traiteur, agence, Admin et client organisateur : rapport cumulé servi avec le radar demandé, repère parc sous leur identité (Val 2026-10-30)', async () => {

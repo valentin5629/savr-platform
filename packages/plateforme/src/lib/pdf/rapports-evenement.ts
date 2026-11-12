@@ -1,8 +1,11 @@
 // Rapports CUMULÉS sur un événement (décision Val 2026-10-26), fabriqués au
 // clic depuis la fiche événement, jamais stockés :
-//  - Zéro Déchet : rapport de recyclage — page de synthèse du rapport d'une
-//    collecte sur les chiffres cumulés (mêmes règles que le bilan consolidé),
-//    avec ou sans radar au choix du demandeur, puis le détail des collectes ;
+//  - Zéro Déchet : rapport de recyclage — même gabarit que le rapport d'une
+//    collecte (page 1, puis l'annexe technique) sur les chiffres cumulés (mêmes
+//    règles que le bilan consolidé), avec ou sans radar de l'événement entier
+//    au choix du demandeur ; l'annexe liste les bordereaux de toutes les
+//    collectes cumulées, et l'exutoire de chaque flux est celui du référentiel
+//    (décisions Val 2026-11-12) ;
 //  - Anti-Gaspi : rapport de don, RÉCAPITULATIF sans valeur fiscale qui renvoie
 //    aux attestations numérotées de chaque collecte ; une collecte sans excédent
 //    y figure à 0 repas.
@@ -12,10 +15,11 @@
 //
 // Indépendant du rôle : la route de l'espace établit l'accès sous l'identité du
 // demandeur (`lireEvenementVisible`) et passe les collectes qu'il voit.
-//  - ZD : les mesures figées de CES collectes sont relues en service-role, comme
-//    le rapport d'une collecte (payload-rapport) ; les numéros de bordereau, eux,
-//    SOUS L'IDENTITÉ du demandeur : « — » pour un bordereau qu'il ne peut pas
-//    lire (décision Val 2026-10-27, §12 §1.7) ;
+//  - ZD : les mesures figées de CES collectes, leurs bordereaux et le
+//    référentiel des flux sont relus en service-role, comme le rapport d'une
+//    collecte (payload-rapport) : l'annexe, numéros de bordereau compris, suit
+//    le rapport quel que soit le demandeur (décision Val 2026-11-12, C2 ; la
+//    règle du 2026-10-27, §12 §1.7, ne vaut plus) ;
 //  - AG : relues SOUS L'IDENTITÉ du demandeur, par le chemin de la fiche
 //    collecte (attribution par rôle — la vue v_attributions_gestionnaire pour
 //    le gestionnaire —, attestation sous sa RLS) : le PDF n'imprime jamais un
@@ -45,7 +49,6 @@ import {
   collecteRealisee,
   consoliderEvenement,
   couvertureBilan,
-  poidsCollecte,
   repasCollecte,
   un,
   type CollecteAConsolider,
@@ -56,7 +59,9 @@ import { libelleTypeCollecte } from '@/lib/libelles/type-collecte.js';
 import { convivesImprimes } from './convives-imprimes.js';
 import {
   buildEquivalences,
+  communeDeLAdresse,
   enTeteRapport,
+  forfaitTransport,
   SELECT_EVENEMENT_RAPPORT,
   type EvenementRapportRow,
 } from './payload-rapport.js';
@@ -82,7 +87,6 @@ type CollecteMesuree = Omit<CollecteAConsolider, 'collecte_flux'> & {
   heure_collecte: string | null;
   pax?: number | null;
   co2_induit_kg?: number | null;
-  co2_net_kg?: number | null;
   energie_primaire_evitee_kwh?: number | null;
   co2_facteurs_snapshot?: Record<string, unknown> | null;
   collecte_flux?:
@@ -103,14 +107,26 @@ type CollecteMesuree = Omit<CollecteAConsolider, 'collecte_flux'> & {
 };
 
 const SELECT_ZD = `id, type, statut, date_collecte, heure_collecte, pax,
-  taux_recyclage, co2_evite_kg, co2_induit_kg, co2_net_kg,
+  taux_recyclage, co2_evite_kg, co2_induit_kg,
   energie_primaire_evitee_kwh, co2_facteurs_snapshot,
   collecte_flux(poids_reel_kg, flux_dechets!flux_id(code, nom))`;
 
 interface BordereauLu {
   collecte_id: string;
   numero: string | null;
+  date_emission: string | null;
   version: number;
+}
+
+/** Ligne du référentiel `flux_dechets` (5 flux, contrainte CHECK sur le code). */
+interface ReferentielFluxRow {
+  code: string;
+  nom: string;
+  code_dechet_europeen: string | null;
+  exutoire: string | null;
+  exutoire_adresse: string | null;
+  code_traitement: string | null;
+  filiere_valorisation: string | null;
 }
 
 /** Collectes AG, lues sous l'identité du demandeur (cf. en-tête). */
@@ -210,49 +226,55 @@ function aplatir(c: CollecteMesuree): CollecteMesuree {
 function payloadZd(
   collectes: CollecteMesuree[],
   bordereaux: readonly BordereauLu[],
+  referentiel: readonly ReferentielFluxRow[],
 ): Record<string, unknown> {
   const b = consoliderEvenement(collectes);
-  const noms = new Map<string, string>();
-  for (const c of collectes)
-    for (const f of c.collecte_flux ?? []) {
-      const ref = un(f.flux_dechets);
-      if (ref?.code && f.poids_reel_kg != null)
-        noms.set(ref.code, ref.nom ?? ref.code);
-    }
-  const flux = [...noms].map(([code, nom]) => ({
-    nom,
-    code,
-    poids_kg: b.flux_kg[code as keyof typeof b.flux_kg] ?? 0,
+  // Les 5 flux du référentiel, toujours imprimés (un flux non pesé vaut 0 kg,
+  // C5) ; l'exutoire est celui du référentiel, le même pour toutes les collectes.
+  const flux = referentiel.map((r) => ({
+    nom: r.nom,
+    code: r.code,
+    poids_kg: b.flux_kg[r.code as keyof typeof b.flux_kg] ?? 0,
+    code_dechet_europeen: r.code_dechet_europeen,
+    exutoire: r.exutoire,
+    exutoire_commune: communeDeLAdresse(r.exutoire_adresse),
+    code_traitement: r.code_traitement,
+    filiere_valorisation: r.filiere_valorisation,
   }));
   const co2Evite = somme(collectes, (c) => c.co2_evite_kg);
   const energie = somme(collectes, (c) => c.energie_primaire_evitee_kwh);
-  // Facteurs d'équivalence de la collecte la plus récente (ils ne changent qu'à
-  // une mise à jour du référentiel ADEME).
+  // Facteurs d'équivalence et forfait transport de la collecte la plus récente
+  // (ils ne changent qu'à une mise à jour du référentiel ADEME) ; la majoration
+  // transport, elle, additionne le forfait figé de chaque collecte.
   const snapshot =
     [...collectes].reverse().find((c) => c.co2_facteurs_snapshot)
       ?.co2_facteurs_snapshot ?? null;
+  const majoration = somme(collectes, (c) => {
+    const f = forfaitTransport(c.co2_facteurs_snapshot ?? null);
+    return f ? f.km * f.fe_camion_kg_km : null;
+  });
   return {
     // Convives des seules collectes cumulées (décision Val 2026-10-27).
     nb_pax: convivesImprimes(b.convives_zd),
     taux_recyclage: b.taux_recyclage,
     flux,
     poids_total_kg: b.tonnage_zd_kg ?? 0,
+    // Induit et évité présentés séparément, jamais soustraits (plus de net).
     co2_evite_kg: co2Evite,
     co2_induit_kg: somme(collectes, (c) => c.co2_induit_kg),
-    co2_net_kg: somme(collectes, (c) => c.co2_net_kg),
     energie_primaire_evitee_kwh: energie,
     equivalences: buildEquivalences(co2Evite, energie, snapshot),
+    forfait_transport: forfaitTransport(snapshot),
+    majoration_transport_kg: majoration,
     options: { benchmark: false },
-    collectes: collectes.map((c) => ({
-      date_collecte: dateFr(c.date_collecte),
-      nb_pax: convivesImprimes(c.pax ?? null),
-      poids_kg: poidsCollecte(c),
-      taux_recyclage: c.taux_recyclage,
-      co2_evite_kg: c.co2_evite_kg,
-      bordereau_numero:
-        derniere(bordereaux.filter((b) => b.collecte_id === c.id))?.numero ??
-        null,
-    })),
+    // Dernière version du bordereau de chaque collecte, dans l'ordre des
+    // collectes ; une collecte sans bordereau n'en imprime pas.
+    bordereaux: collectes.flatMap((c) => {
+      const bord = derniere(bordereaux.filter((x) => x.collecte_id === c.id));
+      return bord?.numero
+        ? [{ numero: bord.numero, date_emission: dateFr(bord.date_emission) }]
+        : [];
+    }),
   };
 }
 
@@ -332,7 +354,7 @@ export async function fabriquerRapportEvenement(params: {
 
   const admin: SupabaseClient = createAdminSupabaseClient();
   const ids = realisees.map((c) => c.id);
-  const [evRes, colRes, bordRes] = await Promise.all([
+  const [evRes, colRes, bordRes, refRes] = await Promise.all([
     admin
       .from('evenements')
       .select(SELECT_EVENEMENT_RAPPORT)
@@ -343,15 +365,25 @@ export async function fabriquerRapportEvenement(params: {
       : rls.from('collectes').select(selectAg(role))
     ).in('id', ids),
     type === ZD
-      ? rls
+      ? admin
           .from('bordereaux_savr')
-          .select('collecte_id, numero, version')
+          .select('collecte_id, numero, date_emission, version')
           .in('collecte_id', ids)
+      : null,
+    type === ZD
+      ? // borne-par-nature: 5 flux, contrainte CHECK sur flux_dechets.code
+        admin
+          .from('flux_dechets')
+          .select(
+            'code, nom, code_dechet_europeen, exutoire, exutoire_adresse, code_traitement, filiere_valorisation',
+          )
+          .order('ordre_affichage')
       : null,
   ]);
   if (evRes.error) return serverError(evRes.error, evenementLog);
   if (colRes.error) return serverError(colRes.error, evenementLog);
   if (bordRes?.error) return serverError(bordRes.error, evenementLog);
+  if (refRes?.error) return serverError(refRes.error, evenementLog);
   const ev = evRes.data as unknown as EvenementRapportRow | null;
   if (!ev) return refus('Événement introuvable', 404);
 
@@ -378,13 +410,19 @@ export async function fabriquerRapportEvenement(params: {
       deuxTypes ? libelleTypeCollecte(type) : '',
     ),
     ...(type === ZD
-      ? payloadZd(mesurees, (bordRes?.data ?? []) as unknown as BordereauLu[])
+      ? payloadZd(
+          mesurees,
+          (bordRes?.data ?? []) as unknown as BordereauLu[],
+          (refRes?.data ?? []) as unknown as ReferentielFluxRow[],
+        )
       : await payloadAg(mesurees, admin, JSON.stringify(enTete.champs).length)),
   };
   if (type === ZD && version.avecRadar) {
     payload.options = { benchmark: true };
     payload.benchmark_flux = version.radar.benchmark_flux;
     payload.benchmark_legende = version.radar.benchmark_legende;
+    payload.benchmark_effectif = version.radar.benchmark_effectif;
+    payload.benchmark_criteres = version.radar.benchmark_criteres;
   }
 
   const document =

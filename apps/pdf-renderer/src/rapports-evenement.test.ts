@@ -1,7 +1,7 @@
 /**
  * M3.2 — Gabarits des rapports CUMULÉS sur un événement (décision Val
- * 2026-10-26) : recyclage ZD (page de synthèse @3 + détail des collectes) et
- * rapport de don AG (récapitulatif sans valeur fiscale).
+ * 2026-10-26) : recyclage ZD (gabarit du rapport @4 d'une collecte, décisions
+ * Val 2026-11-12) et rapport de don AG (récapitulatif sans valeur fiscale).
  *
  * Exécuté par le vitest racine seulement (exclu du build Docker du renderer).
  */
@@ -28,33 +28,29 @@ function zd(
     ...enTete,
     taux_recyclage: 68.3,
     flux: [
-      { nom: 'Biodéchets', code: 'biodechet', poids_kg: 300 },
+      {
+        nom: 'Biodéchets',
+        code: 'biodechet',
+        poids_kg: 300,
+        code_dechet_europeen: '20 01 08',
+        exutoire: 'Bionerval',
+        exutoire_commune: 'Étampes',
+        code_traitement: 'R3',
+        filiere_valorisation: 'methanisation',
+      },
       { nom: 'Verre', code: 'verre', poids_kg: 151.1 },
     ],
     poids_total_kg: 451.1,
     co2_evite_kg: 412,
     co2_induit_kg: 58,
-    co2_net_kg: -354,
     energie_primaire_evitee_kwh: 2800,
+    forfait_transport: { km: 20, fe_camion_kg_km: 0.9 },
+    majoration_transport_kg: 36,
     couverture:
       'Cumul des 2 collectes réalisées, sur 3 collectes de l’événement.',
-    collectes: [
-      {
-        date_collecte: '14/10/2026',
-        nb_pax: 800,
-        poids_kg: 300.1,
-        taux_recyclage: 70.2,
-        co2_evite_kg: 280,
-        bordereau_numero: 'BSAV-2026-00041',
-      },
-      {
-        date_collecte: '15/10/2026',
-        nb_pax: null,
-        poids_kg: 151,
-        taux_recyclage: null,
-        co2_evite_kg: null,
-        bordereau_numero: null,
-      },
+    bordereaux: [
+      { numero: 'BSAV-2026-00041', date_emission: '15/10/2026' },
+      { numero: 'BSAV-2026-00042', date_emission: '16/10/2026' },
     ],
     benchmark_flux: [
       {
@@ -70,7 +66,8 @@ function zd(
         benchmark_kg_pax: 0.2,
       },
     ],
-    benchmark_legende: 'période 26/10/2024 → 26/10/2026 · lieux : tous',
+    benchmark_effectif: 42,
+    benchmark_criteres: 'taille M',
     ...overrides,
   };
 }
@@ -109,30 +106,52 @@ function ag(
   };
 }
 
-describe('M3.2 — rapport de recyclage cumulé sur un événement', () => {
-  it('page de synthèse du rapport @3, sous-titre « Bilan cumulé », puis le détail des collectes', () => {
+describe('M3.2 — rapport de recyclage cumulé sur un événement (@2, gabarit du rapport @4)', () => {
+  it('même gabarit que le rapport d’une collecte : page 1, puis l’annexe technique, sur-titre « Bilan de l’événement »', () => {
     const html = renderByType('rapport-recyclage-evenement', zd());
-    expect(html).toContain('<div class="rz-ttl">Rapport de recyclage</div>');
-    expect(html).toContain('Bilan cumulé de l’événement');
-    expect(html).toContain('moyenne des taux figés à la clôture de chaque');
-    // Pas de bordereau intégré : il reste dans le rapport de chaque collecte.
-    expect(html).not.toContain('bz-annexe');
-    expect(html).toContain('<!-- PAGE 2 — Détail des collectes -->');
-    expect(html).toContain(
-      'Cumul des 2 collectes réalisées, sur 3 collectes de l’événement.',
-    );
-    expect(html).toContain('BSAV-2026-00041');
-    expect(html).toContain('300,1 kg');
-    // Valeurs absentes : un tiret, jamais 0.
-    const ligne2 = html.slice(html.indexOf('15/10/2026'));
-    expect(ligne2.slice(0, ligne2.indexOf('</tr>'))).not.toMatch(/>0[,<]/);
+    expect(html).toContain('RAPPORT DE RECYCLAGE · BILAN DE L’ÉVÉNEMENT');
+    expect(html).toContain('Page 1/2');
+    expect(html).toContain('Annexe technique – Traçabilité et méthodologie');
+    expect(html).toContain('Page 2/2');
+    // Plus de page de synthèse @3, de CO₂ net ni de tableau des collectes.
+    expect(html).not.toContain('rz-page');
+    expect(html).not.toContain('Émissions nettes');
+    expect(html).not.toContain('Détail des collectes');
   });
 
-  it('§12 §1.7 : numéro de bordereau absent (illisible par le demandeur) → « — » dans sa colonne', () => {
+  it('annexe : couverture puis TOUS les bordereaux des collectes cumulées (Val 2026-11-12)', () => {
     const html = renderByType('rapport-recyclage-evenement', zd());
-    const ligne2 = html.slice(html.indexOf('15/10/2026'));
-    const cellules = ligne2.slice(0, ligne2.indexOf('</tr>')).split('<td');
-    expect(cellules[cellules.length - 1]).toBe('>—</td>');
+    expect(html).toContain(
+      'Cumul des 2 collectes réalisées, sur 3 collectes de l’événement.<br>Bordereaux n° <span style="white-space:nowrap">BSAV-2026-00041 du 15/10/2026</span> · <span style="white-space:nowrap">BSAV-2026-00042 du 16/10/2026</span>',
+    );
+    const un = renderByType(
+      'rapport-recyclage-evenement',
+      zd({
+        bordereaux: [{ numero: 'BSAV-1', date_emission: '15/10/2026' }],
+      }),
+    );
+    expect(un).toContain("Bordereau n° BSAV-1 · Date d'émission : 15/10/2026");
+    const aucun = renderByType(
+      'rapport-recyclage-evenement',
+      zd({ bordereaux: [] }),
+    );
+    expect(aucun).not.toContain('Bordereau');
+  });
+
+  it('annexe : exutoire du référentiel, flux non pesé à 0 kg (C5)', () => {
+    const html = renderByType('rapport-recyclage-evenement', zd());
+    expect(html).toContain('Bionerval, Étampes');
+    expect(html).toContain('R3 méthanisation, digestat retourné au sol');
+    // Les 5 flux sont imprimés, cartons non pesés à 0 kg.
+    expect(html).toContain(
+      'Cartons</b></span></td><td class="mono">—</td><td class="num">0\u00a0kg',
+    );
+  });
+
+  it('transport : forfait « par collecte » et majoration sommée sur les collectes cumulées', () => {
+    const html = renderByType('rapport-recyclage-evenement', zd());
+    expect(html).toContain('CO₂e/km par collecte (camion 20 m³, diesel)');
+    expect(html).toContain('Dont 36\u00a0kg de majoration prudente');
   });
 
   it('les taux de captation, propres à chaque collecte, ne sont jamais imprimés', () => {
@@ -140,28 +159,37 @@ describe('M3.2 — rapport de recyclage cumulé sur un événement', () => {
       'rapport-recyclage-evenement',
       zd({ caps_appliques: { verre: 0.9 } } as never),
     );
-    expect(html).not.toContain('class="rz-caps"');
-    expect(html).not.toContain('Captation');
+    expect(html).not.toContain('captation 90');
   });
 
-  it('radar seulement si demandé', () => {
-    expect(renderByType('rapport-recyclage-evenement', zd())).toContain(
-      'data-version="sans-radar"',
-    );
+  it('radar de l’événement entier, seulement si demandé', () => {
+    const sans = renderByType('rapport-recyclage-evenement', zd());
+    expect(sans).toContain('data-version="sans-radar"');
+    expect(sans).not.toContain('Comparaison aux événements');
     const avec = renderByType(
       'rapport-recyclage-evenement',
       zd({ options: { benchmark: true } }),
     );
     expect(avec).toContain('data-version="avec-radar"');
-    expect(avec).toContain('Benchmark parc Savr calculé sur');
+    expect(avec).toContain('Votre événement</span>');
+    expect(avec).not.toContain('Votre collecte');
+    expect(avec).toContain(
+      'Comparaison aux événements : moyenne Savr sur 24 mois, 42 collectes, critères taille M',
+    );
   });
 
   it('échappe les textes saisis', () => {
     const html = renderByType(
       'rapport-recyclage-evenement',
-      zd({ client_nom: '<script>x</script>' }),
+      zd({
+        nom_evenement: '<script>x</script>',
+        couverture: '<b>c</b>',
+        bordereaux: [{ numero: '<i>n</i>', date_emission: '01/01/2026' }],
+      }),
     );
     expect(html).not.toContain('<script>x');
+    expect(html).not.toContain('<b>c</b>');
+    expect(html).not.toContain('<i>n</i>');
   });
 });
 

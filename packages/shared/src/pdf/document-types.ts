@@ -30,7 +30,8 @@ export const PDF_DOCUMENT_TYPES = [
   // (validerFacture succès), écrite dans factures.pdf_url_savr par le worker. R22b BL-P2-01.
   'facture',
   // Rapports CUMULÉS sur un événement (décision Val 2026-10-26) : recyclage ZD
-  // (page de synthèse @3 + détail des collectes) et récapitulatif de don AG,
+  // (gabarit du rapport d'une collecte @4 depuis le 2026-11-12) et récapitulatif
+  // de don AG,
   // sans valeur fiscale. Fabriqués au clic depuis la fiche événement, comme le
   // rapport de recyclage d'une collecte : jamais enfilés, jamais stockés.
   'rapport-recyclage-evenement',
@@ -52,7 +53,7 @@ export const TEMPLATE_VERSIONS: Record<PdfDocumentType, string> = {
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
   facture: 'facture@1',
-  'rapport-recyclage-evenement': 'rapport-recyclage-evenement@1',
+  'rapport-recyclage-evenement': 'rapport-recyclage-evenement@2',
   'rapport-don-evenement': 'rapport-don-evenement@1',
 };
 

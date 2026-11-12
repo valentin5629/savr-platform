@@ -183,6 +183,17 @@ const STATUT_TMS_PAR_NIVEAU = [
 // Collectes dont l'attribution se suit encore : à valider ou validées (une fois
 // la mission commencée, l'attribution est acquise).
 const STATUTS_ATTRIBUTION_COLLECTE: string[] = ['programmee', 'validee'];
+// Relève d'attribution lointaine (décision Val 2026-11-12) : collectes encore
+// non acceptées, 200 au plus par passage, commandes relues par lots de 50
+// (identifiants dans l'adresse), rien de commencé après 45 s de passage.
+const STATUTS_TMS_NON_ACCEPTES = [
+  'a_attribuer',
+  'attribuee_en_attente_acceptation',
+];
+const LIMITE_RELEVE_LOINTAINE = 200;
+const TAILLE_LOT_COMMANDES = 50;
+const BUDGET_RELEVE_LOINTAINE_MS = 45_000;
+const AGE_RAJEUNISSEMENT_MEMOIRE_MS = 3 * 24 * 60 * 60 * 1000;
 
 // Statuts qui arrêtent la reprise d'une création : une commande du même numéro
 // dans l'un d'eux met l'ordre en échec définitif, donc en alerte — ni reprise,
@@ -737,6 +748,7 @@ export class AdapterMts1 implements LogistiqueProvider {
   // ─── sync — polling entrant MTS-1 (M1.5b) ───────────────────────────────────
 
   async sync(fenetre: FenetreSync): Promise<void> {
+    const debut = Date.now();
     // Charge le référentiel une fois par run (stable)
     const fluxById = await this.loadFluxCodes();
     const seuils = await this.loadSeuils();
@@ -757,6 +769,153 @@ export class AdapterMts1 implements LogistiqueProvider {
         await this.logEntrantError(
           'SYNC_ORDER_FAILED',
           `order ${order.customerOrderId}: ${String(err)}`,
+        );
+      }
+    }
+
+    if (fenetre.attribution_jusqu_a) {
+      try {
+        await this.releverAttributionsLointaines(
+          fenetre.jusqu_a,
+          fenetre.attribution_jusqu_a,
+          debut + BUDGET_RELEVE_LOINTAINE_MS,
+        );
+      } catch (err) {
+        // Jamais bloquante : la relève proche a fait son travail, l'attribution
+        // lointaine sera relue au passage suivant.
+        await this.logEntrantError('SYNC_ATTRIBUTION_FAILED', String(err));
+      }
+    }
+  }
+
+  /**
+   * Relève d'attribution lointaine (décision Val 2026-11-12, C4) : la relève
+   * proche ne lit que J−3 à J+2, une attribution faite plus tôt dans la console
+   * MTS-1 n'apparaissait sur la fiche qu'à J−2. Pour les collectes datées après
+   * le dernier jour de la relève proche et jusqu'à `jusqu_a`, encore à valider
+   * ou validées, confiées à MTS-1 et pas encore acceptées, seuls le transporteur
+   * et l'attribution sont relus (ni poids, ni photos, ni statut de commande).
+   * Les plus proches d'abord ; plus rien n'est commencé passé `echeance` (borne
+   * de la fonction : 60 s), le reste attend le passage suivant.
+   */
+  private async releverAttributionsLointaines(
+    apres: Date,
+    jusqu_a: Date,
+    echeance: number,
+  ): Promise<void> {
+    const mts1 = [...(await this.prestatairesMts1())];
+    const { data, error } = await this.supabase
+      .from('collectes')
+      .select(
+        'id, statut, statut_tms, prestataire_logistique_id, collecte_tournees!inner(rang, tournees!inner(id, statut, tms_reference, external_ref_commande, prestataire_logistique_id))',
+      )
+      .gt('date_collecte', jourParis(apres))
+      .lte('date_collecte', jourParis(jusqu_a))
+      .in('statut', STATUTS_ATTRIBUTION_COLLECTE)
+      .in('statut_tms', STATUTS_TMS_NON_ACCEPTES)
+      .in('prestataire_logistique_id', mts1)
+      .order('date_collecte', { ascending: true })
+      .order('id', { ascending: true })
+      .limit(LIMITE_RELEVE_LOINTAINE);
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Collectes de la relève d'attribution lointaine non lues — ${error.message}`,
+      );
+    }
+    type Ligne = {
+      id: string;
+      statut: string;
+      statut_tms: string | null;
+      prestataire_logistique_id: string | null;
+      collecte_tournees: Array<{
+        rang: number;
+        tournees: {
+          id: string;
+          statut: string | null;
+          tms_reference: string | null;
+          external_ref_commande: string | null;
+          prestataire_logistique_id: string | null;
+        } | null;
+      }>;
+    };
+    const camions = ((data ?? []) as unknown as Ligne[]).flatMap((c) =>
+      c.collecte_tournees.flatMap((ct) => {
+        const t = ct.tournees;
+        if (
+          !t ||
+          t.statut === 'annulee' ||
+          !estIdentifiantMts1(t.external_ref_commande) ||
+          t.prestataire_logistique_id === null ||
+          !mts1.includes(t.prestataire_logistique_id)
+        ) {
+          return [];
+        }
+        return [{ collecte: c, rang: ct.rang, tournee: t }];
+      }),
+    );
+    if (camions.length === 0) return;
+
+    const commandes: Mts1CustomerOrder[] = [];
+    for (let i = 0; i < camions.length; i += TAILLE_LOT_COMMANDES) {
+      if (Date.now() >= echeance) return;
+      commandes.push(
+        ...(await this.client.findOrdersByIds(
+          camions
+            .slice(i, i + TAILLE_LOT_COMMANDES)
+            .map((c) => c.tournee.external_ref_commande!),
+        )),
+      );
+    }
+
+    for (const { collecte, rang, tournee } of camions) {
+      if (Date.now() >= echeance) return;
+      const commande = commandes.find(
+        (o) => o.customerOrderId === tournee.external_ref_commande,
+      );
+      // Commande absente de la réponse ou refusée : rien n'en est conclu ici, la
+      // relève proche la traitera à son arrivée dans sa fenêtre.
+      if (
+        !commande ||
+        STATUTS_COMMANDE_MORTE.has(commande.customerOrderStatus)
+      ) {
+        continue;
+      }
+      try {
+        const designe: unknown = commande.currentTour?.tourId;
+        const tourId =
+          designe === undefined || designe === null || designe === ''
+            ? tournee.tms_reference
+            : designe;
+        if (tourId !== null && !estIdentifiantMts1(tourId)) continue;
+        const tour = tourId ? await this.client.getTour(tourId) : null;
+        if (tour) {
+          await this.suivreTransporteur(
+            tour,
+            {
+              tourneeId: tournee.id,
+              rang,
+              prestataireId: tournee.prestataire_logistique_id,
+              collectePrestataireId: collecte.prestataire_logistique_id,
+            },
+            collecte.id,
+          );
+        }
+        await this.suivreAttribution(
+          {
+            collecteId: collecte.id,
+            collecteStatut: collecte.statut,
+            collecteStatutTms: collecte.statut_tms,
+            collectePrestataireId: collecte.prestataire_logistique_id,
+            tourneeId: tournee.id,
+          },
+          commande.customerOrderId,
+          tourId,
+          tour,
+        );
+      } catch (err) {
+        await this.logEntrantError(
+          'SYNC_ATTRIBUTION_FAILED',
+          `order ${commande.customerOrderId}: ${String(err)}`,
         );
       }
     }
@@ -1462,7 +1621,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     const etat = `${tourId ?? 'aucune'}:${niveau}`;
     const { data: vues, error: errVue } = await this.supabase
       .from('integrations_inbox')
-      .select('id, payload')
+      .select('id, payload, created_at')
       .eq('source', 'mts1')
       .eq('event_id_externe', cle)
       .limit(1);
@@ -1472,9 +1631,12 @@ export class AdapterMts1 implements LogistiqueProvider {
       );
     }
     const vue = (vues ?? [])[0] as
-      | { id: string; payload: { etat?: unknown } | null }
+      | { id: string; payload: { etat?: unknown } | null; created_at?: string }
       | undefined;
-    if (vue?.payload?.etat === etat) return;
+    if (vue?.payload?.etat === etat) {
+      await this.entretenirMemoireAttribution(vue.id, vue.created_at);
+      return;
+    }
     if (niveau > 0) {
       const autres = (await this.findTournees(collecteId)).filter(
         (t) =>
@@ -1510,6 +1672,24 @@ export class AdapterMts1 implements LogistiqueProvider {
       if (!ecrites?.length) return;
     }
     await this.noterAttribution(cle, etat, vue?.id ?? null);
+  }
+
+  // Mémoire d'attribution encore relue : rajeunie au-delà de 3 jours. La purge
+  // d'integrations_inbox (7 jours, sur created_at) l'effacerait sinon, et la
+  // relève lointaine lit une commande jusqu'à 30 jours : une collecte remise « en
+  // attente d'acceptation » par une modification de créneau, sur une tournée
+  // acceptée plus de 7 jours avant, repasserait « acceptée » sans que MTS-1
+  // montre rien de nouveau. Échec : sans effet, retenté au passage suivant.
+  private async entretenirMemoireAttribution(
+    id: string,
+    creeeLe: string | undefined,
+  ): Promise<void> {
+    const age = creeeLe ? Date.now() - Date.parse(creeeLe) : Infinity;
+    if (!(age > AGE_RAJEUNISSEMENT_MEMOIRE_MS)) return;
+    await this.supabase
+      .from('integrations_inbox')
+      .update({ created_at: new Date().toISOString() })
+      .eq('id', id);
   }
 
   // Dernier état d'attribution vu pour une commande. INSERT nu (index unique

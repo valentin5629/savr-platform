@@ -921,6 +921,50 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
   }
 
+  /**
+   * Notification MTS-1, étape 2 (décision Val 2026-11-12, C3) : une notification
+   * est un signal, jamais une vérité. Les commandes qu'elle désigne sont relues
+   * chez MTS-1 et traitées exactement comme par la relève (`processOrder` :
+   * statut, tournée, attribution, transporteur, pesées, fin de mission), quelle
+   * que soit leur date. Une notification de tournée sans commande (`tour/update`,
+   * mesuré le 2026-11-12) : les commandes nommées sur les arrêts de la tournée.
+   * Identifiants illisibles ignorés ; 50 commandes au plus ; une commande
+   * inconnue de Savr est ignorée par `processOrder`.
+   */
+  async releverSignal(signal: {
+    commandes: readonly unknown[];
+    tournee: unknown;
+  }): Promise<void> {
+    const ids = new Set(signal.commandes.filter(estIdentifiantMts1));
+    if (ids.size === 0 && estIdentifiantMts1(signal.tournee)) {
+      const tour = await this.client.getTour(signal.tournee);
+      for (const stop of tour.stops ?? []) {
+        for (const c of stop?.customerOrders ?? []) {
+          if (estIdentifiantMts1(c?.customerOrderId))
+            ids.add(c.customerOrderId);
+        }
+      }
+    }
+    if (ids.size === 0) return;
+
+    const fluxById = await this.loadFluxCodes();
+    const seuils = await this.loadSeuils();
+    const commandes = await this.client.findOrdersByIds(
+      [...ids].slice(0, TAILLE_LOT_COMMANDES),
+    );
+    for (const order of commandes) {
+      if (!ids.has(order.customerOrderId)) continue;
+      try {
+        await this.processOrder(order, fluxById, seuils);
+      } catch (err) {
+        await this.logEntrantError(
+          'NOTIFICATION_ORDER_FAILED',
+          `order ${order.customerOrderId}: ${String(err)}`,
+        );
+      }
+    }
+  }
+
   private async processOrder(
     order: Mts1CustomerOrder,
     fluxById: Map<string, string>,

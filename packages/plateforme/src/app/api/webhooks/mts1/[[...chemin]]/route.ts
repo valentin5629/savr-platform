@@ -1,4 +1,6 @@
-// Notifications entrantes MTS-1 — ÉTAPE 1 : enregistrement seul.
+// Notifications entrantes MTS-1 — enregistrement (étape 1), puis relecture chez
+// MTS-1 des commandes désignées (étape 2, décision Val 2026-11-12, après les
+// premières notifications réelles reçues sur dev le même jour).
 // Décisions Val : 2026-10-12 (voie A : validation du prestataire en direct par
 // les notifications MTS-1) ; 2026-10-13 (mesurer avant de traiter).
 //
@@ -21,8 +23,9 @@
 
 import { createHash, timingSafeEqual } from 'node:crypto';
 
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 
+import { releverNotificationMts1 } from '@savr/adapters/src/index.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
@@ -30,6 +33,8 @@ import { serverError } from '@/lib/api-helpers.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// La relecture tourne après la réponse (after) : bornée comme l'envoi immédiat.
+export const maxDuration = 60;
 
 /** Valeur de `integrations_inbox.source` : distincte de celle de la relève. */
 const SOURCE = 'mts1_notification';
@@ -135,5 +140,44 @@ export async function POST(
 
   // Ni le contenu ni un identifiant métier ne vont au journal.
   logger.info('mts1.notification.enregistree', { type, octets });
+  programmerRelecture(type, corps);
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Étape 2 (décision Val 2026-11-12) : après la réponse, la ou les commandes que
+ * la notification désigne sont relues chez MTS-1 et traitées comme par la
+ * relève. Une notification porte `customerOrderId`, ou seulement `tourId` pour
+ * `tour/update` (mesuré le 2026-11-12 sur le compte de démonstration). Un rejeu
+ * (doublon) ne relance rien : la première réception l'a fait. Un échec n'a pas
+ * d'autre effet qu'une trace : la relève planifiée reste le filet.
+ */
+function programmerRelecture(type: string, corps: unknown): void {
+  const c = (corps && typeof corps === 'object' ? corps : {}) as Record<
+    string,
+    unknown
+  >;
+  const signal = {
+    commandes: [c['customerOrderId']],
+    tournee: c['tourId'] ?? c['currentTourId'],
+  };
+  try {
+    after(async () => {
+      try {
+        await releverNotificationMts1(createAdminSupabaseClient(), signal);
+      } catch (err) {
+        logger.error('mts1.notification.relecture_echec', {
+          type,
+          error: String(err),
+        });
+      }
+    });
+  } catch (err) {
+    // `after()` hors requête : la notification est enregistrée, la relève
+    // planifiée la rattrapera.
+    logger.error('mts1.notification.relecture_non_programmee', {
+      type,
+      error: String(err),
+    });
+  }
 }

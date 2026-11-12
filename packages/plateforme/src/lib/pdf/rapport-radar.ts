@@ -1,4 +1,4 @@
-// Radar du rapport de recyclage ZD (§12 §1.2, gabarit @3) — comparaison kg/convive
+// Radar du rapport de recyclage ZD (§12 §1.2, gabarits @3 et @4) — comparaison kg/convive
 // de la collecte au parc Savr. Le rapport ne le porte que si un utilisateur l'a
 // choisi dans la fiche collecte, avec les filtres qu'il y a réglés.
 //
@@ -42,6 +42,10 @@ export interface RadarRapport {
     benchmark_kg_pax: number | null;
   }[];
   benchmark_legende: string;
+  /** Collectes du segment comparé (annexe du rapport d'une collecte, @4). */
+  benchmark_effectif: number | null;
+  /** Critères de comparaison en clair (« taille XL, cocktail apéritif »). */
+  benchmark_criteres: string;
   /** Filtres appliqués (période comprise) : la légende du radar en est tirée. */
   filtres_benchmark: {
     periode_debut: string;
@@ -160,7 +164,7 @@ export async function construireRadarRapport(
     filtresBenchmarkDuRadar(filtres),
   );
   if (fiche.etat !== 'ok') return fiche;
-  return habillerRadar(supabase, filtres, fiche.flux);
+  return habillerRadar(supabase, filtres, fiche.flux, fiche.effectif ?? null);
 }
 
 /**
@@ -172,6 +176,7 @@ export async function habillerRadar(
   supabase: ClientSousRls,
   filtres: FiltresRadar,
   fluxEcran: FluxBenchmarkFiche,
+  effectif: number | null = null,
 ): Promise<RadarRapportResultat> {
   // Noms et ordre d'affichage des flux ; libellés des types d'événement filtrés.
   const [fluxRes, typesRes] = await Promise.all([
@@ -234,11 +239,30 @@ export async function habillerRadar(
     }`,
   ].join(' · ');
 
+  // Version courte, pour l'annexe : seuls les critères posés (la période est
+  // déjà dite, « 24 mois »).
+  const criteres = [
+    filtres.taille_evenement_codes.length
+      ? `taille ${filtres.taille_evenement_codes.join('/')}`
+      : '',
+    nbTypes
+      ? libellesTypes.length === nbTypes
+        ? libellesTypes.map((l) => l.toLocaleLowerCase('fr')).join(', ')
+        : `${nbTypes} type${nbTypes > 1 ? 's' : ''} d’événement`
+      : '',
+    nbLieux ? `${nbLieux} lieu${nbLieux > 1 ? 'x' : ''}` : '',
+  ].filter(Boolean);
+  const benchmark_criteres = criteres.length
+    ? criteres.join(', ')
+    : 'tous les événements';
+
   return {
     etat: 'ok',
     radar: {
       benchmark_flux,
       benchmark_legende,
+      benchmark_effectif: effectif,
+      benchmark_criteres,
       filtres_benchmark: {
         periode_debut: debut,
         periode_fin: fin,

@@ -36,7 +36,7 @@ const EXPECTED_TYPES = [
 ];
 const EXPECTED_VERSIONS: Record<string, string> = {
   'bordereau-zd': 'bordereau-zd@2',
-  'rapport-recyclage-zd': 'rapport-recyclage-zd@3',
+  'rapport-recyclage-zd': 'rapport-recyclage-zd@4',
   'attestation-don': 'attestation-don@4',
   'synthese-dashboard': 'synthese-dashboard@1',
   'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
@@ -46,7 +46,10 @@ const EXPECTED_VERSIONS: Record<string, string> = {
 };
 import type { AttestationDonData } from './templates/attestation-don.js';
 import type { BordereauZdData } from './templates/bordereau-zd.js';
-import type { RapportRecyclageZdData } from './templates/rapport-recyclage-zd.js';
+import type {
+  RapportRecyclageZdData,
+  SyntheseRecyclageData,
+} from './templates/rapport-recyclage-zd.js';
 import { SAVR_LOGO_MASK } from './templates/assets/marque.js';
 import type { SyntheseDashboardData } from './templates/synthese-dashboard.js';
 import type { RapportEvenementSansExcedentData } from './templates/rapport-evenement-sans-excedent.js';
@@ -76,9 +79,8 @@ function bordereauData(
   };
 }
 
-function rapportData(
-  overrides: Partial<RapportRecyclageZdData> = {},
-): RapportRecyclageZdData {
+/** Page de synthèse @3, gardée par le rapport cumulé d'un événement. */
+function syntheseRecyclageData(): SyntheseRecyclageData {
   return {
     client_nom: 'Groupe Lumière',
     nom_evenement: 'Gala',
@@ -90,17 +92,85 @@ function rapportData(
     taux_recyclage: 72.5,
     flux: [
       { nom: 'Biodéchets', code: 'biodechet', poids_kg: 86.4 },
-      { nom: 'Emballages', code: 'emballage', poids_kg: 23.1 },
       { nom: 'Cartons', code: 'carton', poids_kg: 31.7 },
-      { nom: 'Verre', code: 'verre', poids_kg: 54.2 },
-      { nom: 'Déchet résiduel', code: 'dechet_residuel', poids_kg: 38.6 },
     ],
-    poids_total_kg: 234,
+    poids_total_kg: 118.1,
     co2_evite_kg: 312,
     co2_induit_kg: 41,
-    co2_net_kg: -271,
+  };
+}
+
+const REFERENTIEL_FLUX = {
+  emballage: {
+    nom: 'Emballages',
+    code_dechet_europeen: '15 01 06',
+    exutoire: 'CENTRE DE TRI SELECTIF PAPREC TRIVALO 93',
+    exutoire_commune: 'Le Blanc-Mesnil',
+    code_traitement: 'R3/R5',
+    filiere_valorisation: 'recyclage',
+  },
+  biodechet: {
+    nom: 'Biodéchets',
+    code_dechet_europeen: '20 01 08',
+    exutoire: 'GENERIS VSG DCDT',
+    exutoire_commune: 'Villeneuve-Saint-Georges',
+    code_traitement: 'R3',
+    filiere_valorisation: 'methanisation',
+  },
+  verre: {
+    nom: 'Verre',
+    code_dechet_europeen: '15 01 07',
+    exutoire: 'REVIVAL GENNEVILLIERS TRSFT',
+    exutoire_commune: 'Gennevilliers',
+    code_traitement: 'R5',
+    filiere_valorisation: 'recyclage',
+  },
+  carton: {
+    nom: 'Cartons',
+    code_dechet_europeen: '15 01 01',
+    exutoire: 'TAIS VILLENEUVE LE ROI TDI',
+    exutoire_commune: 'Villeneuve-le-Roi',
+    code_traitement: 'R3',
+    filiere_valorisation: 'recyclage',
+  },
+  dechet_residuel: {
+    nom: 'Déchet résiduel',
+    code_dechet_europeen: '20 03 01',
+    exutoire: 'NOVAZUR ARGENTEUIL UVEND',
+    exutoire_commune: 'Argenteuil',
+    code_traitement: 'R1',
+    filiere_valorisation: 'valorisation_energetique',
+  },
+} as const;
+
+/** Rapport d'une collecte (gabarit @4), sans radar par défaut. */
+function rapportData(
+  overrides: Partial<RapportRecyclageZdData> = {},
+): RapportRecyclageZdData {
+  const poids = {
+    emballage: 23.1,
+    biodechet: 86.4,
+    verre: 54.2,
+    carton: 31.7,
+    dechet_residuel: 38.6,
+  } as const;
+  return {
+    nom_evenement: 'Gala',
+    date_evenement: '01/07/2026',
+    lieu_nom: 'Pavillon',
+    nb_pax: 420,
+    taux_recyclage: 72.5,
+    flux: (Object.keys(poids) as (keyof typeof poids)[]).map((code) => ({
+      code,
+      poids_kg: poids[code],
+      ...REFERENTIEL_FLUX[code],
+    })),
+    poids_total_kg: 234,
+    co2_evite_kg: 312,
+    co2_induit_kg: 341,
     energie_primaire_evitee_kwh: 9000,
-    equivalences: { km_voiture: 1431, foyer: 2 },
+    equivalences: { km_voiture: 1431 },
+    forfait_transport: { km: 25, fe_camion_kg_km: 0.4 },
     caps_appliques: {
       verre: 0.95,
       carton: 0.85,
@@ -108,6 +178,8 @@ function rapportData(
       emballage: 0.7,
       version_parametres_at: '2026-07-02 06:00:00+02',
     },
+    bordereau_numero: 'BSAV-2026-00042',
+    bordereau_date_emission: '02/07/2026',
     benchmark_flux: [
       {
         flux_nom: 'Biodéchets',
@@ -140,14 +212,13 @@ function rapportData(
         benchmark_kg_pax: 0.11,
       },
     ],
-    benchmark_legende:
-      "période 02/10/2024 → 02/10/2026 · lieux : tous · type d'événement : Gala · taille : M (500 à 749 convives)",
-    bordereau: bordereauData(),
+    benchmark_effectif: 37,
+    benchmark_criteres: 'taille M, gala',
     ...overrides,
   };
 }
 
-/** Rapport demandé AVEC le radar (option cochée dans la modale de la collecte). */
+/** Rapport demandé AVEC le radar (option cochée dans la fiche collecte). */
 function rapportAvecRadar(
   overrides: Partial<RapportRecyclageZdData> = {},
 ): string {
@@ -157,13 +228,18 @@ function rapportAvecRadar(
   );
 }
 
-/** Page 1 seule (avant le bordereau intégré). */
+/** Page 1 seule, et page 2 seule (annexe technique). */
 function page1(html: string): string {
   return html.slice(0, html.indexOf('<!-- PAGE 2'));
 }
+function page2(html: string): string {
+  return html.slice(html.indexOf('<!-- PAGE 2'));
+}
 
-const nbAxes = (html: string) =>
-  (html.match(/<line class="rz-ax"/g) ?? []).length;
+/** Sommets du polygone « Votre collecte » du radar. */
+const sommetsRadar = (html: string) =>
+  (html.match(/<circle cx="[^"]+" cy="[^"]+" r="2.4" fill="#ff9b00">/g) ?? [])
+    .length;
 
 function attestationData(
   overrides: Partial<AttestationDonData> = {},
@@ -315,7 +391,7 @@ const DATA_BY_TYPE: Record<string, unknown> = {
   'rapport-evenement-sans-excedent': sansExcedentData(),
   facture: factureData(),
   'rapport-recyclage-evenement': {
-    ...rapportData(),
+    ...syntheseRecyclageData(),
     couverture: 'Cumul de 1 collecte réalisée, sur 1 collecte de l’événement.',
     collectes: [],
   },
@@ -553,379 +629,310 @@ describe('M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis
   });
 });
 
-describe('M1.6 / rapport recyclage §1.2 — gabarit @3, deux versions de la page 1', () => {
-  it('option cochée → version avec radar : radar base 100, liste par flux, badges d’écart, légende des filtres', () => {
+// Gabarit @4 (maquettes v76 validées par Val, décisions C1–C6 du 2026-11-12).
+// La fidélité visuelle est prouvée par rapport-recyclage-visuel.test.ts ; ici,
+// les données et les règles.
+describe('M1.6 / rapport recyclage §1.2 — gabarit @4, page 1 avec radar ou jauge, annexe technique', () => {
+  const NBSP = ' ';
+
+  it('option cochée → version avec radar : 5 axes en g/convive face à la moyenne, anneau du taux, ligne de comparaison dans l’annexe', () => {
     const html = rapportAvecRadar();
-    expect(html).toContain('data-version="avec-radar"');
-    expect(html).toContain(
-      'Vos déchets par convive, comparés aux autres événements Savr',
+    const p1 = page1(html);
+    expect(p1).toContain('data-version="avec-radar"');
+    expect(p1).toContain('Vos résultats face aux événements comparables');
+    // Biodéchets : 210 g pour une moyenne de 240 g.
+    expect(p1).toContain(`210${NBSP}g</tspan> · moy. 240${NBSP}g`);
+    for (const axe of [
+      'Biodéchets',
+      'Emballages',
+      'Cartons',
+      'Verre',
+      'Déchet résiduel',
+    ]) {
+      expect(p1).toContain(`">${axe}</text>`);
+    }
+    expect(sommetsRadar(p1)).toBe(5);
+    expect(p1).toContain('Moyenne des événements comparables');
+    expect(p1).toContain('stroke-dasharray="72.5 27.5" stroke-dashoffset="25"');
+    expect(p1).not.toContain('de vos déchets recyclés');
+    expect(page2(html)).toContain(
+      'Comparaison aux événements : moyenne Savr sur 24 mois, 37 collectes, critères taille M, gala',
     );
-    // Radar : un axe par flux comparable, parc et « Vous » tracés.
-    expect(nbAxes(html)).toBe(5);
-    expect(html).toContain('class="rz-parc"');
-    expect(html).toContain('class="rz-vous"');
-    // Liste : kg/pax de la collecte, repère parc, écart signé et coloré.
-    expect(html).toContain('0,21 kg/pax');
-    expect(html).toContain('parc 0,24');
-    expect(html).toContain('rz-bdg rz-ok">−13\u00a0%'); // 0,21 / 0,24 : sous le parc
-    expect(html).toContain('rz-bdg rz-wn">+25\u00a0%'); // 0,075 / 0,060 : jusqu'à +30 %
-    expect(html).toContain('rz-bdg rz-bd">+44\u00a0%'); // 0,13 / 0,09 : au-delà
-    // Légende des filtres appliqués.
-    expect(html).toContain(
-      'Benchmark parc Savr calculé sur : période 02/10/2024',
-    );
-    expect(html).toContain("type d'événement : Gala");
-    // L'effectif du segment n'est pas imprimé.
-    expect(page1(html)).not.toMatch(/\d\s+collectes?\b/);
   });
 
-  it('option absente ou décochée → version sans radar : aucun bloc de comparaison', () => {
-    for (const options of [undefined, null, {}, { benchmark: false }]) {
+  it('option absente ou décochée → version jauge : taux en kg et en %, ni radar ni ligne de comparaison', () => {
+    for (const options of [undefined, { benchmark: false }]) {
       const html = renderByType(
         'rapport-recyclage-zd',
         rapportData({ options }),
       );
-      expect(html).toContain('data-version="sans-radar"');
-      // Les données du benchmark sont dans le payload mais rien n'en sort.
-      expect(html).not.toContain('Vos déchets par convive');
-      expect(html).not.toContain('kg/pax');
-      expect(html).not.toContain('Benchmark parc Savr');
-      expect(nbAxes(html)).toBe(0);
+      const p1 = page1(html);
+      expect(p1).toContain('data-version="sans-radar"');
+      expect(p1).not.toContain('Vos résultats face aux événements comparables');
+      // 234 kg × 72,5 % = 169,65 kg → 170 kg recyclés, 64 kg non recyclés.
+      expect(p1).toContain(`de vos déchets recyclés, soit 170${NBSP}kg`);
+      expect(p1).toContain(`170${NBSP}kg · 72,5${NBSP}%`);
+      expect(p1).toContain(`64${NBSP}kg · 27,5${NBSP}%`);
+      expect(p1).toContain('width: 72.5%; background: #12a459;');
+      expect(page2(html)).not.toContain('Comparaison aux événements');
     }
   });
 
-  it('BL-P1-RPT-01 : un flux au repère masqué sort du radar, la liste dit « n/d » sans annoncer de cause', () => {
+  it('BL-P1-RPT-01 : un flux sans repère (k-anonymat) n’a pas de sommet et affiche « moy. n/d », sans annoncer de cause', () => {
     const html = rapportAvecRadar({
-      benchmark_flux: rapportData().benchmark_flux!.map((g) =>
-        g.flux_code === 'verre'
-          ? // Masqué par le k-anonymat : le repère parc n'arrive pas.
-            { ...g, benchmark_kg_pax: null }
-          : g,
+      benchmark_flux: rapportData().benchmark_flux?.map((g) =>
+        g.flux_code === 'verre' ? { ...g, benchmark_kg_pax: null } : g,
       ),
     });
-    expect(nbAxes(html)).toBe(4);
-    expect(html).not.toMatch(/class="rz-axl"[^>]*>Verre</);
-    expect(html).toContain('parc n/d');
-    expect(html).toContain('rz-bdg rz-nd">n/d');
-    expect(html).toContain('données insuffisantes pour comparer ce flux');
-    // Aucune cause annoncée : elle renseignerait sur la structure du segment.
-    expect(html).not.toContain('moins de 5');
-    expect(page1(html)).not.toMatch(/\d\s+collectes?\b/);
-    expect(html).not.toContain('anonymat');
+    const p1 = page1(html);
+    expect(sommetsRadar(p1)).toBe(4);
+    expect(p1).toContain(`130${NBSP}g</tspan> · moy. n/d`);
+    expect(p1).not.toMatch(/anonymat|seuil|insuffisant/i);
   });
 
-  it('BL-P1-RPT-01 : moins de 3 flux comparables → liste seule, pas de radar', () => {
+  it('BL-P1-RPT-01 : aucun flux comparable, ou aucune ligne de benchmark → version jauge (jamais un radar vide)', () => {
+    const sansRepere = rapportAvecRadar({
+      benchmark_flux: rapportData().benchmark_flux?.map((g) => ({
+        ...g,
+        benchmark_kg_pax: null,
+      })),
+    });
+    expect(sansRepere).toContain('data-version="sans-radar"');
+    expect(rapportAvecRadar({ benchmark_flux: [] })).toContain(
+      'data-version="sans-radar"',
+    );
+  });
+
+  it('radar : base 100 = la moyenne (rayon 56) ; au-delà de 150 % de la moyenne, le sommet est borné à l’anneau extérieur', () => {
     const html = rapportAvecRadar({
-      benchmark_flux: rapportData().benchmark_flux!.map((g, i) =>
-        i > 1 ? { ...g, benchmark_kg_pax: null } : g,
+      benchmark_flux: rapportData().benchmark_flux?.map((g) =>
+        g.flux_code === 'verre' ? { ...g, collecte_kg_pax: 0.3 } : g,
       ),
     });
-    expect(html).toContain('data-version="avec-radar"');
-    expect(html).not.toContain('<svg class="rz-radar"');
-    expect(html).toContain('rz-bench rz-bench-liste');
-    expect(html).toContain('0,21 kg/pax');
-  });
-
-  it('option cochée sans aucune ligne de benchmark → version sans radar (pas de bloc vide)', () => {
-    const html = rapportAvecRadar({ benchmark_flux: [] });
-    expect(html).toContain('data-version="sans-radar"');
-    expect(html).not.toContain('Vos déchets par convive');
-  });
-
-  it('BL-P2-18 : carbone — évité en chiffre principal, km voiture seul, induit et net sur des lignes à part', () => {
-    for (const html of [
-      rapportAvecRadar(),
-      renderByType('rapport-recyclage-zd', rapportData()),
-    ]) {
-      expect(html).toContain('0,312\u00a0t\u00a0CO₂e');
-      expect(html).toContain('<span class="rz-pill">évitées</span>');
-      expect(html).toContain('1\u00a0431\u00a0km en voiture');
-      expect(html).not.toContain('bœuf');
-      expect(html).toContain('Émissions induites');
-      expect(html).toContain('0,041\u00a0t\u00a0CO₂e');
-      // Net stocké négatif (induit − évité) : affiché en valeur absolue, libellé explicite.
-      expect(html).toContain('Émissions nettes évitées');
-      expect(html).toContain('0,271\u00a0t\u00a0CO₂e');
-      expect(html).not.toContain('-0,271');
-      expect(html).toContain('9\u00a0000\u00a0kWh');
-    }
-    // Net positif : la collecte émet plus qu'elle n'évite, on ne dit pas « évitées ».
-    const positif = page1(
-      renderByType('rapport-recyclage-zd', rapportData({ co2_net_kg: 28 })),
+    // Axe Verre (4e, 126°) à 84 : (50.6, 168).
+    expect(page1(html)).toContain('<circle cx="50.6" cy="168" r="2.4"');
+    // Moyenne = pentagone régulier de rayon 56.
+    expect(page1(html)).toContain(
+      'points="100,44 153.3,82.7 132.9,145.3 67.1,145.3 46.7,82.7" fill="none" stroke="#223870"',
     );
-    expect(positif).toContain('>Émissions nettes</div>');
-    expect(positif).not.toContain('Émissions nettes évitées');
-    // Équivalence foyers : version sans radar seulement (maquette).
-    expect(renderByType('rapport-recyclage-zd', rapportData())).toContain(
-      '2 foyers / an',
-    );
-    expect(rapportAvecRadar()).not.toContain('foyers / an');
   });
 
-  it('BL-P2-18 : tonnages — barre empilée (avec radar), tableau + anneau + part valorisée (sans radar)', () => {
-    const avec = rapportAvecRadar();
-    expect(avec).toContain('class="rz-barre"');
-    expect((avec.match(/class="rz-seg"/g) ?? []).length).toBe(5);
-    expect(avec).toContain('36,9\u00a0%'); // 86,4 / 234
-    expect(avec).toContain('Total collecté <b>234,0\u00a0kg</b>');
-    expect(avec).not.toContain('class="rz-donut"');
-
-    const sans = renderByType('rapport-recyclage-zd', rapportData());
-    expect(sans).toContain('<table class="rz-tbl">');
-    expect(sans).toContain('<svg class="rz-donut"');
-    expect((sans.match(/stroke-dasharray=/g) ?? []).length).toBe(5);
-    expect(sans).toContain('5 FLUX');
-    // Le total additionne les 5 flux, résiduel compris : c'est du collecté, pas du valorisé.
-    expect(sans).toContain('Total collecté');
-    expect(sans).not.toContain('Total valorisé');
-    expect(sans).toContain('Valorisé <b>195,4\u00a0kg</b> (83,5\u00a0%)');
-    expect(sans).toContain('Résiduel <b>38,6\u00a0kg</b> (16,5\u00a0%)');
-    // Planche sans radar : valorisés du plus lourd au plus léger, résiduel en dernier
-    // (38,6 kg : plus lourd que cartons et emballages, il ferme pourtant le tableau).
+  it('C5 : les 5 flux toujours imprimés, dans l’ordre de la maquette ; un flux non pesé vaut 0 kg', () => {
+    const html = renderByType(
+      'rapport-recyclage-zd',
+      rapportData({
+        flux: rapportData().flux.map((f) =>
+          f.code === 'verre' ? { ...f, poids_kg: 0 } : f,
+        ),
+        poids_total_kg: 179.8,
+      }),
+    );
+    const p1 = page1(html);
     const ordre = [
+      'Emballages',
       'Biodéchets',
       'Verre',
       'Cartons',
-      'Emballages',
       'Déchet résiduel',
-    ].map((n) => sans.indexOf(`${n}</td>`));
-    expect(ordre.every((v) => v > 0)).toBe(true);
-    expect([...ordre].sort((a, b) => a - b)).toEqual(ordre);
-    // Planche avec radar : strictement par poids (le résiduel passe devant les cartons).
-    const leg = (n: string) => avec.indexOf(`rz-leg-nom">${n}<`);
-    expect(leg('Déchet résiduel')).toBeGreaterThan(0);
-    expect(leg('Déchet résiduel')).toBeLessThan(leg('Cartons'));
-  });
-
-  it('BL-P2-20 : aucune mention de régénération sur le rapport, même régénéré', () => {
-    const payload = {
-      ...rapportData({ options: { benchmark: true } }),
-      regenere_le: '07/07/2026',
-    };
-    const html = renderByType('rapport-recyclage-zd', payload);
-    expect(html).not.toContain('Version mise à jour');
-    expect(html).not.toContain('07/07/2026');
-  });
-
-  it('en-tête : client × traiteur, date de l’événement, lieu, convives, logos client et traiteur', () => {
-    const complet = rapportAvecRadar({
-      logo_client_url: 'data:image/png;base64,CLIENT',
-      logo_traiteur_url: 'data:image/png;base64,TRAITEUR',
-      // Intervention le lendemain de l'événement.
-      bordereau: bordereauData({ date_collecte: '02/07/2026' }),
-    });
-    const html = page1(complet);
-    expect(html).toContain('<span>Groupe Lumière</span>');
-    expect(html).toContain('× Traiteur SA');
-    expect(html).toContain("Date de l'événement");
-    expect(html).toContain('01/07/2026');
-    // La date d'intervention reste en page 2 (bordereau), jamais en page 1.
-    expect(complet).toContain('Intervention le 02/07/2026');
-    expect(html).not.toContain('02/07/2026');
-    expect(html).toContain('1 rue X, Paris');
-    expect(html).toContain('<div class="rz-v">420</div>');
-    expect((html.match(/class="rz-logo"/g) ?? []).length).toBe(2);
-    expect(html.indexOf('base64,CLIENT')).toBeLessThan(
-      html.indexOf('base64,TRAITEUR'),
+    ].map((l) => p1.indexOf(`margin-top: 2px;">${l}</span>`));
+    expect(ordre.every((i) => i > 0)).toBe(true);
+    expect([...ordre].sort((x, y) => x - y)).toEqual(ordre);
+    expect(p1).toContain('line-height: 1;">0<span');
+    expect(p1).toContain(`0${NBSP}% du total`);
+    expect(page2(html)).toMatch(
+      /Verre<\/b><\/span><\/td><td class="mono">15 01 07<\/td><td class="num">0\u00a0kg/,
     );
-    // Logo Savr officiel (masque de luminance), jamais le mot « Savr » en texte.
-    expect(html).toContain('mask="url(#rz-logo-masque)"');
-    expect(html).not.toContain('class="logo-savr"');
   });
 
-  it('en-tête : sans nom de client, repli sur le nom de l’événement ; sans logo, aucun emplacement vide', () => {
-    const html = page1(
+  it('C1 + C4 : l’annexe remplace le bordereau de pesée — codes déchet, exutoire habituel et commune, code R/D du référentiel', () => {
+    const p2 = page2(renderByType('rapport-recyclage-zd', rapportData()));
+    expect(p2).toContain('Annexe technique – Traçabilité et méthodologie');
+    expect(p2).toContain('<th>Exutoire habituel</th>');
+    expect(p2).toContain('GENERIS VSG DCDT, Villeneuve-Saint-Georges');
+    expect(p2).toContain('<td>R3/R5 recyclage</td>');
+    expect(p2).toContain('<td>R3 méthanisation, digestat retourné au sol</td>');
+    expect(p2).toContain(
+      "<td>R1 incinération avec récupération d'énergie</td>",
+    );
+    expect(p2).toContain('<td class="mono">20 03 01</td>');
+    expect(p2).toContain(`<td class="num">86,4${NBSP}kg</td>`);
+    expect(p2).toContain(
+      `<td class="num" style="color:#223870">234${NBSP}kg</td>`,
+    );
+    expect(p2).toContain(
+      "Bordereau n° BSAV-2026-00042 · Date d'émission : 02/07/2026",
+    );
+    // Plus de bordereau de pesée intégré : ni producteur, ni transporteur, ni SIRET.
+    expect(p2).not.toMatch(/Bordereau de pesée|Producteur|SIRET/);
+    expect(p2).toContain(
+      'Émetteur et transporteur : Savr, 50 rue des Moines, 75017 Paris · RCS Paris 879 642 890',
+    );
+    expect(p2).toContain(
+      'Récépissé de déclaration de transport de déchets n° T 26-011, Préfecture de police, 27/04/2026',
+    );
+    expect(p2).toContain('Page 2/2');
+    // La page 1 porte aussi son numéro, avec ou sans radar.
+    expect(
+      page1(renderByType('rapport-recyclage-zd', rapportData())),
+    ).toContain('Page 1/2');
+  });
+
+  it('C1 : un nom d’exutoire court reste sur une ligne, un nom long passe à la ligne (l’annexe tient sur l’A4)', () => {
+    const p2 = page2(renderByType('rapport-recyclage-zd', rapportData()));
+    expect(p2).toContain(
+      '<td>CENTRE DE TRI SELECTIF PAPREC TRIVALO 93, Le Blanc-Mesnil</td>',
+    );
+    const court = page2(
       renderByType(
         'rapport-recyclage-zd',
-        rapportData({ client_nom: null, nom_evenement: 'Gala <A&B>' }),
+        rapportData({
+          flux: rapportData().flux.map((f) => ({
+            ...f,
+            exutoire: 'SITE',
+            exutoire_commune: 'Paris',
+          })),
+        }),
       ),
     );
-    expect(html).toContain('<span>Gala &lt;A&amp;B&gt;</span>');
-    expect(html).not.toContain('class="rz-logos"');
-    // Client et traiteur identiques : le traiteur n'est pas répété.
-    const meme = page1(
+    expect(court).toContain('<td style="white-space:nowrap">SITE, Paris</td>');
+  });
+
+  it('BL-P2-18 : CO₂ induit et évité séparés, jamais soustraits ; majoration transport et km voiture ; énergie primaire gardée (C3)', () => {
+    const html = renderByType('rapport-recyclage-zd', rapportData());
+    expect(page2(html)).toContain(`341${NBSP}kg CO₂e`);
+    expect(page2(html)).toContain(`312${NBSP}kg CO₂e`);
+    expect(page2(html)).toContain(
+      `Dont 10${NBSP}kg de majoration prudente pour le transport.`,
+    );
+    expect(page2(html)).toContain("non déductibles de l'inventaire");
+    expect(html).not.toMatch(/Émissions nettes|CO₂ net|net évité/);
+    expect(page1(html)).toContain(
+      `CO₂e évités · ≈${NBSP}1${NBSP}431${NBSP}km en voiture`,
+    );
+    expect(page1(html)).toContain(`9${NBSP}000${NBSP}kWh`);
+    expect(page1(html)).toContain("d'énergie primaire économisée");
+    // Sans forfait figé : ni majoration chiffrée, ni km × facteur inventés.
+    const sans = page2(
       renderByType(
         'rapport-recyclage-zd',
-        rapportData({ client_nom: 'Traiteur SA' }),
+        rapportData({ forfait_transport: null }),
       ),
     );
-    expect(meme).not.toContain('× Traiteur SA');
+    expect(sans).not.toContain('majoration');
+    expect(sans).not.toContain('aller-retour');
+    expect(sans).toContain('Savr ajoute par prudence un forfait de transport');
   });
 
-  it('méthodologie : taux de captation figés affichés ; phrase et ligne retirées si le payload ne les porte pas', () => {
-    const html = rapportAvecRadar();
-    expect(html).toContain(
-      'méthode UE 2019/1004 avec les taux de captation ci-dessous',
+  it('méthodologie : taux de captation figés ; filière absente non imprimée « 0 % » ; sans snapshot, pas de captation', () => {
+    const p2 = page2(renderByType('rapport-recyclage-zd', rapportData()));
+    expect(p2).toContain(
+      `captation 95${NBSP}% verre, 85${NBSP}% carton, 90${NBSP}% biodéchets, 70${NBSP}% emballages`,
     );
-    expect(html).toContain('Captation verre <b>95\u00a0%</b>');
-    expect(html).toContain('emballages <b>70\u00a0%</b>');
-    // La formule fausse du gabarit @2 a disparu.
-    expect(html).not.toContain('poids valorisé ÷ poids total');
-    const sans = rapportAvecRadar({ caps_appliques: null });
-    expect(sans).not.toContain('taux de captation ci-dessous');
-    expect(sans).not.toContain('class="rz-caps"');
-  });
-
-  it('payload @2 rejoué (régénération d’un ancien rapport) : rendu sans radar, sans plantage', () => {
-    const ancien = {
-      nom_evenement: 'Gala',
-      date_evenement: '01/07/2026',
-      date_collecte: '01/07/2026',
-      lieu_nom: 'Pavillon',
-      lieu_adresse: '1 rue X, Paris',
-      traiteur_nom: 'Traiteur SA',
-      logo_url: 'data:image/png;base64,ANCIEN',
-      taux_recyclage: null,
-      flux: [
-        { nom: 'Biodéchets', poids_kg: 12 },
-        { nom: 'Cartons', poids_kg: 8 },
-      ],
-      poids_total_kg: 20,
-      co2_evite_kg: null,
-      comparaison_savr: { taux_moyen_pondere: 68.4, nb_organisations: 7 },
-      benchmark_flux: [
-        {
-          flux_nom: 'Biodéchets',
-          collecte_kg_pax: 0.12,
-          benchmark_kg_pax: 0.1,
-        },
-      ],
-      regenere_le: '03/07/2026',
-      bordereau: bordereauData(),
-    };
-    const html = renderByType('rapport-recyclage-zd', ancien);
-    expect(html).toContain('data-version="sans-radar"');
-    expect(html).toContain('<span>Gala</span>');
-    expect(html).toContain('base64,ANCIEN'); // logo unique @2 → emplacement client
-    // Flux reconnus par leur nom (pas de code dans un payload @2) : couleurs du référentiel.
-    expect(html).toContain('stroke="#12a459"');
-    expect(html).toContain('stroke="#87684d"');
-    // Les blocs retirés ne reviennent pas par un ancien payload.
-    expect(html).not.toContain('7 organisations');
-    expect(html).not.toContain('68,4');
-  });
-
-  it('page 2 : bordereau intégré, ses styles ne sortent pas de la page 2', () => {
-    const html = rapportAvecRadar();
-    const p2 = html.slice(html.indexOf('<!-- PAGE 2'));
-    expect(p2).toContain('Annexe — Bordereau de pesée Savr (BSAV-2026-00001)');
-    expect(p2).toContain('Bordereau de pesée');
-    expect(p2).toContain('Signature chauffeur');
-    // Chaque règle du bordereau est rattachée au conteneur de la page 2.
-    expect(html).toContain('.bz table {');
-    expect(html).toContain('.bz thead tr {');
-    expect(html).not.toMatch(/^\s*table \{/m);
-    expect(html).not.toMatch(/^\s*body \{/m);
-    expect(html).not.toMatch(/^\s*\* \{/m);
-  });
-
-  it('§12 §1.7 : sans bordereau (illisible par le demandeur) → page 1 seule, ni annexe, ni producteur, ni numéro', () => {
-    for (const bordereau of [null, undefined]) {
-      const html = renderByType(
+    expect(p2).toContain(
+      `forfait de 25${NBSP}km aller-retour × 0,4${NBSP}kg CO₂e/km`,
+    );
+    const partiel = page2(
+      renderByType(
         'rapport-recyclage-zd',
-        rapportData({ bordereau }),
-      );
-      expect(html).toContain('<!DOCTYPE html>');
-      expect(html).toContain('Rapport de recyclage');
-      expect(html).not.toContain('<!-- PAGE 2');
-      expect(html).not.toContain('bz-annexe');
-      expect(html).not.toContain('.bz table {');
-      expect(html).not.toContain('BSAV-2026-00001');
-      expect(html).not.toContain('2 rue Y, Paris');
-      expect(html).not.toContain('Signature chauffeur');
-    }
-  });
-
-  it('badges d’écart : seuils de l’écran, comparés sur le ratio (≤ parc vert, jusqu’à 130 % orange, au-delà rouge)', () => {
-    const badge = (collecte_kg_pax: number, benchmark_kg_pax: number) =>
-      /rz-bdg (rz-\w+)">([^<]+)</
-        .exec(
-          rapportAvecRadar({
-            benchmark_flux: [
-              {
-                flux_nom: 'Biodéchets',
-                flux_code: 'biodechet',
-                collecte_kg_pax,
-                benchmark_kg_pax,
-              },
-            ],
-          }),
-        )!
-        .slice(1);
-    expect(badge(0.2, 0.2)).toEqual(['rz-ok', '+0\u00a0%']); // égal au parc : vert
-    expect(badge(0.21, 0.2)).toEqual(['rz-wn', '+5\u00a0%']);
-    expect(badge(0.26, 0.2)).toEqual(['rz-wn', '+30\u00a0%']); // 130 % exactement : orange
-    // 133 % : l'écart arrondi dit encore « +33 », le ratio dit rouge.
-    expect(badge(0.4, 0.3)).toEqual(['rz-bd', '+33\u00a0%']);
-  });
-
-  it('radar : un flux au-delà de 150 % du parc est borné à l’anneau extérieur ; kg/pax à 3 décimales sous 0,1', () => {
-    const html = rapportAvecRadar({
-      benchmark_flux: rapportData().benchmark_flux!.map((g) =>
-        g.flux_code === 'biodechet'
-          ? { ...g, collecte_kg_pax: 2.4, benchmark_kg_pax: 0.24 } // 1 000 % du parc
-          : g,
+        rapportData({ caps_appliques: { verre: 0.95, carton: null } }),
       ),
-    });
-    // Biodéchets = axe du haut : borné à y = 100 − 84 = 16, jamais hors du radar.
-    expect(html).toContain('<circle class="rz-vpt" cx="100.0" cy="16.0"');
-    expect(html).toContain('2,40 kg/pax');
-    expect(html).toContain('0,055 kg/pax'); // 3 décimales sous 0,1
-    expect(html).toContain('parc 0,050');
+    );
+    expect(partiel).toContain(`captation 95${NBSP}% verre</li>`);
+    expect(partiel).not.toContain(`0${NBSP}% carton`);
+    expect(
+      page2(
+        renderByType(
+          'rapport-recyclage-zd',
+          rapportData({ caps_appliques: null }),
+        ),
+      ),
+    ).not.toContain('captation ');
   });
 
-  it('toutes les valeurs du payload sont échappées (client, traiteur, lieu, adresse, logos, flux, légende)', () => {
-    const html = rapportAvecRadar({
-      client_nom: 'A<b>&"',
-      traiteur_nom: 'T<i>',
-      lieu_nom: 'L<script>',
-      lieu_adresse: '1 rue <u>',
-      date_evenement: '<01>',
-      logo_client_url: 'x" onerror="alert(1)',
-      logo_traiteur_url: 'y"><script>',
-      benchmark_legende: 'période <x> · lieux : <y>',
-      flux: [{ nom: 'F<em>', code: 'verre', poids_kg: 10 }],
-      poids_total_kg: 10,
-      benchmark_flux: [
-        {
-          flux_nom: 'G<em>',
-          flux_code: 'verre',
-          collecte_kg_pax: 0.1,
-          benchmark_kg_pax: 0.1,
-        },
-      ],
-    });
+  it('bandeau : nom de l’événement, lieu, date en toutes lettres ; logos client et traiteur, aucun emplacement vide sans logo', () => {
+    const html = renderByType(
+      'rapport-recyclage-zd',
+      rapportData({
+        logo_client_url: 'data:image/png;base64,CLIENT',
+        logo_traiteur_url: 'data:image/png;base64,TRAITEUR',
+      }),
+    );
     const p1 = page1(html);
-    for (const brut of [
-      'A<b>',
-      'T<i>',
-      'L<script>',
-      '<u>',
-      '<01>',
-      '" onerror="',
-      '"><script>',
-      '<x>',
-      '<y>',
-      'F<em>',
-      'G<em>',
-    ]) {
-      expect([brut, p1.includes(brut)]).toEqual([brut, false]);
+    expect(p1).toMatch(/line-clamp: 2; overflow: hidden;">Gala<\/h1>/);
+    expect(p1).toContain('text-overflow: ellipsis;">Pavillon</p>');
+    expect(p1).toContain('1 juillet 2026</span>');
+    expect(p1).toContain('src="data:image/png;base64,CLIENT"');
+    expect(p1).toContain('src="data:image/png;base64,TRAITEUR"');
+    const sans = page1(renderByType('rapport-recyclage-zd', rapportData()));
+    expect(sans).not.toContain(
+      'position: absolute; right: 0; top: 0; display: flex; gap: 10px;',
+    );
+  });
+
+  it('tuiles : chiffre réduit au-delà de 3 chiffres (gros tonnages), 34px sinon', () => {
+    const p1 = page1(
+      renderByType(
+        'rapport-recyclage-zd',
+        rapportData({
+          flux: rapportData().flux.map((f) =>
+            f.code === 'biodechet'
+              ? { ...f, poids_kg: 11_862 }
+              : f.code === 'verre'
+                ? { ...f, poids_kg: 1_234 }
+                : f,
+          ),
+        }),
+      ),
+    );
+    expect(p1).toContain(`font-size: 21px;">11${NBSP}862<span`);
+    expect(p1).toContain(`font-size: 28px;">1${NBSP}234<span`);
+    expect(p1).toContain('line-height: 1;">23<span');
+  });
+
+  it('C3 : encart Savr et tuile énergie gardés tels que validés par Val, sur les deux pages', () => {
+    const html = renderByType('rapport-recyclage-zd', rapportData());
+    for (const page of [page1(html), page2(html)]) {
+      expect(page).toContain(
+        'Vos déchets triés, pesés et envoyés en filières de valorisation agréées.',
+      );
+      expect(page).toContain(
+        'Savr, deux services distincts pour vos événements, clé en main.',
+      );
     }
-    expect(p1).toContain('A&lt;b&gt;&amp;&quot;');
-    expect(p1).toContain('période &lt;x&gt;<br>lieux : &lt;y&gt;');
   });
 
-  it('méthodologie : une filière absente du snapshot n’est pas imprimée « 0 % », « Captation » ouvre toujours la ligne', () => {
-    const html = rapportAvecRadar({
-      caps_appliques: { verre: null, carton: 0.855, biodechet: 0.9 },
+  it('BL-P2-20 : aucune mention de régénération sur le rapport', () => {
+    const html = renderByType('rapport-recyclage-zd', {
+      ...rapportData(),
+      regenere_le: '07/07/2026',
     });
-    expect(html).not.toContain('verre <b>');
-    expect(html).toContain('<span>Captation carton <b>85,5\u00a0%</b></span>');
-    expect(html).toContain('<span>biodéchets <b>90\u00a0%</b></span>');
-    expect(html).not.toContain('emballages <b>');
+    expect(html).not.toContain('Version mise à jour');
   });
 
-  it('marque : le logo embarqué est celui de la Plateforme, la police Nunito est incluse', () => {
+  it('toutes les valeurs du payload sont échappées (événement, lieu, logos, exutoire, codes, bordereau, critères)', () => {
+    const x = '<script>x</script>';
+    const html = rapportAvecRadar({
+      nom_evenement: x,
+      lieu_nom: x,
+      logo_client_url: '" onerror="alert(1)',
+      bordereau_numero: x,
+      bordereau_date_emission: x,
+      benchmark_criteres: x,
+      flux: rapportData().flux.map((f) => ({
+        ...f,
+        exutoire: x,
+        exutoire_commune: x,
+        code_dechet_europeen: x,
+        code_traitement: x,
+        filiere_valorisation: x,
+      })),
+    });
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('" onerror="');
+    expect(html).toContain('&lt;script&gt;x&lt;/script&gt;');
+  });
+
+  it('marque et polices (C6) : logo de la Plateforme, Inter et Archivo embarquées, aucune ressource distante, pas de Nunito', () => {
     const composant = readFileSync(
       fileURLToPath(
         new URL(
@@ -937,10 +944,14 @@ describe('M1.6 / rapport recyclage §1.2 — gabarit @3, deux versions de la pag
     );
     expect(composant).toContain(`'${SAVR_LOGO_MASK}'`);
     const html = rapportAvecRadar();
-    expect(html).toContain("font-family: 'Nunito'");
+    expect(html).toContain(SAVR_LOGO_MASK);
+    expect(html).toContain("font-family: 'Inter'");
+    expect(html).toContain("font-family: 'Archivo'");
     expect(html).toContain('url(data:font/woff2;base64,');
-    // Aucune ressource distante : le rendu ne dépend d'aucun téléchargement.
-    expect(html).not.toMatch(/(src|href)="https?:/);
+    expect(html).not.toContain('Nunito');
+    // Aucune ressource distante : le rendu ne dépend d'aucun téléchargement
+    // (les liens de la méthodologie sont des liens, pas des ressources).
+    expect(html).not.toMatch(/(src)="https?:/);
     expect(html).not.toContain('fonts.googleapis.com');
   });
 });
@@ -975,13 +986,20 @@ describe('M1.6 / bordereau ZD §1.1 — convives de la collecte', () => {
 });
 
 describe('M1.6 / rapport recyclage §1.2 — convives de la collecte', () => {
-  it('420 convives sous « Convives » ; null → « — »', () => {
-    expect(
-      renderByType('rapport-recyclage-zd', rapportData({ nb_pax: 420 })),
-    ).toContain('Convives</div><div class="rz-v">420</div>');
-    expect(
-      renderByType('rapport-recyclage-zd', rapportData({ nb_pax: null })),
-    ).toContain('Convives</div><div class="rz-v">—</div>');
+  it('420 convives dans le bandeau et l’annexe, g par convive ; null → ni pastille ni g par convive', () => {
+    const html = renderByType(
+      'rapport-recyclage-zd',
+      rapportData({ nb_pax: 420 }),
+    );
+    expect(page1(html)).toContain('420 convives</span>');
+    expect(page1(html)).toMatch(/557\u00a0g<\/b> par convive/);
+    expect(page2(html)).toContain('Pavillon · 1 juillet 2026 · 420 convives');
+    const sans = renderByType(
+      'rapport-recyclage-zd',
+      rapportData({ nb_pax: null }),
+    );
+    expect(sans).not.toContain('convives');
+    expect(sans).not.toContain('par convive');
   });
 });
 

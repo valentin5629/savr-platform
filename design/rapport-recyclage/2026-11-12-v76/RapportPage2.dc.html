@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Annexe technique</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.pg{position:relative;width:794px;height:1123px;overflow:hidden;background:#fff;font-family:Inter,system-ui,sans-serif;color:#161a26;font-size:11px;line-height:1.4;display:flex;flex-direction:column}
+.tbd{background:#fff4c2;color:#6b5200;border-radius:3px;padding:0 3px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.pg h2{margin:0 0 7px;font-family:Archivo,Inter,sans-serif;font-size:15px;font-weight:800;color:#223870;letter-spacing:-0.01em;display:flex;align-items:baseline;gap:8px}
+.pg h2 i{font-style:normal;font-size:11px;font-weight:800;color:#12a459;font-family:Inter,sans-serif}
+.pg h2 small{font-family:Inter,sans-serif;font-size:11px;font-weight:500;color:#6e7790}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;font-weight:700;color:#fff;background:#223870;padding:6px 6px;font-size:11px;line-height:1.25;vertical-align:bottom}
+th:first-child{border-top-left-radius:8px} th:last-child{border-top-right-radius:8px}
+td{padding:6px 6px;border-bottom:1px solid #e3e7ef;vertical-align:middle;line-height:1.35;color:#3c4459}
+tr:nth-child(even) td{background:#f7f8fb}
+.fx{display:flex;align-items:center;gap:6px;white-space:nowrap} .fx img{height:22px;width:22px;object-fit:contain}
+.mono{font-variant-numeric:tabular-nums;white-space:nowrap} .num{text-align:right;font-weight:800;color:#161a26;white-space:nowrap;font-variant-numeric:tabular-nums}
+tfoot td{background:#eef1f7!important;font-weight:800;color:#223870;border-bottom:none}
+.box{border:1.5px solid #e3e7ef;border-radius:12px;padding:10px 12px}
+.kv{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed #e3e7ef} .kv:last-child{border-bottom:none}
+.bar{display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:8px;font-weight:700}
+.track{height:8px;border-radius:9999px;border:1px dashed #b8c2d9;background:#f7f8fb}
+ul{margin:0;padding-left:15px} li{margin:0 0 3px} li::marker{color:#12a459}
+</style>
+</helmet>
+<div class="pg">
+
+  <header style="position:relative;flex-shrink:0;overflow:hidden;background:{{navy}};color:#fff;padding:14px 40px 13px;border-bottom-right-radius:28px;display:flex;justify-content:space-between;align-items:center;gap:16px">
+    <div style="position:relative">
+      <p style="margin:0;font-size:10.5px;font-weight:800;letter-spacing:0.2em;color:#ffbd59">RAPPORT DE RECYCLAGE · ANNEXE</p>
+      <h1 style="margin:2px 0 0;font-family:Archivo,Inter,sans-serif;font-size:21px;font-weight:800;letter-spacing:-0.01em;line-height:1.15">Annexe technique – Traçabilité et méthodologie</h1>
+      <p style="margin:3px 0 0;font-size:11.5px;font-weight:600;color:#dde4f5">Soirée annuelle Orange · CNIT, La Défense · 18 mars 2025 · 2 300 convives</p>
+      <p style="margin:3px 0 0;font-size:11px;color:#dde4f5">Bordereau n° <span class="tbd">[BSAV-2025-XXXXX]</span> · Date d'émission : <span class="tbd">[JJ/MM/AAAA]</span></p>
+    </div>
+    <img src="/_blob/4681284c26985cc515256e83c36b8133" alt="Savr" style="position:relative;width:110px;height:30px;display:block;flex-shrink:0">
+  </header>
+
+  <main style="position:relative;flex:1;padding:18px 40px 0;display:flex;flex-direction:column;gap:34px">
+
+    <section>
+      <h2><i>1</i>Traçabilité par flux</h2>
+      <table>
+        
+        <thead><tr><th>Flux</th><th>Code déchet</th><th style="text-align:right">Poids net</th><th>Exutoire</th><th>Traitement (code R/D)</th></tr></thead>
+        <tbody>
+<tr><td><span class="fx"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMTAgMTI4IiB3aWR0aD0iMTEwIiBoZWlnaHQ9IjEyOCI+CiAgPGcgdHJhbnNmb3JtPSJyb3RhdGUoLTggNDAgNzApIj4KICAgIDxwYXRoIGQ9Ik0xNCAzMGMwLTQgMy03IDctN2gzMGM0IDAgNyAzIDcgN3Y3NGMwIDQtMyA3LTcgN0gyMWMtNCAwLTctMy03LTd6IiBmaWxsPSIjMWYzYjgwIi8+CiAgICA8cGF0aCBkPSJNMTcgMjJjMi01IDYtNyAxMC03aDE4YzQgMCA4IDIgMTAgN3oiIGZpbGw9IiMxZjNiODAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjIiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICAgIDxwYXRoIGQ9Ik0zMCAxM2gxMiIgc3Ryb2tlPSIjMDBhMTRiIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogICAgPHJlY3QgeD0iMTQiIHk9IjQ4IiB3aWR0aD0iNDQiIGhlaWdodD0iMzAiIGZpbGw9IiMwMGExNGIiLz4KICAgIDxwYXRoIGQ9Ik0xNCA0OGg0NE0xNCA3OGg0NCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIC8+CiAgICA8cmVjdCB4PSIyNCIgeT0iNTYiIHdpZHRoPSIyMCIgaGVpZ2h0PSIxMyIgcng9IjIiIGZpbGw9IiMxZjNiODAiLz4KICAgIDxwYXRoIGQ9Ik0yMCAzMHYxNE0yMCA4NHYxOCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIuODUiLz4KICA8L2c+CiAgPGcgdHJhbnNmb3JtPSJyb3RhdGUoMTAgNzggODIpIj4KICAgIDxwYXRoIGQ9Ik03MSAxOGgxNHYxMGMwIDMgMiA1IDUgOCA0IDQgNiA5IDYgMTV2NTZjMCA1LTQgOS05IDlINzFjLTUgMC05LTQtOS05VjUxYzAtNiAyLTExIDYtMTUgMy0zIDMtNSAzLTh6IiBmaWxsPSIjMDBhMTRiIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMi42IiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgICA8cmVjdCB4PSI2OSIgeT0iOSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjEwIiByeD0iMi41IiBmaWxsPSIjMWYzYjgwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMi4yIi8+CiAgICA8cGF0aCBkPSJNNjIgNjJoMzRNNjIgOTJoMzQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjIiLz4KICAgIDxyZWN0IHg9IjYyIiB5PSI2NiIgd2lkdGg9IjM0IiBoZWlnaHQ9IjIyIiBmaWxsPSIjMWYzYjgwIi8+CiAgICA8cGF0aCBkPSJNNjggNDRjLTEgNC0xIDkgMCAxMk02OSA5OHY4IiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICAgIDxwYXRoIGQ9Ik03MCA3MXYxMk03NiA3MXYxMiIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIuNyIvPgogIDwvZz4KPC9zdmc+Cg==" alt=""><b style="color:#9a6a0c">Emballages</b></span></td><td class="mono">15 01 06</td><td class="num">74 kg</td><td style="white-space:nowrap"><span class="tbd">[Exutoire, commune]</span></td><td>R3/R4 recyclage</td></tr>
+<tr><td><span class="fx"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDcgMTI5IiB3aWR0aD0iMTQ3IiBoZWlnaHQ9IjEyOSI+CiAgPGcgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik00NCAxNGMtMi02IDEtMTAgNS0xMSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDBhMTRiIiBzdHJva2Utd2lkdGg9IjQiLz4KICAgIDxwYXRoIGQ9Ik0zNCAyMGM0LTYgMTYtOCAyNi02IDktMyAxNyAyIDE5IDEwIDMgOSAyIDIwLTEgMjktMyA5LTEyIDEzLTIyIDEyLTEwIDAtMTYtNi0xOS0xNS0zLTEwLTYtMjEtMy0zMHoiIGZpbGw9IiMwMGExNGIiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjQiLz4KICAgIDxwYXRoIGQ9Ik00OCAyMmMtMiAxMC0xIDI1IDMgMzZNNjQgMjJjMyAxMCAzIDIyIDAgMzMiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmM2I4MCIgc3Ryb2tlLXdpZHRoPSIyLjYiIG9wYWNpdHk9Ii44Ii8+CiAgICA8cGF0aCBkPSJNMTggMzRjLTItNiAxLTkgNS05IiBmaWxsPSJub25lIiBzdHJva2U9IiMxZjNiODAiIHN0cm9rZS13aWR0aD0iNC41Ii8+CiAgICA8cGF0aCBkPSJNNiA0NGM1LTcgMTUtOCAyMi02IDgtNCAxNyAwIDE5IDggMyA5IDMgMjIgMCAzMi0yIDktOSAxNC0xOCAxNC0xMCAwLTE3LTUtMjAtMTQtMy0xMS02LTI0LTMtMzR6IiBmaWxsPSIjMWYzYjgwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMi40Ii8+CiAgICA8cGF0aCBkPSJNMTkgNDZjLTIgMTEtMSAyNyAzIDQwTTMzIDQ3YzMgMTEgMyAyNCAwIDM3IiBmaWxsPSJub25lIiBzdHJva2U9IiMwMGExNGIiIHN0cm9rZS13aWR0aD0iMi40Ii8+CiAgICA8cGF0aCBkPSJNOTYgNDBsMy0xNE0xMDAgNDBsOS0xM00xMDMgNDJsMTEtOE05OCA0MGwtNC0xMyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMWYzYjgwIiBzdHJva2Utd2lkdGg9IjMuMiIvPgogICAgPHBhdGggZD0iTTg2IDQyYzYtNiAxNi02IDIxIDAgNSA1IDQgMTIgMSAxOUw3NCAxMjJjLTIgNC02IDQtNy0xLTEtMTQgMy0zNyA5LTU4IDMtOSA2LTE2IDEwLTIxeiIgZmlsbD0iIzAwYTE0YiIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIuNCIvPgogICAgPHBhdGggZD0iTTgzIDU4bDkgM003OSA3NWw4IDJNNzUgOTNsNyAxIiBmaWxsPSJub25lIiBzdHJva2U9IiM3ZmQzYTAiIHN0cm9rZS13aWR0aD0iMi4yIi8+CiAgICA8cGF0aCBkPSJNMTI4IDIwbDMtMTNNMTMyIDIybDgtMTFNMTM0IDI1bDktNk0xMjkgMjFsLTMtMTIiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmM2I4MCIgc3Ryb2tlLXdpZHRoPSIzLjIiLz4KICAgIDxwYXRoIGQ9Ik0xMTggMjJjNi01IDE1LTUgMjAgMSA0IDUgNCAxMSAxIDE3TDk2IDExOGMtMiA0LTYgNC03IDAtMS0xMyA1LTM1IDEzLTU0IDQtMTEgOS0yMCAxNi00MnoiIGZpbGw9IiMwMGExNGIiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjQiLz4KICAgIDxwYXRoIGQ9Ik0xMTUgMzhsOSAzTTEwOSA1Nmw4IDNNMTAyIDc1bDggMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjN2ZkM2EwIiBzdHJva2Utd2lkdGg9IjIuMiIvPgogIDwvZz4KPC9zdmc+Cg==" alt=""><b style="color:#0b7a40">Biodéchets</b></span></td><td class="mono">20 01 08</td><td class="num">255 kg</td><td style="white-space:nowrap"><span class="tbd">[Exutoire, commune]</span></td><td>R3 méthanisation, digestat retourné au sol</td></tr>
+<tr><td><span class="fx"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjQgMTI4IiB3aWR0aD0iMTI0IiBoZWlnaHQ9IjEyOCI+CiAgPGcgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0xOCAyNGg0MGM1IDAgNyAzIDcgN3Y2YzQgMiA2IDYgNiAxMXY2MmMwIDYtNCAxMC0xMCAxMEgxN2MtNiAwLTEwLTQtMTAtMTBWNDhjMC01IDItOSA2LTExdi02YzAtNCAyLTcgNS03eiIgZmlsbD0iIzAwYTE0YiIvPgogICAgPHJlY3QgeD0iMTQiIHk9IjUiIHdpZHRoPSI0NCIgaGVpZ2h0PSIxNSIgcng9IjQiIGZpbGw9IiMxZjNiODAiLz4KICAgIDxwYXRoIGQ9Ik0xNyAxMWgzOCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuOCIgb3BhY2l0eT0iLjYiLz4KICAgIDxyZWN0IHg9IjE4IiB5PSI0OCIgd2lkdGg9IjMzIiBoZWlnaHQ9IjE1IiByeD0iMS41IiBmaWxsPSIjMWYzYjgwIi8+CiAgICA8cGF0aCBkPSJNMTQgNDZjLTIgMTAtMiA0NiAwIDYwTTEyIDEwOWM4IDMgMzIgNCA0OCAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMi42Ii8+CiAgICA8cGF0aCBkPSJNOTAgNmwxNCA0LTQgMTZjLTEgNCAxIDcgNCAxMCA1IDUgOCAxMiA3IDIwbC0zIDIyLTYtNi01IDctNi02LTcgNS02LTUgMi0yNGMxLTcgNC0xMiA4LTE2IDMtMyA0LTYgNS0xMHoiIGZpbGw9IiMwMGExNGIiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjQiLz4KICAgIDxwYXRoIGQ9Ik04OCA4bDE0IDQiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIzIi8+CiAgICA8cGF0aCBkPSJNODYgMzZjLTQgNS02IDEyLTcgMjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmM2I4MCIgc3Ryb2tlLXdpZHRoPSIyLjgiLz4KICAgIDxwYXRoIGQ9Ik00NCAxMjBsMTItNDYgNiAzIDQtNiA1IDUgNi0zIDQgMy0xMyA1MGMtMSA0LTQgNS04IDRMNDkgMTI2Yy00LTEtNi0zLTUtNnoiIGZpbGw9IiMwMGExNGIiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjQiLz4KICAgIDxwYXRoIGQ9Ik01NyA4MmwtMTAgMzgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmM2I4MCIgc3Ryb2tlLXdpZHRoPSIyLjYiLz4KICA8L2c+Cjwvc3ZnPgo=" alt=""><b style="color:#09337a">Verre</b></span></td><td class="mono">15 01 07</td><td class="num">190 kg</td><td style="white-space:nowrap"><span class="tbd">[Exutoire, commune]</span></td><td>R5 recyclage</td></tr>
+<tr><td><span class="fx"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjUgMTI2IiB3aWR0aD0iMTI1IiBoZWlnaHQ9IjEyNiI+CiAgPGcgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgICA8cGF0aCBkPSJNMTQgMTRsMjItNiAxNCA3Mi0yMiA0eiIgZmlsbD0iIzBiOGE0MyIvPgogICAgPHBhdGggZD0iTTMyIDZsMjAtMiA2IDc2LTIwIDJ6IiBmaWxsPSIjMDBhMTRiIiBzdHJva2U9IiMwYjdhM2MiIHN0cm9rZS13aWR0aD0iMS42Ii8+CiAgICA8cGF0aCBkPSJNNTIgMTBsMjAtNCA0IDc0LTIwIDJ6IiBmaWxsPSIjMTJiNDVhIiBzdHJva2U9IiMwYjdhM2MiIHN0cm9rZS13aWR0aD0iMS42Ii8+CiAgICA8cGF0aCBkPSJNNzAgNGwyNiAwLTIgNzgtMjIgMHoiIGZpbGw9IiMwMGExNGIiIHN0cm9rZT0iIzBiN2EzYyIgc3Ryb2tlLXdpZHRoPSIxLjYiLz4KICAgIDxwYXRoIGQ9Ik05MiA4bDIyIDItNiA3NC0yMC0yeiIgZmlsbD0iIzEyYjQ1YSIgc3Ryb2tlPSIjMGI3YTNjIiBzdHJva2Utd2lkdGg9IjEuNiIvPgogICAgPHBhdGggZD0iTTEwNCAzMGwxNCAyLTggNTItMTItMnoiIGZpbGw9IiMwYjhhNDMiLz4KICAgIDxwYXRoIGQ9Ik00IDcwbDE4LTE0IDEyIDIyLTE2IDE0eiIgZmlsbD0iIzEyYjQ1YSIgc3Ryb2tlPSIjMGI3YTNjIiBzdHJva2Utd2lkdGg9IjEuNiIvPgogICAgPHBhdGggZD0iTTEwMCA3OGwxNCAyMi02IDYtMTItMjB6IiBmaWxsPSIjMGI2YjNhIi8+CiAgICA8cGF0aCBkPSJNMTIgODBsMTYgMiAwIDQwLTE0LTZ6IiBmaWxsPSIjMGI4YTQzIi8+CiAgICA8cGF0aCBkPSJNMjggODJsNzYtNHY0MmwtNzYgMnoiIGZpbGw9IiMwMGExNGIiLz4KICAgIDxwYXRoIGQ9Ik0yOCA4Mmw3Ni00IiBzdHJva2U9IiMwYjZiM2EiIHN0cm9rZS13aWR0aD0iMiIvPgogIDwvZz4KPC9zdmc+Cg==" alt=""><b style="color:#6b4f37">Cartons</b></span></td><td class="mono">15 01 01</td><td class="num">110 kg</td><td style="white-space:nowrap"><span class="tbd">[Exutoire, commune]</span></td><td>R3 recyclage</td></tr>
+<tr><td><span class="fx"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDIgMTI4IiB3aWR0aD0iMTAyIiBoZWlnaHQ9IjEyOCI+CiAgPGcgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0zMiAxNFY4YzAtMyAyLTQgNC00aDE4YzIgMCA0IDEgNCA0djYiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmM2I4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgICA8cGF0aCBkPSJNMTAgMzBoNjZsLTUgNTJjLTEgNS00IDctOCA3SDIzYy00IDAtNy0yLTgtN3oiIGZpbGw9IiMxZjNiODAiLz4KICAgIDxwYXRoIGQ9Ik03IDI0YzAtNyA4LTEyIDIwLTEyaDMyYzEyIDAgMjAgNSAyMCAxMnYyYzAgMy0yIDUtNSA1SDEyYy0zIDAtNS0yLTUtNXoiIGZpbGw9IiMwMGExNGIiLz4KICAgIDxyZWN0IHg9IjE5IiB5PSI0NiIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjIwIiBmaWxsPSIjMDBhMTRiIi8+CiAgICA8cGF0aCBkPSJNMTUgNzVoNTYiIHN0cm9rZT0iIzAwYTE0YiIgc3Ryb2tlLXdpZHRoPSIxLjYiIG9wYWNpdHk9Ii43Ii8+CiAgICA8cGF0aCBkPSJNNjYgNDBoMTh2MTQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmM2I4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgICA8cmVjdCB4PSI3OCIgeT0iNTIiIHdpZHRoPSIxMiIgaGVpZ2h0PSI5IiByeD0iMS41IiBmaWxsPSIjMWYzYjgwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIvPgogICAgPHBhdGggZD0iTTgwIDYxaDh2NmM2IDIgOSA2IDkgMTJsLTIgOSAyIDEwLTQgMTRjLTIgNy02IDEwLTEyIDlsLTgtMmMtNi0yLTktNi04LTEybDMtMTMtMS05IDItOWMxLTUgNS04IDExLTl6IiBmaWxsPSIjMDBhMTRiIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMi42Ii8+CiAgICA8cGF0aCBkPSJNNzQgNzRjNS0yIDEyLTIgMTcgMU03MSA5MGM1IDIgMTMgMiAxOSAwTTcwIDEwNGM1IDIgMTIgMiAxNyAxIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMi40Ii8+CiAgICA8cGF0aCBkPSJNNzMgNzhsLTMgMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzFmM2I4MCIgc3Ryb2tlLXdpZHRoPSIyLjIiIG9wYWNpdHk9Ii41NSIvPgogIDwvZz4KPC9zdmc+Cg==" alt=""><b style="color:#515a72">Déchet résiduel</b></span></td><td class="mono">20 03 01</td><td class="num">196 kg</td><td style="white-space:nowrap"><span class="tbd">[Exutoire, commune]</span></td><td>R1 incinération avec récupération d'énergie</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total</td><td></td><td class="num" style="color:#223870">825 kg</td><td colspan="2"></td></tr></tfoot>
+      </table>
+      <p style="margin:5px 0 0;font-size:11px;color:#6e7790">Déchets dangereux : 0 kg</p>
+    </section>
+
+    <section>
+      <h2><i>2</i>Bilan carbone</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="box">
+          <span style="font-weight:700;color:#3c4459">Émissions induites (collecte + traitement)</span>
+          <div style="font-family:Archivo,Inter,sans-serif;font-size:20px;font-weight:800;color:#223870;margin:2px 0">411 kg CO₂e</div>
+          <span style="color:#6e7790">Dont 10 kg de majoration prudente pour le transport. À intégrer au scope 3, catégorie 5 – déchets générés.</span>
+        </div>
+        <div class="box" style="border-color:#bfe6cf">
+          <span style="font-weight:700;color:#3c4459">Émissions évitées</span>
+          <div style="font-family:Archivo,Inter,sans-serif;font-size:20px;font-weight:800;color:#11743f;margin:2px 0">374 kg CO₂e</div>
+          <span style="color:#6e7790">Présentées séparément, non déductibles de l'inventaire. Elles peuvent être plus faibles que les émissions induites : traiter des déchets émet toujours du CO₂, et le recyclage n'en compense qu'une partie.</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="display:grid;grid-template-columns:1.15fr 1fr;gap:24px">
+      <div>
+        <h2><i>3</i>Méthodologie</h2>
+        <ul>
+          <li>Facteurs d'émission : <a href="https://base-empreinte.ademe.fr/" style="color:#11743f;text-decoration:underline">Base Carbone® ADEME</a> V23.6, facteur du traitement appliqué à chaque flux (verre 34472/34473, carton 34480/34481, biodéchets 34636/34637, résiduel 34650/34651)</li>
+          <li>Emballages : facteur moyen pondéré par la composition du bac (hypothèse Savr, dont 30 % de refus de tri), mise à jour par des études de caractérisation régulières</li>
+          <li>Transport : déjà compté dans les facteurs ADEME ; Savr ajoute par prudence un forfait de 25 km aller-retour × 0,4 kg CO₂e/km (camion 20 m³, diesel)</li>
+          <li>Taux de recyclage : Σ (poids × taux de captation) ÷ poids total ; captation 95 % verre, 90 % carton, 85 % biodéchets, 60 % emballages</li>
+          <li>Comparaison aux événements : moyenne Savr sur 24 mois, <span class="tbd">[n]</span> événements, critères <span class="tbd">[taille, format]</span></li>
+        </ul>
+      </div>
+      <div>
+        <h2><i>4</i>Cadre réglementaire</h2>
+        <ul>
+          <li>Tri à la source des biodéchets (art. L541-21-1 C. env.)</li>
+          <li>Calcul du taux de recyclage : <a href="https://eur-lex.europa.eu/legal-content/FR/TXT/?uri=CELEX:32019D1004" style="color:#11743f;text-decoration:underline">décision d'exécution (UE) 2019/1004</a></li>
+          <li>Biodéchets méthanisés comptés comme recyclés : directive 2008/98/CE, art. 11 bis §4, ajouté par la <a href="https://eur-lex.europa.eu/legal-content/FR/TXT/?uri=CELEX:32018L0851" style="color:#11743f;text-decoration:underline">directive (UE) 2018/851</a></li>
+          <li>Données compatibles avec le registre chronologique des déchets</li>
+        </ul>
+        <p style="margin:6px 0 0;font-style:italic;color:#515a72">Ce document constitue un élément justificatif. Il ne vaut pas certificat de conformité.</p>
+      </div>
+    </section>
+    <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+    <div style="padding-top:10px;border-top:1px solid #dde1eb;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;font-size:11px;color:#515a72"><span style="line-height: 1.45">Émetteur et transporteur : Savr, 50 rue des Moines, 75017 Paris · RCS Paris 879 642 890&nbsp;<br>Récépissé de déclaration de transport de déchets n° T 26-011, Préfecture de police, 27/04/2026</span>
+      <b style="color: rgb(34, 56, 112); font-weight: 700">Page 2/2</b>
+    </div>
+    <section aria-label="Présentation de Savr" style="margin-bottom: 34px; display: flex; gap: 22px; align-items: center; background: #223870; border-radius: 12px; padding: 16px 24px;">
+      <img src="/_blob/4681284c26985cc515256e83c36b8133" alt="Savr" style="width: 118px; height: 32px; display: block; flex-shrink: 0;">
+      <div style="display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 1.45; color: #dde4f5;"><b style="color: #ffffff; font-weight: 800; font-size: 13px;">Savr, deux services distincts pour vos événements, clé en main.</b><span style="display: flex; gap: 8px;"><span style="display: inline-block; min-width: 84px; font-weight: 800; color: #ffbd59; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;">Zéro déchet</span><span>Vos déchets triés, pesés et envoyés en filières de valorisation agréées.</span></span><span style="display: flex; gap: 8px;"><span style="display: inline-block; min-width: 84px; font-weight: 800; color: #ffbd59; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;">Anti-gaspi</span><span>Vos repas non servis donnés à des associations d'aide alimentaire.</span></span><span>Aucune logistique à gérer, des données traçables pour votre reporting CSRD et AGEC.</span></div>
+    </section>
+    </div>
+  </main>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"navy":{"editor":"color","default":"#223870","options":["#223870","#15213f","#09337a"]},"$preview":{"width":794,"height":1123}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { navy: this.props.navy ?? '#223870' };
+  }
+}
+</script>
+</body>
+</html>

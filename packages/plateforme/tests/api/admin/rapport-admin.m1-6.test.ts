@@ -169,7 +169,7 @@ describe('M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar'
     expect(res.headers.get('Content-Type')).toBe('application/pdf');
     expect(mockRadar).not.toHaveBeenCalled();
     expect(payloadRendu().options).toEqual({ benchmark: false });
-    expect(mockPayload).toHaveBeenCalledWith(admin, rls, 'c1');
+    expect(mockPayload).toHaveBeenCalledWith(admin, 'c1');
   });
 
   it('radar coché sans filtres (aucun radar à l’écran) → segment de la collecte, calculé sous l’identité de l’appelant', async () => {

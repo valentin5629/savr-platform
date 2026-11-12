@@ -29,12 +29,14 @@ import {
 } from '@/lib/exports/shared.js';
 import {
   buildAssociationsAgExport,
+  buildCollectesExport,
   buildFacturesExport,
   buildImpactRseExport,
   buildPacksAgExport,
   buildPeseesExport,
 } from '@/lib/exports/builders.js';
 import { CSV_BOM, CSV_EOL, CSV_SEP } from '@savr/shared/src/csv/index.js';
+import { MAX_ENVOIS_ABANDONNES_FILTRE as MAX } from '@/lib/statut-collecte-admin.js';
 
 const id = (prefixe: string, i: number) =>
   `${prefixe}-${String(i).padStart(5, '0')}`;
@@ -341,5 +343,102 @@ describe('M4.1 / exports au-delà des plafonds — fichiers complets', () => {
     const lectures = api.lecturesDe('factures');
     expect(lectures.map((l) => l.rendues)).toEqual([PLAFOND_LIGNES, 1]);
     expect(lectures.every((l) => l.tris.at(-1) === 'id')).toBe(true);
+  });
+});
+
+// ── Export Collectes de l'équipe Savr : filtre « Créée » / « Programmée » ─────
+
+// Les collectes à l'envoi abandonné partent dans l'URL du filtre de statut, qui
+// ne se découpe pas en lots. Le filtre en porte un nombre borné
+// (`MAX_ENVOIS_ABANDONNES_FILTRE`) et refuse au-delà : l'export échoue alors en
+// nommant la cause, au lieu d'une lecture qui échoue sans la dire.
+describe('M4.1 / export Collectes Admin — envois abandonnés en nombre dans le filtre de statut', () => {
+  const uuid = (i: number) =>
+    `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`;
+
+  /** `n` collectes dispatchées dont l'ordre de création est abandonné, rien de revenu. */
+  function abandonnees(n: number): Record<string, Ligne[]> {
+    return {
+      outbox_events: suite(n, (i) => ({
+        id: id('ordre', i),
+        seq: i + 1,
+        aggregate_type: 'collecte',
+        aggregate_id: uuid(i),
+        event_type: 'collecte.creee',
+        statut: 'dead',
+      })),
+      collectes: suite(n, (i) => ({
+        id: uuid(i),
+        type: 'zero_dechet',
+        statut: 'programmee',
+        statut_tms: 'non_envoye',
+        tms_reference: null,
+        prestataire_logistique_id: 'presta-1',
+        attributions_antgaspi: null,
+        date_collecte: '2026-05-10',
+        heure_collecte: '10:00:00',
+        taux_recyclage: null,
+        co2_evite_kg: null,
+        collecte_flux: [],
+        evenements: {
+          id: id('evt', i),
+          nom_evenement: `Événement ${i}`,
+          date_evenement: '2026-05-10',
+          nom_client_organisateur: null,
+          traiteur_operationnel_organisation_id: null,
+          lieux: { nom: 'Lieu', code_postal: '75001', ville: 'Paris' },
+        },
+      })),
+    };
+  }
+
+  /** Tranches de la liste exportée (les lectures par lots des abandons n'ont pas de plage). */
+  const tranches = (api: ReturnType<typeof creerApiPlafonnee>) =>
+    api.lecturesDe('collectes').filter((l) => l.plage !== null);
+
+  const statutsExportes = (csv: string) => {
+    const { entetes, lignes } = lignesCsv(csv);
+    const colonne = entetes.indexOf('Statut');
+    return lignes.map((l) => l[colonne]);
+  };
+
+  it.each([['creee'], ['programmee']])(
+    `statuts=%s, ${MAX + 1} envois abandonnés : l'export échoue en nommant la cause, aucune ligne n'est lue`,
+    async (statuts) => {
+      const { api, ctx } = contexte(abandonnees(MAX + 1));
+
+      await expect(
+        buildCollectesExport(ctx, new URLSearchParams({ statuts })),
+      ).rejects.toThrow(
+        `${MAX + 1} collectes à l'envoi abandonné, ${MAX} au plus`,
+      );
+      expect(tranches(api)).toEqual([]);
+    },
+  );
+
+  it(`statuts=creee, ${MAX} envois abandonnés : le fichier est servi, le filtre les porte tous`, async () => {
+    const { api, ctx } = contexte(abandonnees(MAX));
+
+    const out = await buildCollectesExport(
+      ctx,
+      new URLSearchParams({ statuts: 'creee' }),
+    );
+
+    expect(tranches(api)).toHaveLength(1);
+    const expression = String(
+      tranches(api)[0]!.filtres.find(([operateur]) => operateur === 'or')?.[2],
+    );
+    const portes = /id\.in\.\(([^)]*)\)/.exec(expression)?.[1]?.split(',');
+    expect(portes?.sort()).toEqual(suite(MAX, uuid));
+    expect(statutsExportes(out.csv)).toEqual(suite(MAX, () => 'Créée'));
+  });
+
+  it(`aucun filtre de statut, ${MAX + 1} envois abandonnés : le fichier est servi, chaque collecte y est « Créée »`, async () => {
+    const { api, ctx } = contexte(abandonnees(MAX + 1));
+
+    const out = await buildCollectesExport(ctx, aucunFiltre);
+
+    expect(tranches(api)).toHaveLength(1);
+    expect(statutsExportes(out.csv)).toEqual(suite(MAX + 1, () => 'Créée'));
   });
 });

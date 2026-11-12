@@ -21,6 +21,7 @@ import {
   CSS_RAPPORT_V4,
   LOGO_DEFS,
   logoSavrComplet,
+  NUMERO_PAGE_1,
   renderRapportRecyclageZd,
   type RapportRecyclageZdData,
 } from './templates/rapport-recyclage-zd.js';
@@ -230,6 +231,9 @@ function maquetteRendue(
     /<div style="position: absolute; right: 0; top: 0; display: flex; gap: 10px;">.*?\[Logo traiteur\]<\/div><\/div>/,
     logos ?? '',
   );
+  // « Page 1/2 » : demandé par Val après la maquette v76, ajouté à l'identique.
+  if (fichier !== 'RapportPage2.dc.html')
+    page = page.replace('</main>', `</main>\n  ${NUMERO_PAGE_1}`);
   for (const [de, vers] of remplacements) page = page.replace(de, vers);
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${POLICES}</style>${helmet}</head><body>${LOGO_DEFS}${page}</body></html>`;
 }

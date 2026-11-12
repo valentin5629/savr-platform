@@ -21,6 +21,8 @@ Format Claude Design : `{{navy}}` = `#223870` ; `/_blob/4681284c26985cc515256e83
   référentiel `flux_dechets` (emballages R3/R5, la maquette dit R3/R4) — C4 ;
 - hauteur de page 1122 px (la maquette fait 1123 px) : une page A4 fait
   1122,5 px, un pixel de plus pousserait une page blanche.
+- « Page 1/2 » en bas à droite de la page 1, sous l'encart (demande de Val du
+  2026-11-12, après la maquette) ; le test visuel l'ajoute aussi à la maquette.
 
 Le test `apps/pdf-renderer/src/rapport-recyclage-visuel.test.ts` rend ces
 maquettes et le gabarit avec les mêmes valeurs dans le même navigateur, et les

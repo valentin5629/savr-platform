@@ -771,6 +771,10 @@ describe('M1.6 / rapport recyclage §1.2 — gabarit @4, page 1 avec radar ou ja
       'Récépissé de déclaration de transport de déchets n° T 26-011, Préfecture de police, 27/04/2026',
     );
     expect(p2).toContain('Page 2/2');
+    // La page 1 porte aussi son numéro, avec ou sans radar.
+    expect(
+      page1(renderByType('rapport-recyclage-zd', rapportData())),
+    ).toContain('Page 1/2');
   });
 
   it('C1 : un nom d’exutoire court reste sur une ligne, un nom long passe à la ligne (l’annexe tient sur l’A4)', () => {

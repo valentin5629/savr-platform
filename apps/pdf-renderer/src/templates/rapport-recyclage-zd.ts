@@ -885,6 +885,15 @@ const ENCART_SAVR = `<section aria-label="Présentation de Savr" style="__MARGE_
     </section>`;
 const encartSavr = (marge: string) => ENCART_SAVR.replace('__MARGE__', marge);
 
+/**
+ * Numéro de la page 1, dans la marge sous l'encart, aligné à droite comme le
+ * « Page 2/2 » de l'annexe (même police, même couleur). Positionné en absolu :
+ * il ne prend aucune place dans la page (demande Val 2026-11-12, absent de la
+ * maquette v76, ajouté aussi à la maquette par le test visuel).
+ */
+export const NUMERO_PAGE_1 =
+  '<b style="position: absolute; right: 48px; bottom: 10px; font-size: 11px; line-height: 1.4; color: rgb(34, 56, 112); font-weight: 700">Page 1/2</b>';
+
 /** Mentions fixes du pied de l'annexe (texte de la maquette). */
 export const MENTIONS_EMETTEUR =
   'Émetteur et transporteur : Savr, 50 rue des Moines, 75017 Paris · RCS Paris 879 642 890';
@@ -1194,6 +1203,7 @@ export function renderRapportRecyclageZd(data: RapportRecyclageZdData): string {
 
     ${encartSavr(avecRadar ? 'margin-top: auto; margin-bottom: 27.484375px; ' : 'margin-bottom: 34px; ')}
   </main>
+  ${NUMERO_PAGE_1}
 
 </div>`;
 

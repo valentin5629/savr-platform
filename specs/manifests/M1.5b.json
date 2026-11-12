@@ -233,8 +233,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "213fe785c7b10e5168750351836cc6f898df191326d400be409ea77c9b09984e",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "63628061ea6f6a5dc701b14dd15fe8607830453d78a0a9a13fbf3fb90ecc7e0f",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "6911d943445819f29b739aec4ab39a438920cab2c1d10d91dd47ea04e21433f1",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a",
     "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "9a862121bc87be8b5c406e4a1668fc6099d2c0ebc34a3046e3790ba6bae3d55c"
   }

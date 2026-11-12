@@ -379,11 +379,11 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "df488c17cba483f028f5251958f7c6d1808d95086f630a3903bb7acdfeec53b5",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5940e760167b0faa92c73319a80494b5538ffbefe91d35330cbf992981dcb8cd",
-    "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "b916a91a060510fd4d508b6adbc9d63996604a23fa49bc6e53f0cc87e00efe08",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "cc6c3563a0c2eba14231d519788e019cce5b3cc8b767dd91554b1d7fcde338d7",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "47a805a1a2038dcabef70df46c3a96f374543e58c87236543fbb991ebd7d72a2",
+    "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": "963d84990e5a0ec5fcce3895ea04d169e0c953801e1df4b45864c251832a02b3",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "bb1b5909a595db4e4b4567bedc8d200e7dc874089b468a8a105bb76f74330925",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "213fe785c7b10e5168750351836cc6f898df191326d400be409ea77c9b09984e",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "98d1143e3b8d5941acddf69162564b27cf2cf55aaccaa703f421f27f692cf057"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "6911d943445819f29b739aec4ab39a438920cab2c1d10d91dd47ea04e21433f1",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc"
   }
 }

@@ -257,7 +257,7 @@ brouillon → programmee → validee (auto) → en_cours → realisee → clotur
 | `validee` → `en_cours` | Démarrage de la collecte signalé par le TMS — **dès qu'au moins une** des tournées rattachées démarre (multi-camions, cf. R_statut_collecte_multi_tournees) | TMS Savr (automatique) |
 | `en_cours` → `realisee` | Fin de collecte signalée par le TMS via le **S5 terminal unique** (pesées agrégées des N camions + équivalent roll). Le TMS attend que **toutes** les tournées de la collecte soient terminées avant d'émettre ce S5 (cf. R_statut_collecte_multi_tournees) | TMS Savr (automatique) |
 | `realisee` → `cloturee` | **Automatique** — clôture à `realisee_at + 48h` (décision Val 2026-11-04, ex-24 h), sans action Admin : fin des corrections de pesées par MTS-1, entrée au registre, email « document disponible ». Bordereaux, attestations et rapport RSE sont émis avant, dès que les poids sont là (voir section 6) | Système (cron `cloture-embargo`) |
-| `programmee` → `rejetee_par_prestataire` | Refus du transporteur avant acceptation : refus Everest synchrone ou webhook (`mission_failed` / annulation externe), ou tous les tours MTS-1 `CANCELED`/`KO` (§08 §3 / §3bis.6). `statut_tms = rejetee_par_prestataire` + alerte Admin in-app « réattribution requise ». AG : le crédit pack est rendu (décision Val 2026-11-02, cf. §3 « Refus définitif du prestataire ») | Adapter logistique (automatique) |
+| `programmee` → `rejetee_par_prestataire` | Refus du transporteur avant acceptation : refus Everest synchrone, ou notification `mission_status` dont l'étape relue est un échec ou une annulation externe, avant acceptation de la collecte entière (aucune course affectée, collecte encore `programmee` — décision Val 2026-11-03), ou tous les tours MTS-1 `CANCELED`/`KO` (§08 §3 / §3bis.6). `statut_tms = rejetee_par_prestataire` + alerte Admin in-app « réattribution requise ». AG : le crédit pack est rendu (décision Val 2026-11-02, cf. §3 « Refus définitif du prestataire ») | Adapter logistique (automatique) |
 | `rejetee_par_prestataire` → `programmee` | **Réattribution Ops** (dispatch Admin, `fn_dispatcher_collecte`) — `statut_tms` repasse à `non_envoye` ; la collecte reprend le parcours normal (arbitrage Val 2026-09-17). AG : un crédit est repris sur le pack actif, ou la collecte est facturée à l'unité s'il n'en reste pas (décision Val 2026-11-02, cf. §3 « Débit d'un crédit ») | Admin / Ops Savr |
 
 > **Frontière `programmee` / `validee` et envoi TMS (Sujet 2, propagation 2026-05-26)** : l'envoi au TMS (E1 `POST /collectes`) a lieu **à la soumission du formulaire** (`brouillon`→`programmee`) dans la cible V2, et **au dispatch Admin pour la ZD en V1** (décision Val 2026-10-07), pas au passage `validee`. `programmee` couvre tout le dispatch (`statut_tms ∈ non_envoye, a_attribuer, attribuee_en_attente_acceptation`) ; `validee` = collecte **acceptée par le prestataire** (`statut_tms ∈ acceptee, en_attente_execution`). La sous-transition `programmee ↔ validee` est **dérivée de `statut_tms`** par le trigger DB `fn_sync_statut_collecte_from_tms` (source de vérité = `statut_tms`, arbitrage 2a) — aucune logique applicative ne met à jour `statut` indépendamment sur cette plage, ce qui élimine tout risque de désync. Le trigger ne touche jamais aux statuts terminaux (`en_cours`/`realisee`/.../`annulee`), pilotés par les webhooks et le batch.
@@ -284,9 +284,9 @@ Une collecte peut être servie par N tournées (relation N↔N via `collecte_tou
 
 **Concurrence de l'agrégation terminale (ajout 2026-06-11, revue adversariale R5/R6, arbitrages Val)** :
 - **Transaction verrouillée** : l'agrégation prend `SELECT … FOR UPDATE` sur la ligne `collectes`, puis **relit sous ce lock** `collecte_tournees` + `nb_camions_demande` (jamais un set lu avant le lock — sinon Ops peut augmenter N entre la lecture et la décision → `realisee` posé alors qu'un camion 3 est en route, ses pesées perdues sur collecte clôturée). Si `COUNT(collecte_tournees) < nb_camions_demande` relu → abort (rangs en cours de création).
-- **Transition idempotente** : `UPDATE … SET statut='realisee', realisee_at=now() WHERE statut IN ('validee','en_cours')` — 0 ligne = no-op strict (deux polls qui se chevauchent ne posent jamais deux fois `realisee`, et `realisee_at` — départ de l'embargo H+24 — n'est jamais écrasé).
+- **Transition idempotente** : `UPDATE … SET statut='realisee', realisee_at=now() WHERE statut IN ('validee','en_cours')` — 0 ligne = no-op strict (deux polls qui se chevauchent ne posent jamais deux fois `realisee`, et `realisee_at` — départ de la clôture à 48 h (décision Val 2026-11-04) — n'est jamais écrasé).
 - **Changement de N gaté** : la RPC Ops de modification de `nb_camions_demande` prend le même lock `collectes` et exige `statut IN ('programmee','validee','en_cours')` — **interdit dès `realisee`** : jamais de régression d'un état terminal ; ajouter un camion après coup = flux incident Admin (édition pesées + recalcul). Cf. [[04 - Data Model#Table : `collectes`]].
-- **Anti-famine pesées** : une collecte `realisee` skippée par le batch J+1 (pesées incomplètes) depuis **> 48h** → escalade Admin « saisie manuelle requise » (cf. [[08 - APIs et intégrations]] §3bis.7).
+- **Anti-famine pesées** : une collecte `realisee` skippée par le batch des documents (toutes les 15 min ; pesées incomplètes) depuis **> 48h** → escalade Admin « saisie manuelle requise » (cf. [[08 - APIs et intégrations]] §3bis.7).
 
 **Principe V1** : le cycle de vie normal d'une collecte est **100% automatisé**. L'Admin Savr n'intervient PAS sur une collecte qui se déroule sans incident. **Exception V1 assumée** : le dispatch d'une ZD (choix du prestataire) est fait par l'Admin tant que la règle « prestataire fixe par lieu/zone » n'est pas implémentée (décision Val 2026-10-07). Les rapports, factures, bordereaux et attestations sont générés et disponibles automatiquement.
 
@@ -465,9 +465,9 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 ### Bordereau Savr (ZD)
 
-**Déclencheur** : `collectes.statut` passe à `cloturee` + `collectes.type = zero_dechet`.
+**Déclencheur** : collecte ZD `realisee` ou `cloturee` dont les pesées de tous les camions sont là (décision Val 2026-11-04).
 
-**Timing d'émission** : génération **automatique J+1 à 6h du matin** (batch quotidien). Ce délai permet de regrouper les éventuelles corrections de pesée qui arrivent en soirée depuis le TMS et d'émettre un bordereau stable au lieu de régénérations successives.
+**Timing d'émission** : dès que les pesées sont là — passage du batch toutes les 15 min, et juste après une saisie de pesée par l'Admin ; une correction de pesée refait le bordereau, qui garde son numéro (version suivante) (décision Val 2026-11-04, remplace le batch J+1 6h).
 
 **Action** :
 1. Passage toutes les 15 min (et juste après une saisie Admin) : sélectionne les collectes ZD réalisées ou clôturées dont les pesées sont là et non encore bordereautées ; refait le bordereau émis dont les pesées ont changé (décision Val 2026-11-04)
@@ -481,7 +481,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 ### Attestation de don (AG)
 
-**Déclencheur** : `collectes.statut` passe à `cloturee` + `collectes.type = anti_gaspi`. **Émission pour 100% des collectes AG**, quel que soit le statut d'habilitation de l'association.
+**Déclencheur** : collecte AG `realisee` ou `cloturee` dont le poids est saisi par l'Admin (décision Val 2026-11-04). **Émission pour 100% des collectes AG**, quel que soit le statut d'habilitation de l'association.
 
 **Timing d'émission** : même logique que le bordereau — **dès que le poids est saisi** (décision Val 2026-11-04). Une correction du poids crée une nouvelle version de l'attestation, avec un nouveau numéro ATT-DON (`trg_regenerer_attestation`, inchangé), contrairement au bordereau ZD qui garde son numéro.
 
@@ -526,7 +526,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 **Périmètre** : ZD uniquement. AG = `taux_recyclage` reste NULL (la métrique n'a pas de sens sur les collectes AG — métrique de référence AG = repas détournés + CO₂e).
 
-**Déclencheur** : transition `collectes.statut → cloturee` ET `collectes.type = zero_dechet`. Trigger DB `AFTER UPDATE` (cf. [[04 - Data Model]] §collectes + [[08 - APIs et intégrations]] §9 Trigger DB).
+**Déclencheur** *(révisé 2026-11-04, décision Val)* : passage de la collecte ZD à `realisee` ou `cloturee`, puis toute écriture de ses pesées (`collecte_flux`) tant qu'elle est réalisée ou clôturée (triggers `trg_co2_zd_cloture` et `trg_co2_zd_pesees`, migration `20261104120000`). Trigger DB `AFTER UPDATE` (cf. [[04 - Data Model]] §collectes + [[08 - APIs et intégrations]] §9 Trigger DB).
 
 **Formule officielle V1** :
 
@@ -554,7 +554,7 @@ Où :
 - Couleur : aucun seuil d'alerte V1 (l'utilisateur compare au benchmark via le Bloc 3 ZD radar, pas au taux de recyclage seul).
 - Tooltip standard : "Taux de recyclage net (méthode UE 2019/1004) — calculé avec les taux de captation par filière. Cliquez sur Méthodologie pour le détail."
 
-**Modification des taux de captation** : `admin_savr` uniquement via [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr#9. Paramètres > Taux de recyclage par filière]]. Endpoint `PUT /api/v1/admin/parametres/taux-recyclage/{filiere_id}` avec `Idempotency-Key` + commentaire obligatoire (≥ 5 caractères). Audit trail automatique via trigger DB → `parametres_taux_recyclage_history`. Écriture via RPC `SECURITY DEFINER` `rpc_maj_taux_recyclage` (même mécanisme audit-write que les facteurs CO₂, cf. [[#R_co2_snapshot_fige — Reproductibilité (snapshot figé à la clôture)]]).
+**Modification des taux de captation** : `admin_savr` uniquement via [[06 - Fonctionnalités détaillées/06 - Back-office Admin Savr#9. Paramètres > Taux de recyclage par filière]]. Endpoint `PUT /api/v1/admin/parametres/taux-recyclage/{filiere_id}` avec `Idempotency-Key` + commentaire obligatoire (≥ 5 caractères). Audit trail automatique via trigger DB → `parametres_taux_recyclage_history`. Écriture via RPC `SECURITY DEFINER` `rpc_maj_taux_recyclage` (même mécanisme audit-write que les facteurs CO₂, cf. [[#R_co2_snapshot_fige — Reproductibilité (snapshot du dernier calcul)]]).
 
 **Pas de cascade TMS** : le calcul est 100 % côté Plateforme. Le TMS push les pesées brutes via webhook S5 `collecte-terminee` (inchangé). Les paramètres de captation ne sont jamais répliqués vers `tms.*`.
 
@@ -564,7 +564,7 @@ Où :
 
 **Périmètre** : ZD uniquement (5 flux). AG = grandeurs CO₂ NULL (le CO₂ AG repas détournés est un chantier distinct à venir, cf. note fin de règle). Référence métier : [[../11. Contexte Réglementaire & Marché/Calcul Impact Carbone/Analyse methode calcul impact]].
 
-**Déclencheur** : transition `collectes.statut → cloturee` ET `type = zero_dechet` — **même trigger DB que R_taux_recyclage** (un seul `AFTER UPDATE` calcule taux + CO₂ + snapshots).
+**Déclencheur** *(révisé 2026-11-04)* : passage à `realisee` ou `cloturee` ET `type = zero_dechet`, puis toute écriture des pesées d'une collecte réalisée ou clôturée — **même trigger DB que R_taux_recyclage** (un seul `AFTER UPDATE` calcule taux + CO₂ + snapshots).
 
 **Formule officielle V1** :
 
@@ -606,7 +606,7 @@ Le flux `emballage` n'a pas de FE saisi : `fe_induit_emballage = Σ(part_pct_m/1
 
 **Périmètre** : collectes `type = anti_gaspi`. Métrique = **émissions évitées par le don** (denrées consommables sauvées). **Évité seul V1** (pas d'induit/net — arbitrage Val 3a) ; V2 = induit + net intégrant le transport (distance TMS × `co2_g_par_km` véhicule).
 
-**Déclencheur** : transition `collectes.statut → cloturee` ET `type = anti_gaspi` — **même trigger DB que R_co2_calcul / R_taux_recyclage**, branche AG.
+**Déclencheur** *(révisé 2026-11-04, décision Val)* : passage de la collecte AG à `realisee` ou `cloturee` (poids déjà saisi), puis tout changement du nombre de repas d'une collecte réalisée ou clôturée (triggers `trg_co2_ag_cloture` et `trg_co2_ag_repas`, migration `20261104120000`) — **même trigger DB que R_co2_calcul / R_taux_recyclage**, branche AG.
 
 **Formule officielle V1** :
 
@@ -618,7 +618,7 @@ Où `volume_repas_realise` = `attributions_antgaspi.volume_repas_realise` (= `ce
 
 **Cas particuliers** : `realisee_sans_collecte` (aucun repas) → `co2_evite_kg = 0`. `co2_induit_kg` / `co2_net_kg` / `energie_primaire_evitee_kwh` restent **NULL** pour l'AG. **Recalcul** : si l'Admin corrige `volume_repas_realise` a posteriori (régénération auto de l'attestation, cf. §12 §1.3 + R 2026-05-29) → recalcul `co2_evite_kg` + nouveau snapshot avec le facteur du moment.
 
-**Snapshot** : `collectes.co2_facteurs_snapshot = { "type":"anti_gaspi", "facteur_co2_evite_par_repas_kg": 2.5, "volume_repas_realise": <n>, "equivalences": {km_voiture}, "version_parametres_at": "<ts>" }` (reproductibilité de l'attestation = document officiel).
+**Snapshot** : `collectes.co2_facteurs_snapshot = { "type":"anti_gaspi", "facteur_co2_evite_par_repas_kg": 2.04, "volume_repas_realise": <n>, "equivalences": {km_voiture}, "version_parametres_at": "<ts>" }` (reproductibilité de l'attestation = document officiel).
 
 **Affichage** : attestation de don (§12 §1.3) = ligne « CO₂e évité : X kg » + équivalence km voiture ; dashboard AG (§11 onglet AG) = cadran CO₂e évité. **Modification du facteur** : `admin_savr` uniquement (§06.06), audit `parametres_facteurs_co2_ag_history`. **Pas de cascade TMS V1.**
 
@@ -1044,8 +1044,8 @@ Contenus à rédiger par l'Admin Savr en co-construction avec Val. Premier draft
 |-----------|--------|-------------|
 | Délai programmation → réalisation | Aucun | Le traiteur programme à sa convenance. Pas de délai min de prévenance V1. À documenter dans CGV en cas d'abus. |
 | Publication rapport post-collecte | Dès que les poids sont là (passage toutes les 15 min, ou juste après la saisie Admin) ; email à la clôture, 48 h après la collecte (décision Val 2026-11-04) | supprimée V1 (2026-06-15). |
-| Génération bordereau ZD | Batch J+1 à 6h | Auto |
-| Génération attestation don AG | Batch J+1 à 6h | Auto (100% des collectes AG) |
+| Génération bordereau ZD | Dès que les pesées sont là (passage toutes les 15 min, ou juste après la saisie Admin ; décision Val 2026-11-04) | Auto |
+| Génération attestation don AG | Dès que le poids est saisi (passage toutes les 15 min, ou juste après la saisie Admin ; décision Val 2026-11-04) | Auto (100% des collectes AG) |
 | Génération brouillon facture | Aucun SLA V1 (décision Val 2026-04-28 — pas d'engagement contractuel sur ce délai) | Génération automatique dès clôture, mais délai non garanti contractuellement |
 | Envoi facture client | Aucun SLA V1 | Dépend de la cadence de validation Admin |
 | Réponse support | Non défini V1 | À cadrer quand support structuré |

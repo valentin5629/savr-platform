@@ -105,6 +105,9 @@
 --     · scripts/check-schema-vs-cible.ts (G6) ne compare que les COLONNES via pg_attribute — il ne
 --       voit ni les contraintes ni les index, donc ce type d'écart continuera de passer inaperçu.
 --       Élargir G6 aux contraintes et index = lot dédié.
+-- Regelé le : 2026-11-11 (cdc-patch-divergences SYNC_20261111, Q3 Val) : + colonne
+--   plateforme.collectes.type_vehicule_souhaite (enum type_vehicule, nullable, V1-only dormante en V2).
+--   Comptes inchangés (pas de table, d'enum ni de FK ajoutés).
 -- Regelé le : 2026-10-25 (décision Val I4 + alignement §04 App, table plateforme.config_auto_accept_ag) :
 --   association_id passe NOT NULL (une règle sans association ne se déclenchait jamais) ;
 --   modifie_par / modifie_le remplacés par created_at / updated_at (structure réalisée V1, auteur
@@ -741,6 +744,7 @@ CREATE TABLE plateforme.collectes (
   type                     plateforme.collecte_type NOT NULL,
   prestataire_logistique_id uuid,                          -- FK -> shared.prestataires
   nb_camions_demande       smallint NOT NULL DEFAULT 1,    -- V1-only MTS-1
+  type_vehicule_souhaite   plateforme.type_vehicule,       -- V1-only (migration 20261001213000, regel 2026-11-11)
   statut                   plateforme.collecte_statut NOT NULL,
   aucun_repas_motif        text,
   aucun_repas_photo_url    text,

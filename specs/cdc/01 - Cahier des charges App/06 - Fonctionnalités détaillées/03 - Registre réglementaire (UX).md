@@ -8,7 +8,7 @@
 
 Module 20 MVP. Registre chronologique des flux de déchets ZD accessibles à tous les profils espace client **sauf l'agence** (périmètre filtré par RLS). Source unique de vérité pour audits et démonstrations ESG.
 
-**Périmètre des lignes (tranché F2 2026-06-07)** : collectes `statut = cloturee` ET `type = zero_dechet` uniquement (vue `v_registre_dechets` §04). Les collectes `realisee` n'apparaissent pas (registre = définitif). Le filtre « Statut bordereau dispo/manquant » couvre la fenêtre clôture → batch J+1 6h et les bordereaux `brouillon` (shadow sans SIRET). Les collectes migrées incomplètes portent le badge « Historique partiel » (`collectes.historique_partiel`, F3).
+**Périmètre des lignes (tranché F2 2026-06-07)** : collectes `statut = cloturee` ET `type = zero_dechet` uniquement (vue `v_registre_dechets` §04). Les collectes `realisee` n'apparaissent pas (registre = définitif). Le filtre « Statut bordereau dispo/manquant » couvre les collectes clôturées dont le bordereau n'est pas encore émis (pesées incomplètes ; il sort dès qu'elles sont là, passage toutes les 15 min, décision Val 2026-11-04) et les bordereaux `brouillon` (shadow sans SIRET). Les collectes migrées incomplètes portent le badge « Historique partiel » (`collectes.historique_partiel`, F3).
 
 ---
 

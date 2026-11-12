@@ -418,7 +418,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 | Composant | Description |
 |---|---|
 | `StatusCollecte` | Badge enrichi + timeline de statuts (timeline §5.10) |
-| `PackAGIndicator` | Jauge de crédit AG : une case par crédit jusqu'à 20 crédits, barre `radius-full` au-delà ; remplissage = crédits restants, rouge sous 10 % ; libellés « N crédits consommés sur M » et « restants » sous le compteur (Val 2026-11-10) |
+| `PackAGIndicator` | Jauge de crédit AG : une case par crédit jusqu'à 20 crédits, barre `radius-full` au-delà ; remplissage = crédits restants, rouge sous 10 % ; libellé unique « N collectes restantes sur M » (« collecte restante » au singulier), N en grand à gauche, et « X % du pack restant » sous la jauge (Val 2026-11-10 et 2026-11-11) |
 | `TourneeCard` | Card résumé tournée (camion, N collectes, chauffeur, plaque) |
 | `ImpersonationBanner` | Bandeau **accent-500** quand Admin impersonne un utilisateur |
 

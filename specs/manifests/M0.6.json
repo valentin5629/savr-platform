@@ -1592,7 +1592,7 @@
     },
     {
       "id": "M0.6-infos-acces-email-perdu-tampon-alerte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1540",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1541",
       "artefact": "packages/plateforme/src/lib/infos-acces/suivi-email.ts (signalerInfosAccesNonRemises : tampon retiré + alerte in-app `infos_acces_email_non_remis`, sans effet si un envoi plus récent existe ; cloreAlerteInfosAcces ; alerterInfosAccesEnRepriseAvantCollecte : 2 tentatives en échec ET collecte à venir dans les 24 h, une seule alerte par envoi) + packages/plateforme/src/lib/infos-acces/notify.ts (claim conservé si le worker de retry porte l'envoi, relâché si rien ne le reprendra, alerte close quand l'email part) + packages/plateforme/src/lib/emails/email-perdu.ts + packages/plateforme/src/app/api/cron/email-retry/route.ts + packages/plateforme/src/app/api/webhooks/resend/route.ts",
       "test": "la variable ne revient jamais → échec définitif après 4 tentatives : tampon retiré, alerte ouverte, fiche « non remis » + pendant la reprise, une nouvelle saisie Admin ne fait pas partir un second email + alerte dès la 2e tentative en échec, sans attendre les 25 h — le claim reste posé + Resend revient → l’email part à la reprise suivante et l’alerte est close toute seule + après l’échec définitif, un nouvel envoi repart (claim libre), arrive, et clôt l’alerte + une seule tentative en échec → pas encore (un incident passager ne doit pas alerter) + alerte résolue par l’Admin (programmateur prévenu) → pas rouverte tant que le même envoi est en reprise + un envoi plus récent existe pour la collecte → rien : le refus tardif de l’ancien email ne défait pas le renvoi + infos d’accès chauffeur refusées → tampon de la collecte retiré + alerte dédiée (pas l’alerte générique) + hors production sans adresse de redirection → claim relâché, aucune ligne, la fiche reste « à envoyer » + Resend refuse ET la ligne d’envoi ne s’écrit pas → claim relâché : aucune reprise n’est possible + tampon non retiré (erreur base) → comptée dans `errors`, journalisée sans adresse, réponse 200",
       "statut": "implemented",
@@ -1820,16 +1820,16 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "34d83ae54048a0ffadb80ace6175cc5a3cd0bbf9710544f21a780949457afd97",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "208d5ae0e0c7d1241081a77727f91d5825f62ea5a7294b869a19e23ec57173f1",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "91b17a8401a9c1c878b793c58420719d9453a33fc7661f1b9b73f2cd703d7574",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "5940e760167b0faa92c73319a80494b5538ffbefe91d35330cbf992981dcb8cd",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e306182509f1b929d8b24573e0ea4e3e4988483c81da818841030e4776f9174",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "63628061ea6f6a5dc701b14dd15fe8607830453d78a0a9a13fbf3fb90ecc7e0f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "47a805a1a2038dcabef70df46c3a96f374543e58c87236543fbb991ebd7d72a2",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "b2378a8d3e0a4542259615e26ad5d1449591e43d212e03ca7f5bdc86128438f4",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "213fe785c7b10e5168750351836cc6f898df191326d400be409ea77c9b09984e",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "6911d943445819f29b739aec4ab39a438920cab2c1d10d91dd47ea04e21433f1",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "3308fe45eac93a047d85d6d44e04f6995a23940375b5a79c3761612911632e38",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "d2739591c4a1caad4fcb181d46ceea184e2cdc20918001c3b9d884033c8473a2",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "98d1143e3b8d5941acddf69162564b27cf2cf55aaccaa703f421f27f692cf057",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "4ef69c49349c181f150192c7efd88eaebd244d4f595aba162d4e515d9b6178c5"
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "a9de6c0417ce9d3897389e87ee1dda40c4415f1970931bea722f9c3ba6ea1534",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "3e6024df5d3f8eaed7d6797ebc0f51d5408b42d2fd3816d0400347724c51d4ac",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "d0d2f00a195516f6ed9e84337d9e6936d1f030c01a3a1a841c5ee50fc167fda5"
   }
 }

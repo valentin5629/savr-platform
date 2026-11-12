@@ -45,7 +45,7 @@ Le traiteur raisonne en **événement** (un gala, un mariage, un sommet). Un év
 
 ## Nouveau pattern V1 (refonte 2026-05-21)
 
-1. **Point d'entrée unique** : bouton **"Programmer une collecte"** dans la barre navy du haut, sur toutes les pages (décision Val 2026-11-02) **(refonte 2026-05-29 — anciennement "Programmer un événement")** — le concept exposé à l'utilisateur est la collecte, pas l'événement (conteneur purement technique).
+1. **Point d'entrée unique** : bouton **"Programmer une collecte"** dans la barre du haut, sur toutes les pages (décision Val 2026-11-02) **(refonte 2026-05-29 — anciennement "Programmer un événement")** — le concept exposé à l'utilisateur est la collecte, pas l'événement (conteneur purement technique).
 2. **Formulaire en deux écrans, puis une page de confirmation** *(refonte Val 2026-10-22)* :
    - **Écran 1 — Informations sur l'événement** (§ Étape 1 et § Étape 2) : nom de l'événement, client final, référence interne, lieu, contrôle d'accès, et **nombre de collectes souhaitées** par type (Zéro-Déchet, Anti-Gaspi ; au moins une au total).
    - **Écran 2 — Informations sur les collectes** (§ Étape 3) : une carte par collecte (« Collecte Zéro-Déchet #1 », « Collecte Zéro-Déchet #2 », puis « Collecte Anti-Gaspi #1 »…) avec date et heure, nombre de convives, type d'événement, contact principal, contact de secours et informations supplémentaires ; bouton « Ajouter une collecte » ; bouton « Confirmer la/les programmations ».

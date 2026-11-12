@@ -107,8 +107,9 @@ function estTerminale(row: CollecteRow): boolean {
   return STATUTS_TERMINAUX.has(row.statut);
 }
 
-// Collecte AG « à attribuer » : `programmee` en base et sans attribution. La
-// colonne Statut la nomme par l'action attendue tant qu'elle est « Créée ».
+// Collecte AG « à attribuer » : `programmee` en base et sans attribution. Elle
+// colore le menu d'actions et y ajoute « Attribuer » ; la colonne Statut, elle,
+// affiche « Créée » comme pour une ZD (décision Val 2026-11-12).
 function aAttribuer(row: CollecteRow): boolean {
   return (
     row.type === 'anti_gaspi' &&
@@ -126,12 +127,17 @@ export function aDispatcherZd(row: CollecteRow): boolean {
   return row.type === 'zero_dechet' && estADispatcher(row);
 }
 
-// Criticité (§06.09 §1 / ALGO-02) : à attribuer ET créneau dans les 48 h à
-// venir. Un créneau passé n'est plus urgent : il n'y a plus rien à attribuer à
-// temps (Val 2026-11-11), et il ne doit pas rester épinglé en tête des
-// collectes passées.
+// Statuts TMS qui disent que le prestataire a accepté la collecte.
+const STATUTS_TMS_ACCEPTES = new Set(['acceptee', 'en_attente_execution']);
+
+// Criticité (décision Val 2026-11-12, élargit §06.09 §1) : collecte AG ou ZD
+// pas encore acceptée par le prestataire (statut `programmee`, affiché
+// « Créée » ou « Programmée ») ET créneau dans les 48 h à venir. Un créneau
+// passé n'est plus urgent (Val 2026-11-11) : il ne doit pas rester épinglé en
+// tête des collectes passées.
 export function estUrgente(row: CollecteRow): boolean {
-  if (!aAttribuer(row)) return false;
+  if (row.statut !== 'programmee' || STATUTS_TMS_ACCEPTES.has(row.statut_tms))
+    return false;
   const ts = instantParis(
     row.date_collecte,
     heureOuMinuit(row.heure_collecte),
@@ -144,7 +150,7 @@ export function estUrgente(row: CollecteRow): boolean {
   );
 }
 
-// Urgences (AG à attribuer < 48h) remontées en tête de liste (§06.09 §1).
+// Urgences (non acceptées par le prestataire, < 48h) remontées en tête de liste (§06.09 §1).
 // Tri stable → l'ordre reçu (celui de la colonne triée) est conservé au sein
 // des urgentes comme des autres.
 export function urgentesEnTete(rows: CollecteRow[]): CollecteRow[] {
@@ -376,14 +382,11 @@ export function colonnesCollectesAdmin({
       id: 'statut',
       header: 'Statut',
       accessorFn: (r) => r.statut,
-      cell: ({ row: { original: r } }) =>
-        // « À attribuer » nomme une AG « Créée » par l'action attendue : le
-        // badge cède dès qu'un signal d'envoi existe, comme la frise et l'export.
-        aAttribuer(r) && statutCollecteAdmin(r) === 'creee' ? (
-          <Badge variant="warning">À attribuer</Badge>
-        ) : (
-          <StatusCollecte statut={statutCollecteAdmin(r)} />
-        ),
+      // Mêmes libellés pour l'AG et la ZD : une AG pas encore attribuée est
+      // « Créée » (décision Val 2026-11-12, ex-badge « À attribuer »).
+      cell: ({ row: { original: r } }) => (
+        <StatusCollecte statut={statutCollecteAdmin(r)} />
+      ),
     },
     {
       id: 'statut_tms',

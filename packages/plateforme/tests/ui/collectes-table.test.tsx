@@ -1,6 +1,7 @@
 /**
  * Prédicats purs de la Data Table Collectes Admin (`components/admin/collectes-table`) —
- * `estUrgente` (criticité §06.09 §1 / ALGO-02 : AG à attribuer ET < 48h) et
+ * `estUrgente` (criticité §06.09 §1 élargie par Val 2026-11-12 : AG ou ZD non
+ * acceptée par le prestataire ET créneau dans les 48 h à venir) et
  * `urgentesEnTete` (urgences remontées en tête de liste, tri stable).
  *
  * `estUrgente` a été recâblée sur les helpers de fuseau (#287) : `instantParis`
@@ -73,7 +74,7 @@ function maintenant(jour: string, heure: string): void {
   vi.setSystemTime(instantParis(jour, heure));
 }
 
-describe('collectes-table / estUrgente (§06.09 §1 — AG à attribuer < 48h)', () => {
+describe('collectes-table / estUrgente (§06.09 §1 — non acceptée par le prestataire, < 48h)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -108,19 +109,49 @@ describe('collectes-table / estUrgente (§06.09 §1 — AG à attribuer < 48h)',
     expect(estUrgente(row())).toBe(true);
   });
 
-  it('AG déjà attribuée → jamais urgente, même à 1h du créneau', () => {
+  it('AG attribuée et envoyée, en attente d’acceptation du prestataire → urgente (Val 2026-11-12)', () => {
     maintenant('2026-07-08', '19:00');
-    expect(estUrgente(row({ attributions_antgaspi: attribution }))).toBe(false);
+    expect(
+      estUrgente(
+        row({
+          attributions_antgaspi: attribution,
+          statut_tms: 'attribuee_en_attente_acceptation',
+        }),
+      ),
+    ).toBe(true);
   });
 
-  it('AG déjà validée par le transporteur (statut ≠ programmee) → pas urgente', () => {
+  it('ZD créée ou programmée, pas encore acceptée → urgente comme une AG (Val 2026-11-12)', () => {
     maintenant('2026-07-06', '21:00');
-    expect(estUrgente(row({ statut: 'validee' }))).toBe(false);
+    expect(estUrgente(row({ type: 'zero_dechet' }))).toBe(true);
+    expect(
+      estUrgente(
+        row({
+          type: 'zero_dechet',
+          prestataire_logistique_id: 'presta-1',
+          statut_tms: 'attribuee_en_attente_acceptation',
+        }),
+      ),
+    ).toBe(true);
   });
 
-  it('ZD → jamais urgente (la criticité ne porte que sur l’attribution AG)', () => {
+  it('acceptée par le prestataire (statut validee ou statut TMS accepté) → pas urgente, AG comme ZD', () => {
     maintenant('2026-07-06', '21:00');
-    expect(estUrgente(row({ type: 'zero_dechet' }))).toBe(false);
+    for (const type of ['anti_gaspi', 'zero_dechet'] as const) {
+      expect(
+        estUrgente(row({ type, statut: 'validee', statut_tms: 'acceptee' })),
+      ).toBe(false);
+      expect(estUrgente(row({ type, statut_tms: 'acceptee' }))).toBe(false);
+      expect(
+        estUrgente(row({ type, statut_tms: 'en_attente_execution' })),
+      ).toBe(false);
+    }
+  });
+
+  it('au-delà de `programmee` (en cours, réalisée, annulée…) → pas urgente', () => {
+    maintenant('2026-07-06', '21:00');
+    for (const statut of ['en_cours', 'realisee', 'annulee', 'cloturee'])
+      expect(estUrgente(row({ type: 'zero_dechet', statut }))).toBe(false);
   });
 
   it('date_collecte corrompue → false (échec fermé, pas de badge Urgent au hasard)', () => {
@@ -190,12 +221,14 @@ describe('collectes-table / urgentesEnTete', () => {
   it('urgentes remontées en tête, ordre reçu conservé de part et d’autre (tri stable)', () => {
     maintenant('2026-07-07', '10:00'); // < 48h des créneaux du 08/07
     const lignes = urgentesEnTete([
-      // Non urgentes (déjà attribuées) — gardent l'ordre reçu.
+      // Non urgentes (déjà acceptées par le prestataire) — gardent l'ordre reçu.
       row({
         id: 'attr-mar',
         date_collecte: '2026-07-07',
         heure_collecte: '08:00:00',
         attributions_antgaspi: attribution,
+        statut: 'validee',
+        statut_tms: 'acceptee',
       }),
       row({
         id: 'urgent-tot',
@@ -207,6 +240,8 @@ describe('collectes-table / urgentesEnTete', () => {
         date_collecte: '2026-07-08',
         heure_collecte: '09:00:00',
         attributions_antgaspi: attribution,
+        statut: 'validee',
+        statut_tms: 'acceptee',
       }),
       row({
         id: 'urgent-tard',
@@ -225,7 +260,7 @@ describe('collectes-table / urgentesEnTete', () => {
   it('ne mute pas le tableau reçu (état React)', () => {
     maintenant('2026-07-07', '10:00');
     const recu = [
-      row({ id: 'a', attributions_antgaspi: attribution }),
+      row({ id: 'a', statut: 'validee', statut_tms: 'acceptee' }),
       row({ id: 'u' }),
     ];
     urgentesEnTete(recu);
@@ -239,7 +274,7 @@ describe('collectes-table / urgentesEnTete', () => {
 
 // Colonne « Statut » (décision Val 2026-10-07) : le statut DB `programmee`
 // s'affiche « Créée » tant que la demande n'est pas partie vers le prestataire,
-// « Programmée » ensuite ; l'AG sans attribution garde son badge d'action.
+// « Programmée » ensuite ; mêmes libellés pour l'AG et la ZD (Val 2026-11-12).
 describe('collectes-table / colonne Statut — Créée puis Programmée', () => {
   function statutAffiche(r: CollecteRow): string | null {
     const colonne = colonnesCollectesAdmin({ onOpen: () => {} }).find(
@@ -277,8 +312,8 @@ describe('collectes-table / colonne Statut — Créée puis Programmée', () => 
     ).toBe('Programmée');
   });
 
-  it('AG sans attribution : badge d’action « À attribuer » conservé (§06.06 §3)', () => {
-    expect(statutAffiche(row())).toBe('À attribuer');
+  it('AG sans attribution : « Créée », comme une ZD (Val 2026-11-12, ex-« À attribuer »)', () => {
+    expect(statutAffiche(row())).toBe('Créée');
   });
 
   it('AG sans attribution mais déjà dispatchée : « Programmée », comme la frise et l’export', () => {

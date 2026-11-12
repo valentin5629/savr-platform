@@ -268,10 +268,10 @@
     {
       "id": "BL-P1-ALGO-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:27-28",
-      "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (estUrgente : AG à attribuer + statut_tms non_envoye + date_collecte < now()+48h → badge URGENT + fond rose + tri urgent-first) ; packages/plateforme/src/components/ui/data-table.tsx (prop rowClassName) ; logique <48h aussi dans api/v1/admin/attributions-ag/pending/route.ts (flag criticite, testé)",
-      "test": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon (même logique que estUrgente). Badge URGENT + fond rose sur Collectes = preuve-visuelle (GO-VISUAL)",
+      "artefact": "packages/plateforme/src/components/admin/collectes-table.tsx (estUrgente, élargie par Val 2026-11-12 : collecte AG ou ZD programmee/validee non acceptée par le prestataire, créneau dans les 48 h à venir — même population que la carte « Collectes <48h non validées » → badge URGENT + fond rose + tri urgent-first, page.tsx) ; packages/plateforme/src/components/ui/data-table.tsx (prop rowClassName) ; drapeau criticite <48h propre à la file AG dans api/v1/admin/attributions-ag/pending/route.ts (testé)",
+      "test": "M2.3 / R11 ALGO-02 file criticité (packages/plateforme/tests/api/admin/algo-attribution-ag-r11.m2-3.test.ts) — criticite true <48h / false sinon (file AG ; le badge de la liste suit estUrgente, tests/ui/collectes-table.test.tsx). Badge URGENT + fond rose sur Collectes = preuve-visuelle (GO-VISUAL)",
       "statut": "implemented",
-      "libelle": "Criticité <48h / badge URGENT / tri urgent-first — intégré à la page Collectes (décision Val 2026-06-30, ex-page file d'attente supprimée)"
+      "libelle": "Criticité <48h / badge URGENT / tri urgent-first — intégré à la page Collectes (décision Val 2026-06-30, ex-page file d'attente supprimée ; étendu aux AG et ZD non acceptées par le prestataire, Val 2026-11-12)"
     },
     {
       "id": "BL-P1-ALGO-03",

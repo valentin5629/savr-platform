@@ -60,6 +60,30 @@ export interface ChipQuery {
 // cours.
 const STATUTS_A_DISPATCHER: readonly string[] = ['programmee', 'validee'];
 
+// « Non validée par le prestataire » (carte « Collectes <48h non validées »,
+// chip `collectes_48h_non_validees`) : collecte encore active dont le statut
+// TMS ne dit pas l'acceptation. Source unique, lue aussi par le badge
+// « Urgent » de la liste Admin (`estUrgente`, décision Val 2026-11-12).
+export const STATUTS_48H_NON_VALIDEES: readonly string[] = [
+  'programmee',
+  'validee',
+];
+export const STATUTS_TMS_ACCEPTES: readonly string[] = [
+  'acceptee',
+  'en_attente_execution',
+];
+
+/** Collecte active que le prestataire n'a pas acceptée (sans borne de date). */
+export function estNonValideeParPrestataire(row: {
+  statut: string;
+  statut_tms: string;
+}): boolean {
+  return (
+    STATUTS_48H_NON_VALIDEES.includes(row.statut) &&
+    !STATUTS_TMS_ACCEPTES.includes(row.statut_tms)
+  );
+}
+
 export const FILTRE_A_DISPATCHER =
   'and(statut_tms.eq.non_envoye,tms_reference.is.null,statut.in.(programmee,validee)),' +
   'statut.eq.rejetee_par_prestataire';
@@ -165,8 +189,12 @@ export function applyChipPredicate(
         .in('type', ['zero_dechet', 'anti_gaspi'])
         .gte('date_collecte', today)
         .lte('date_collecte', in48h)
-        .in('statut', ['programmee', 'validee'])
-        .not('statut_tms', 'in', '("acceptee","en_attente_execution")');
+        .in('statut', [...STATUTS_48H_NON_VALIDEES])
+        .not(
+          'statut_tms',
+          'in',
+          `(${STATUTS_TMS_ACCEPTES.map((s) => `"${s}"`).join(',')})`,
+        );
     default:
       return query;
   }

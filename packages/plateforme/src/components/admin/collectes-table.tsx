@@ -26,7 +26,10 @@ import {
   DropdownTrigger,
 } from '@/components/ui/dropdown';
 import { statutTmsDisplay } from '@/lib/statut-tms-labels';
-import { estADispatcher } from '@/lib/collectes-chips';
+import {
+  estADispatcher,
+  estNonValideeParPrestataire,
+} from '@/lib/collectes-chips';
 import { cn } from '@/lib/utils';
 import { instantParis } from '@savr/shared/src/temps/index.js';
 import { formatDateHeure, heureOuMinuit } from '@/lib/format-date-collecte';
@@ -127,22 +130,14 @@ export function aDispatcherZd(row: CollecteRow): boolean {
   return row.type === 'zero_dechet' && estADispatcher(row);
 }
 
-// Statuts TMS qui disent que le prestataire a accepté la collecte.
-const STATUTS_TMS_ACCEPTES = new Set(['acceptee', 'en_attente_execution']);
-const STATUTS_ACTIFS_URGENCE = new Set(['programmee', 'validee']);
-
 // Criticité (décision Val 2026-11-12, élargit §06.09 §1) : collecte AG ou ZD
 // encore active (`programmee` ou `validee`) que le prestataire n'a pas acceptée
 // ET créneau dans les 48 h à venir — même population que la carte « Collectes
-// <48h non validées » du Dashboard Admin (§11, lib/collectes-chips). Un
-// créneau passé n'est plus urgent (Val 2026-11-11) : il ne doit pas rester
-// épinglé en tête des collectes passées.
+// <48h non validées » du Dashboard Admin (§11), règle lue dans
+// lib/collectes-chips. Un créneau passé n'est plus urgent (Val 2026-11-11) : il
+// ne doit pas rester épinglé en tête des collectes passées.
 export function estUrgente(row: CollecteRow): boolean {
-  if (
-    !STATUTS_ACTIFS_URGENCE.has(row.statut) ||
-    STATUTS_TMS_ACCEPTES.has(row.statut_tms)
-  )
-    return false;
+  if (!estNonValideeParPrestataire(row)) return false;
   const ts = instantParis(
     row.date_collecte,
     heureOuMinuit(row.heure_collecte),

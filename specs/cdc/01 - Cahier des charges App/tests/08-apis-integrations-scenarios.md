@@ -108,9 +108,9 @@ Scénario : e2_repush_creneau_et_canal_libre
   Quand heure_collecte passe de 22:00 à 23:30
   Alors le PUT porte place.timeslots mis à jour (le créneau n'était jamais transmis avant ce lot)
   Quand informations_supplementaires est modifiée
-  Alors le PUT porte comment mis à jour
+  Alors le PUT porte comment recomposé, ligne « Précisions du traiteur » du texte de départ mise à jour (chez A Toute! : address_start_comment, décision Val 2026-11-03)
   Quand informations_supplementaires est VIDÉE
-  Alors le PUT porte comment = valeur vide, JAMAIS omis (l'omission laisserait au chauffeur la consigne périmée du dispatch initial)
+  Alors le PUT porte comment recomposé sans la ligne « Précisions du traiteur », JAMAIS omis (l'omission laisserait au chauffeur la consigne périmée du dispatch initial)
   Et les stuffs ne sont PAS re-poussés (un re-push reposerait à 0 les quantités alimentées par le polling)
   Et controle_acces_requis n'est PAS transmis (aucun champ natif MTS-1, exclusion assumée V1)
   Et place est construit par le helper UNIQUE partagé E1/E2 (parité non recopiée)
@@ -142,10 +142,10 @@ Scénario : adapter_ignore_tournee_autre_provider
 # Priorité : P2-important
 
 Scénario : contact_secours_et_alerte_anticipee_lieu
-  Étant donné une collecte AG servie par A Toutes! avec un contact de secours renseigné
+  Étant donné une collecte AG servie par A Toute! avec un contact de secours renseigné
   Quand le payload Everest est composé
-  Alors pickup.contact porte le contact PRINCIPAL (nom + telephone)
-  Et notes ouvre par « Contact de secours : {nom} — {telephone} »
+  Alors address_start_name / address_start_tel portent le contact PRINCIPAL (nom + telephone)
+  Et address_start_comment porte « - Contact 1 : {nom}, {telephone} » puis « - Contact 2 : {nom}, {telephone} »
   Et le même composeur PARTAGÉ produit comment pour MTS-1, qui porte donc le numéro deux fois
     (phoneAlternatives natif + comment en clair) — duplication assumée, garde-fou 2
   Étant donné un event E5 lieu.champ_critique_modifie en échec, attempts = 2
@@ -1079,7 +1079,7 @@ Scénario : chaine_e1_s1_s5_zd_complete
     4. S3 tournée-upsert reçu → collecte_tournees liaison créée
     5. S_en_cours reçu → collectes.statut = en_cours
     6. S5 reçu (statut_final=realisee) → collectes.statut = realisee, collecte_flux créés
-    7. Batch embargo H+24 → collectes.statut = cloturee
+    7. Clôture à realisee_at + 48h → collectes.statut = cloturee (bordereau déjà émis dès les pesées, décision Val 2026-11-04)
     8. Trigger taux_recyclage → collectes.taux_recyclage calculé, caps_appliques figé
     9. Puppeteer → bordereau_savr PDF généré
   Alors l'intégralité de la chaîne s'exécute sans erreur
@@ -1134,12 +1134,12 @@ Scénario : everest_confirmation_positive_statut_tms_acceptee
 
 Scénario : everest_course_vide_refetch_realisee_sans_collecte
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut=en_cours, non terminal)
-    Et Everest envoie un webhook terminal (mission_failed)
-    Et le re-fetch de la mission retourne status_text="Client absent / Marchandise refusée"
+    Et Everest envoie une notification mission_status
+    Et le re-fetch de la mission retourne l'étape client-absent-marchandise-refusee (libellé « Client Absent », relevé le 2026-11-03)
   Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
   Alors collectes.statut = realisee_sans_collecte
     Et collectes.realisee_at = now()
-    Et aucun_repas_motif = "Client absent / Marchandise refusée"
+    Et aucun_repas_motif = "Client Absent" (libellé relu)
     Et aucun_repas_photo_url = NULL (aucune photo de lieu fournie par Everest en V1)
     Et une alerte Ops in-app est créée (type=collecte_aucun_repas)
     Et aucune attestation 2041-GE n'est générée
@@ -1155,8 +1155,8 @@ Scénario : everest_course_vide_refetch_realisee_sans_collecte
 
 Scénario : everest_mission_failed_avant_acceptation_rejetee
   Étant donné une collecte AG IDF (transporteur.type_tms=a_toutes, statut_tms=attribuee_en_attente_acceptation)
-    Et Everest envoie mission_failed / annulation externe avant acceptation
-  Quand l'adapter Everest traite le webhook (re-fetch status_text)
+    Et Everest envoie une notification mission_status dont l'étape relue est un échec ou une annulation externe, avant acceptation de la collecte entière (aucune course affectée, décision Val 2026-11-03)
+  Quand l'adapter Everest traite la notification (re-fetch de la mission, catégorie de l'étape relue)
   Alors collectes.statut_tms = rejetee_par_prestataire
     Et collectes.statut = rejetee_par_prestataire (visibilité dashboard)
     Et une alerte Admin in-app « réattribution requise » est créée
@@ -1182,14 +1182,14 @@ Scénario : mts1_chaine_polling_complete
 ```
 
 ```gherkin
-# Source : §08 §3 V1 — Everest `mission_dispatched` : coursier relu sur l'API → tournée (décision Val 2026-10-02)
+# Source : §08 §3 V1 — Everest `mission_dispatched` : coursier relu sur l'API → tournée (décision Val 2026-10-02) ; depuis le 2026-11-03, notification `mission_status`, coursier relu à chaque étape
 # Couche : api + db
 # Priorité : P1-critique
 
 Scénario : everest_mission_dispatched_coursier_relu_api_propage_tournee
-  Étant donné une collecte AG attribuée à A Toutes! dont la tournée porte external_ref_commande = mission_id (mission courante)
+  Étant donné une collecte AG attribuée à A Toute! dont la tournée porte external_ref_commande = mission_id (mission courante)
     Et la tournée porte déjà chauffeur_nom = "Saisie Ops" et chauffeur_telephone = "0600000000" (saisie Admin)
-    Et Everest envoie un webhook mission_dispatched dont le payload annonce coursier_nom = "Faux Payload"
+    Et Everest envoie une notification mission_status (étape relue « affectée ») dont le payload annonce coursier_nom = "Faux Payload"
     Et le re-fetch de la mission sur l'API Everest retourne le coursier "Léa Martin", sans téléphone
   Quand l'adapter Everest traite le webhook (re-fetch mission, jamais le payload)
   Alors tournees.chauffeur_nom = "Léa Martin" et tournees.chauffeur_telephone = NULL (couple écrit ensemble, jamais un nom neuf avec l'ancien téléphone)
@@ -1199,7 +1199,7 @@ Scénario : everest_mission_dispatched_coursier_relu_api_propage_tournee
   Quand l'API Everest ne retourne aucun coursier
   Alors aucune écriture sur la tournée (saisie Admin conservée)
   Quand le re-fetch échoue
-  Alors rien n'est écrit, une trace coursier_refetch_failed est enregistrée, la réponse est 200 et la mission passe quand même assigned
+  Alors rien n'est écrit, la réponse est 500 et la notification reste non traitée dans `integrations_inbox` (rejouée si A Toute! la renvoie) ; une alerte Admin in-app « Événement A Toute! non enregistré » (`everest_webhook_non_enregistre`) est posée (décision Val 2026-11-03)
   Quand la mission n'est pas la mission courante de la collecte
   Alors l'API Everest n'est pas appelée pour le coursier et la tournée est intacte
 ```
@@ -1391,7 +1391,7 @@ Scénario : siret_vide_plusieurs_entites_autorise
 # Source : §08 §3bis.8 « Règles de composition du payload E2 » — Côté Everest (décision Val 2026-10-30, validée 2026-11-02)
 # Couche : adapter
 # Priorité : P1-critique
-# ⚠ POST /missions/update (swagger 1.294.1) jamais appelé en conditions réelles : à faire confirmer par A Toutes! (Mathieu) avant la mise en production
+# ⚠ POST /missions/update (swagger 1.294.1) jamais appelé en conditions réelles : à faire confirmer par A Toute! (Mathieu) avant la mise en production
 
 Plan du scénario : e2_everest_modification_mission
   Étant donné une collecte AG transmise à Everest avec 2 missions (rangs 1 et 2), dont <etat_missions>
@@ -1413,7 +1413,7 @@ Scénario : e2_everest_collecte_jamais_transmise_noop
 Scénario : e2_everest_refus_4xx_definitif_5xx_retente
   Étant donné une collecte AG avec 2 missions ouvertes
   Quand Everest répond 400 sur la mission 1 et 200 sur la mission 2
-  Alors la mission 2 est modifiée, l'ordre sort en échec définitif avec la raison donnée par A Toutes!, et la collecte n'est pas rejetée
+  Alors la mission 2 est modifiée, l'ordre sort en échec définitif avec la raison donnée par A Toute!, et la collecte n'est pas rejetée
   Quand Everest répond 503 ou ne répond pas
   Alors l'ordre est retenté (renvoyer les mêmes valeurs ne change rien)
 
@@ -1422,7 +1422,7 @@ Scénario : e2_everest_contact_association_vide_et_nombre_vehicules
   Quand l'E2 est envoyé
   Alors le contact d'arrivée part vide, jamais omis, et ni service_id ni client_ref ne sont envoyés
   Quand le nombre de véhicules de la collecte passe de 1 à 2
-  Alors aucune mission n'est créée par POST /missions/update et une alerte Ops canal info est levée (à traiter à la main chez A Toutes!)
+  Alors aucune mission n'est créée par POST /missions/update et une alerte Ops canal info est levée (à traiter à la main chez A Toute!)
 ```
 
 ---
@@ -1433,5 +1433,5 @@ Scénario : e2_everest_contact_association_vide_et_nombre_vehicules
 - Webhook Pennylane `invoice.paid` — différé V1.1 (revue sobriété §08 B1)
 - Endpoint `GET /v3/extract/activitysheet` MTS-1 (rapprochement coûts logistiques) — V2 seulement
 - Endpoint SSO cross-app `has-profile` — supprimé V1 (sobriété Bloc A A1)
-- Rate limiting Everest : nombre exact de req/min à valider avec A Toutes! avant dev
+- Rate limiting Everest : nombre exact de req/min à valider avec A Toute! avant dev
 - Export CSV `GET /admin/dashboard/revenus-organisations.csv` — scénarios format (encoding, headers CSV)

@@ -37,7 +37,7 @@ const STATUTS_TOURNEE_VIVANTE = new Set(['planifiee', 'en_cours']);
 
 const LIBELLE_PROVIDER: Record<TypeTms, string> = {
   mts1: 'MTS-1',
-  a_toutes: 'A Toutes! (Everest)',
+  a_toutes: 'A Toute! (Everest)',
   autre: 'hors TMS',
   par_mail: 'hors TMS (mail)',
   par_telephone: 'hors TMS (téléphone)',

@@ -119,7 +119,7 @@ SELECT is(
   6, 'R0 avant appel : aucune reference ni trace manuelle posee par les fixtures');
 
 -- ── statut_tms a_attribuer → acceptee ──
-SELECT lives_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c1'::uuid, 'EVR-PLN-1', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT lives_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c1'::uuid, 'EVR-PLN-1', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'S1 depart statut_tms=a_attribuer -> acceptation reussit');
 SELECT is(
   (SELECT statut_tms::text FROM plateforme.collectes WHERE id = 'e5d90000-0000-0000-0000-0000000000c1'::uuid),
@@ -131,7 +131,7 @@ SELECT is(
   1, 'S1c depart a_attribuer -> mission created_manually avec la reference');
 
 -- ── statut_tms attribuee_en_attente_acceptation → acceptee ──
-SELECT lives_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c2'::uuid, 'EVR-PLN-2', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT lives_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c2'::uuid, 'EVR-PLN-2', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'S2 depart statut_tms=attribuee_en_attente_acceptation -> acceptation reussit');
 SELECT is(
   (SELECT statut_tms::text FROM plateforme.collectes WHERE id = 'e5d90000-0000-0000-0000-0000000000c2'::uuid),
@@ -143,10 +143,10 @@ SELECT is(
   1, 'S2c depart attribuee_en_attente_acceptation -> mission created_manually avec la reference');
 
 -- ── statut=programmee, statut_tms=rejetee_par_prestataire → refus, aucune écriture ──
-SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c3'::uuid, 'EVR-PLN-3', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c3'::uuid, 'EVR-PLN-3', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'P0003', NULL, 'R3 statut=programmee statut_tms=rejetee_par_prestataire -> refus P0003 (409)');
-SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c3'::uuid, 'EVR-PLN-3', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
-  'A Toutes! a refusé cette collecte%', 'R3b refus motive par le bon cas');
+SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c3'::uuid, 'EVR-PLN-3', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+  'A Toute! a refusé cette collecte%', 'R3b refus motive par le bon cas');
 SELECT is(
   (SELECT c.statut_tms::text || '|' || coalesce(c.tms_reference, '-') || '|' ||
           coalesce(t.external_ref_commande, '-') || '|' || m.statut_everest::text || '|' ||
@@ -160,9 +160,9 @@ SELECT is(
   'R3c aucune ecriture : statut_tms, references et mission inchanges');
 
 -- ── statut=realisee, statut_tms=acceptee → refus, aucune écriture ──
-SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c4'::uuid, 'EVR-PLN-4', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c4'::uuid, 'EVR-PLN-4', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'P0003', NULL, 'R4 statut=realisee statut_tms=acceptee -> refus P0003 (409)');
-SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c4'::uuid, 'EVR-PLN-4', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c4'::uuid, 'EVR-PLN-4', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'Collecte terminée ou annulée%', 'R4b refus motive par le bon cas');
 SELECT is(
   (SELECT c.statut_tms::text || '|' || coalesce(c.tms_reference, '-') || '|' ||
@@ -177,9 +177,9 @@ SELECT is(
   'R4c aucune ecriture : statut_tms, references et mission inchanges');
 
 -- ── statut=cloturee, statut_tms=acceptee → refus, aucune écriture ──
-SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c5'::uuid, 'EVR-PLN-5', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c5'::uuid, 'EVR-PLN-5', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'P0003', NULL, 'R5 statut=cloturee statut_tms=acceptee -> refus P0003 (409)');
-SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c5'::uuid, 'EVR-PLN-5', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c5'::uuid, 'EVR-PLN-5', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'Collecte terminée ou annulée%', 'R5b refus motive par le bon cas');
 SELECT is(
   (SELECT c.statut_tms::text || '|' || coalesce(c.tms_reference, '-') || '|' ||
@@ -194,9 +194,9 @@ SELECT is(
   'R5c aucune ecriture : statut_tms, references et mission inchanges');
 
 -- ── statut=annulee, statut_tms=non_envoye → refus, aucune écriture ──
-SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c6'::uuid, 'EVR-PLN-6', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT throws_ok($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c6'::uuid, 'EVR-PLN-6', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'P0003', NULL, 'R6 statut=annulee statut_tms=non_envoye -> refus P0003 (409)');
-SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c6'::uuid, 'EVR-PLN-6', 'Mathieu (A Toutes!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
+SELECT throws_like($$ SELECT plateforme.fn_accepter_mission_everest_manuelle('e5d90000-0000-0000-0000-0000000000c6'::uuid, 'EVR-PLN-6', 'Mathieu (A Toute!)', 'e5d90000-0000-0000-0000-0000000000a1'::uuid, 'ops_savr', NULL, NULL) $$,
   'Collecte terminée ou annulée%', 'R6b refus motive par le bon cas');
 SELECT is(
   (SELECT c.statut_tms::text || '|' || coalesce(c.tms_reference, '-') || '|' ||

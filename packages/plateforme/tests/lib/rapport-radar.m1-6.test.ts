@@ -1,5 +1,5 @@
 /**
- * M1.6 — Radar du rapport de recyclage (gabarit @3) : `construireRadarRapport`
+ * M1.6 — Radar du rapport de recyclage (gabarits @3 et @4) : `construireRadarRapport`
  * reprend les chiffres du radar de l'écran (`chargerBenchmarkFiche`, sous
  * l'identité du demandeur) et en tire les lignes du PDF et la légende des filtres.
  */
@@ -148,10 +148,13 @@ describe('M1.6 / construireRadarRapport — mêmes chiffres que le radar de l’
     });
     // Aucun type filtré : la table des types n'est pas lue.
     expect(lues).toEqual(['flux_dechets']);
+    // Annexe @4 : aucun critère posé ; effectif inconnu de la fiche → null.
+    expect(r.radar.benchmark_criteres).toBe('tous les événements');
+    expect(r.radar.benchmark_effectif).toBeNull();
   });
 
   it('avec filtres : libellés des types, tailles en clair, nombre de lieux ; snapshot = filtres appliqués', async () => {
-    mockFiche.mockResolvedValue({ etat: 'ok', flux: {} });
+    mockFiche.mockResolvedValue({ etat: 'ok', flux: {}, effectif: 128 });
     const { supabase, inArgs } = makeSupabase({
       flux_dechets: FLUX,
       types_evenements: {
@@ -169,6 +172,11 @@ describe('M1.6 / construireRadarRapport — mêmes chiffres que le radar de l’
       "période 13/10/2024 → 13/10/2026 · lieux : 2 sélectionnés · type d'événement : Cocktail dînatoire · taille : M (500 à 749 convives), XL (1 000 convives et plus)",
     );
     expect(inArgs).toEqual([['id', [T1]]]);
+    // Annexe @4 : critères courts (la période est déjà dite) et effectif.
+    expect(r.radar.benchmark_criteres).toBe(
+      'taille M/XL, cocktail dînatoire, 2 lieux',
+    );
+    expect(r.radar.benchmark_effectif).toBe(128);
     expect(r.radar.filtres_benchmark).toMatchObject({
       lieu_ids: [L1, L2],
       type_evenement_ids: [T1],
@@ -196,6 +204,7 @@ describe('M1.6 / construireRadarRapport — mêmes chiffres que le radar de l’
       "lieux : 1 sélectionné · type d'événement : 2 sélectionnés · taille : toutes",
     );
     expect(r.radar.benchmark_legende).not.toContain('tous');
+    expect(r.radar.benchmark_criteres).toBe('2 types d’événement, 1 lieu');
   });
 
   it('refus des gardes de l’écran relayés tels quels, sans lire le référentiel', async () => {

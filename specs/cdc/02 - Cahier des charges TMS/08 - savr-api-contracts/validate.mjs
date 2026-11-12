@@ -80,7 +80,7 @@ ok("E5 valide", "E5", env({ source: "plateforme", type: "lieu.upsert", data: {
 ok("S1 valide Strike", "S1", env({ source: "tms", type: "collecte.acceptee", data: {
   collecte_id: U, prestataire_id: U, chauffeur: { chauffeur_id: U, nom: "Dupont", prenom: "Jean" },
   vehicule: { vehicule_id: U, type: "camion_16m3", plaque: "AA-123-BB" }, acceptee_le: "2026-05-09T10:00:00Z" }}));
-ok("S1 valide A Toutes! (nulls)", "S1", env({ source: "tms", type: "collecte.acceptee", data: {
+ok("S1 valide A Toute! (nulls)", "S1", env({ source: "tms", type: "collecte.acceptee", data: {
   collecte_id: U, prestataire_id: U, chauffeur: { chauffeur_id: null, nom: "Coursier" },
   vehicule: { vehicule_id: null, type: "velo_cargo", plaque: null }, acceptee_le: "2026-05-09T10:00:00Z" }}));
 

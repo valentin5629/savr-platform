@@ -38,6 +38,7 @@ function makeChain() {
     'gte',
     'lte',
     'order',
+    'limit',
     'range',
   ]) {
     chain[m] = (...args: unknown[]) => {

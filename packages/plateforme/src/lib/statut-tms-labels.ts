@@ -38,7 +38,7 @@ export function statutTmsDisplay(statutTms: string): {
 // les tournées de la collecte ont leur plaque_immatriculation renseignée, gris si
 // au moins une manque. Collecte sans tournée = false (le picto n'est pas rendu à
 // vide, le bloc Tournées lui-même n'apparaissant que si length > 0).
-// Vélo cargo (A Toutes!) : aucune plaque attendue → compte comme complet
+// Vélo cargo (A Toute!) : aucune plaque attendue → compte comme complet
 // (même règle que le bloc « Chauffeur » : « Sans objet (vélo cargo) »).
 export function plaqueTmsComplete(
   tournees: {

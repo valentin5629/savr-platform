@@ -155,7 +155,7 @@
     },
     {
       "id": "M4.2-flux-referentiel-exutoires-codes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1037",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1038",
       "artefact": "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql (flux_dechets : + code_traitement ; exutoire, adresse, code déchet, code de traitement et filière des 5 flux)",
       "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
       "statut": "implemented",
@@ -163,7 +163,7 @@
     },
     {
       "id": "M4.2-flux-referentiel-unite-kg",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1064-1068",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1065-1069",
       "artefact": "supabase/migrations/20261006130000_plateforme_flux_dechets_emballage_unite_kg.sql (flux_dechets : unité de mesure des Emballages passée de bac à kg)",
       "test": "flux_referentiel_unite_kg",
       "statut": "implemented",
@@ -176,10 +176,26 @@
       "test": "C1/registre_pax_taille_type_de_la_collecte + M4.2/detail_registre_pax_et_type_de_la_collecte + 14. v_registre_dechets garde security_invoker + 15. droits de v_registre_dechets inchangés",
       "statut": "implemented",
       "libelle": "Registre au grain de la COLLECTE (lot C1, 2026-10-24) : la vue v_registre_dechets expose le pax, la taille (taille_bracket) et le type d'événement de la collecte (mêmes colonnes, CREATE OR REPLACE VIEW, security_invoker = false et cloisonnement f_collecte_visible inchangés) ; le détail d'une ligne (bloc 1 « Données événement ») affiche les convives et le type de LA collecte, pas ceux de l'événement."
+    },
+    {
+      "id": "M4.2-zip-bordereaux-par-lots",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
+      "artefact": "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts (bordereaux des collectes de la période lus par lireParLots)",
+      "test": "M4.2 / export ZIP des bordereaux au-delà du plafond d'identifiants",
+      "statut": "implemented",
+      "libelle": "Export ZIP des bordereaux quand la période filtrée porte plus de collectes qu'un filtre in.(…) n'en accepte (402 identifiants échouent, 390 passent : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) : les collectes partent par lots de 100. Le refus « Trop de bordereaux (N) » et le ZIP restent rendus ; un lot en échec rend une erreur, ni ZIP partiel ni trace."
+    },
+    {
+      "id": "M4.2-zip-bordereaux-statuts-retenus",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
+      "artefact": "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts (bordereaux lus avec in('statut', ['emis', 'corrige']))",
+      "test": "M4.2 / export ZIP des bordereaux : statuts retenus",
+      "statut": "implemented",
+      "libelle": "Export ZIP des bordereaux : il porte les bordereaux émis et corrigés de la période, eux seuls, soit la règle « bordereau disponible » du registre (bordereauDisponible). Un brouillon ou un bordereau annulé n'y entre pas ; une période qui n'a que ceux-là répond « Aucun bordereau sur la période »."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "1bd6a37c1ff937a32f2e10ab68e05027fcafd18f615cf63e1b525232fa67184c"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e306182509f1b929d8b24573e0ea4e3e4988483c81da818841030e4776f9174",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "b404815e2c3626158d803dc7b5c18dc5947667958ca5a4681d94206c126ecb69"
   }
 }

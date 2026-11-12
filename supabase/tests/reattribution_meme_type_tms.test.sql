@@ -11,7 +11,7 @@
 -- commande annulée côté camion, rien de recommandé.
 -- Les fixtures posent l'état que les chemins de refus écrivent réellement :
 -- référence de commande committée, tournée `annulee` (polling MTS-1) ou mission
--- `failed` / `cancelled_externally` (webhook A Toutes!), collecte rejetée.
+-- `failed` / `cancelled_externally` (webhook A Toute!), collecte rejetée.
 -- Exécution : supabase test db (job CI pgtap-rls-outbox).
 -- =============================================================================
 
@@ -42,9 +42,9 @@ SELECT ('e3aa0000-0000-0000-0000-0000000000e' || n)::uuid, 'e3aa0000-0000-0000-0
 FROM generate_series(1, 5) n;
 
 -- ── Collectes ────────────────────────────────────────────────────────────────
---   c1 AG refusée par A Toutes! (webhook mission_failed)      → réattribuée vélo
+--   c1 AG refusée par A Toute! (webhook mission_failed)      → réattribuée vélo
 --   c2 ZD MTS-1 tous tours KO (tournée annulee)                → réattribuée camion B
---   c3 AG refusée par A Toutes! (annulation externe)           → réattribuée camion
+--   c3 AG refusée par A Toute! (annulation externe)           → réattribuée camion
 --   c4 ZD MTS-1 2 camions, rang 1 KO, rang 2 vivant (rejet posé par le rang 1)
 --   c5 ZD validee, rang 1 annulee — renvoi Ops, PAS une réattribution
 INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, prestataire_logistique_id, nb_camions_demande, tms_reference) VALUES
@@ -74,11 +74,11 @@ INSERT INTO plateforme.everest_missions (tournee_id, collecte_id, everest_missio
   ('e3aa0000-0000-0000-0000-0000000000a1', 'e3aa0000-0000-0000-0000-0000000000c1', 'MISSION-REATT-1', 71, 'failed'),
   ('e3aa0000-0000-0000-0000-0000000000a3', 'e3aa0000-0000-0000-0000-0000000000c3', 'MISSION-REATT-3', 71, 'cancelled_externally');
 
--- ─── 1-4. A : refus A Toutes! (webhook) → réattribué à A Toutes! ─────────────
+-- ─── 1-4. A : refus A Toute! (webhook) → réattribué à A Toute! ─────────────
 SELECT is(
   plateforme.fn_dispatcher_collecte('e3aa0000-0000-0000-0000-0000000000c1', 'e3aa0000-0000-0000-0000-0000000000d1', 'reattribution'),
   'collecte.creee',
-  'A refus A Toutes! puis réattribution à A Toutes! → collecte.creee (la mission failed ne compte plus)'
+  'A refus A Toute! puis réattribution à A Toute! → collecte.creee (la mission failed ne compte plus)'
 );
 
 SELECT is(
@@ -126,11 +126,11 @@ SELECT is(
   'B second refus puis réattribution → tentative -r3 (jamais la clé d''une commande précédente)'
 );
 
--- ─── 8. C : refus A Toutes! → réattribué à MTS-1 (non-régression) ────────────
+-- ─── 8. C : refus A Toute! → réattribué à MTS-1 (non-régression) ────────────
 SELECT is(
   plateforme.fn_dispatcher_collecte('e3aa0000-0000-0000-0000-0000000000c3', 'e3aa0000-0000-0000-0000-0000000000d0', 'reattribution camion'),
   'collecte.creee',
-  'C refus A Toutes! (annulation externe) puis réattribution à MTS-1 → collecte.creee'
+  'C refus A Toute! (annulation externe) puis réattribution à MTS-1 → collecte.creee'
 );
 
 -- ─── 9-11. Multi-camions : seul le rang refusé est réinitialisé ──────────────

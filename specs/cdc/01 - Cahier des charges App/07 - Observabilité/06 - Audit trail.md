@@ -57,6 +57,8 @@ Une action est auditée si elle touche **finances, fiscalité, sécurité ou int
 | `user_role_modifie` | `users` | Changement de rôle utilisateur |
 | `user_desactive` | `users` | Désactivation d'un compte |
 | `impersonation_session` | `users` | Session impersonation (`impersonator_id` renseigné, §09 §7) |
+| `code_verification_reinitialise` | `users` | Réinitialisation du code de vérification d'un membre de l'équipe Savr par un autre `admin_savr` (ajout 2026-11-04), ou d'un utilisateur d'une organisation qui exige le code (2026-11-10) ; `user_id` = l'administrateur, `record_id` = le compte, `new_values` `{facteurs_retires}` ; aucune ligne si rien n'a été retiré |
+| `code_verification_organisation` | `organisations` | Case « Code de vérification » cochée ou décochée par `admin_savr` (ajout 2026-11-10) ; `old_values` et `new_values` `{code_verification_obligatoire}` ; aucune ligne si la valeur ne change pas |
 | `controle_acces_cascade_upgrade` | `collectes` | Trigger cascade contrôle d'accès (déjà §04) |
 | `config_auto_accept_update` | `config_auto_accept_ag` | Toggle auto-accept AG (déjà §04) |
 

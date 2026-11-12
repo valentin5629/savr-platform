@@ -5,20 +5,43 @@ import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { FormGrid } from '@/components/ui/form-grid';
 import { IconButton } from '@/components/ui/icon-button';
+import { VEHICULE_LABEL } from '@/lib/lieux-labels';
 
 // Besoin véhicule saisi avant l'envoi au prestataire (décision Val
 // 2026-10-01) : type souhaité + nombre de véhicules. Attribution AG et choix
 // du prestataire d'une ZD (décision Val 2026-10-27).
 
-// Enum plateforme.type_vehicule (lieux.type_vehicule_max, tournees.type_vehicule,
-// collectes.type_vehicule_souhaite).
-export const TYPES_VEHICULE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'velo_cargo', label: 'Vélo cargo' },
-  { value: 'camionnette', label: 'Camionnette' },
-  { value: 'fourgon', label: 'Fourgon' },
-  { value: 'vul', label: 'VUL' },
-  { value: 'poids_lourd', label: 'Poids lourd' },
-];
+// Véhicules proposés selon le type de collecte (décision Val 2026-11-10),
+// valeurs de l'enum plateforme.type_vehicule. Une collecte qui porte un autre
+// type le garde dans le menu tant qu'il n'est pas changé.
+const TYPES_VEHICULE_PAR_COLLECTE: Record<
+  'anti_gaspi' | 'zero_dechet',
+  string[]
+> = {
+  anti_gaspi: ['velo_cargo', 'camionnette_frigo', 'camion_frigo'],
+  zero_dechet: [
+    'camion_16m3_simple',
+    'camion_16m3_double',
+    'camion_20m3_simple',
+    'camion_20m3_double',
+  ],
+};
+
+function optionsVehicule(
+  typeCollecte: 'anti_gaspi' | 'zero_dechet',
+  actuel: string,
+) {
+  const proposes = TYPES_VEHICULE_PAR_COLLECTE[typeCollecte];
+  const valeurs =
+    actuel && !proposes.includes(actuel) ? [...proposes, actuel] : proposes;
+  return [
+    { value: '', label: 'Non précisé' },
+    ...valeurs.map((value) => ({
+      value,
+      label: VEHICULE_LABEL[value] ?? value,
+    })),
+  ];
+}
 
 export const NB_VEHICULES_MAX = 20;
 
@@ -29,11 +52,13 @@ export function nbVehiculesValide(saisie: string): boolean {
 }
 
 export function ChampsBesoinVehicule({
+  typeCollecte,
   typeVehicule,
   onTypeVehicule,
   nbVehicules,
   onNbVehicules,
 }: {
+  typeCollecte: 'anti_gaspi' | 'zero_dechet';
   typeVehicule: string;
   onTypeVehicule: (v: string) => void;
   nbVehicules: string;
@@ -58,10 +83,7 @@ export function ChampsBesoinVehicule({
           icon={null}
           searchable={false}
           placeholder="Non précisé"
-          options={[
-            { value: '', label: 'Non précisé' },
-            ...TYPES_VEHICULE_OPTIONS,
-          ]}
+          options={optionsVehicule(typeCollecte, typeVehicule)}
           value={typeVehicule}
           onChange={onTypeVehicule}
         />

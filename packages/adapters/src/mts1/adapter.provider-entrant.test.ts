@@ -176,7 +176,7 @@ describe('cloisonnement entrant — findTourneeByOrderId', () => {
 
     // Le statut du poll est 'OK' (terminal) : sans le filtre, l'adapter aurait
     // écrit statut_tms, passé la tournée à 'terminee' et lancé l'agrégation
-    // terminale sur une collecte servie par A Toutes!.
+    // terminale sur une collecte servie par A Toute!.
     const ecrituresCollecte = supabase._calls.filter(
       (c) => c.table === 'collectes',
     );

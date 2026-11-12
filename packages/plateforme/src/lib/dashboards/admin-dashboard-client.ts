@@ -45,6 +45,7 @@ import {
 } from '@/lib/dashboards/cockpit-derive.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { periodeBenchmark } from '@/lib/dashboards/periode-benchmark.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 
 type AdminDbClient = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -170,19 +171,26 @@ export async function loadAdminDashboardClient(
   };
 
   // ── Historique (KPI + évolution + blocs) ────────────────────────────────────
-  let qHist = admin
-    .from('collectes')
-    .select(SELECT_HISTORIQUE)
-    .eq('statut', 'cloturee')
-    .eq('type', type);
-  qHist = applyScope(qHist as never) as typeof qHist;
-  if (from) qHist = qHist.gte('date_collecte', from);
-  if (to) qHist = qHist.lte('date_collecte', to);
+  // Lu page après page (`lireParPages`) : une réponse est amputée à 1 000 lignes
+  // sans erreur. Au-delà de 1 000 collectes clôturées dans le périmètre, KPI,
+  // évolution, CO₂ et classements porteraient sur 1 000 d'entre elles seulement.
+  const lireHistorique = (apresId: string | null) => {
+    let q = admin
+      .from('collectes')
+      .select(SELECT_HISTORIQUE)
+      .eq('statut', 'cloturee')
+      .eq('type', type);
+    q = applyScope(q as never) as typeof q;
+    if (from) q = q.gte('date_collecte', from);
+    if (to) q = q.lte('date_collecte', to);
+    if (apresId) q = q.gt('id', apresId);
+    return q.order('id', { ascending: true }).limit(TAILLE_PAGE);
+  };
 
-  // La vue (requête lourde) + facteurs/méthode CO₂ (clients service_role séparés,
-  // constantes ADEME globales) sont indépendants → lancés en parallèle.
+  // L'historique (requête lourde) + facteurs/méthode CO₂ (clients service_role
+  // séparés, constantes ADEME globales) sont indépendants → lancés en parallèle.
   const [histRes, facteursCo2, co2Methode] = await Promise.all([
-    qHist,
+    lireParPages<BlocsCollecteRow>(lireHistorique),
     lireFacteursCo2(),
     lireMethodeCo2(),
   ]);
@@ -196,8 +204,7 @@ export async function loadAdminDashboardClient(
     return tailleEvts.includes(tailleBracket(c.pax ?? 0));
   };
 
-  const histAll = (histRes.data ?? []) as unknown as BlocsCollecteRow[];
-  const histRows = histAll.filter(tailleOk);
+  const histRows = histRes.data.filter(tailleOk);
 
   const kpi =
     histRows.length > 0
@@ -357,11 +364,16 @@ export async function loadAdminBenchmarkComparaison(
   };
 }
 
+type OptionNommee = { id: string; nom: string };
+
 export interface AdminBenchmarkFiltresOptions {
-  lieux: { id: string; nom: string }[];
-  traiteurs: { id: string; nom: string }[];
+  lieux: OptionNommee[];
+  traiteurs: OptionNommee[];
   types: { id: string; libelle: string }[];
 }
+
+const parNom = (a: OptionNommee, b: OptionNommee) =>
+  a.nom.localeCompare(b.nom, 'fr');
 
 /**
  * Options des filtres de la ligne de référence (encart « Comparer avec »), en
@@ -376,15 +388,27 @@ export interface AdminBenchmarkFiltresOptions {
 export async function loadAdminBenchmarkFiltres(
   admin: AdminDbClient,
 ): Promise<AdminBenchmarkFiltresOptions> {
+  // Lieux et traiteurs lus page après page (`lireParPages`) : une réponse est
+  // amputée à 1 000 lignes sans erreur, des options manqueraient à l'encart.
+  // La lecture avance sur l'identifiant ; le tri par nom est refait ici.
   const [lieux, traiteurs, types] = await Promise.all([
-    admin.from('lieux').select('id, nom').neq('actif', false).order('nom'),
-    admin
-      .from('organisations')
-      .select('id, nom')
-      .eq('type', 'traiteur')
-      .neq('actif', false)
-      .neq('est_shadow', true)
-      .order('nom'),
+    lireParPages<OptionNommee>((apresId) => {
+      const q = admin.from('lieux').select('id, nom').neq('actif', false);
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    }),
+    lireParPages<OptionNommee>((apresId) => {
+      const q = admin
+        .from('organisations')
+        .select('id, nom')
+        .eq('type', 'traiteur')
+        .neq('actif', false)
+        .neq('est_shadow', true);
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    }),
     admin
       .from('types_evenements')
       .select('id, libelle')
@@ -395,8 +419,8 @@ export async function loadAdminBenchmarkFiltres(
   if (firstError)
     throw erreurInterne(firstError, 'admin.dashboard_client.benchmark.filtres');
   return {
-    lieux: (lieux.data ?? []) as { id: string; nom: string }[],
-    traiteurs: (traiteurs.data ?? []) as { id: string; nom: string }[],
+    lieux: lieux.data.sort(parNom),
+    traiteurs: traiteurs.data.sort(parNom),
     types: (types.data ?? []) as { id: string; libelle: string }[],
   };
 }

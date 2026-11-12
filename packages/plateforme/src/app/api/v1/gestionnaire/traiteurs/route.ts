@@ -7,8 +7,23 @@ import {
 import { jourParis } from '@savr/shared/src/temps/index.js';
 import { decalerMois } from '@/lib/periodes-raccourcis';
 import { serverError } from '@/lib/api-helpers.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 
 const ROLES: ClientRole[] = ['gestionnaire_lieux'];
+
+/** Collecte clôturée du parc, telle que cette route la lit. */
+interface CollecteLue {
+  id: string;
+  type: string;
+  date_collecte: string;
+  taux_recyclage: number | null;
+  evenements: unknown;
+  collecte_flux: { poids_reel_kg: number | null }[] | null;
+  attributions_antgaspi:
+    | { volume_repas_realise: number | null }
+    | { volume_repas_realise: number | null }[]
+    | null;
+}
 
 // GET /api/v1/gestionnaire/traiteurs
 // Traiteurs intervenus sur les lieux de l'organisation (fenêtre 24 mois — indépendante du filtre période).
@@ -33,19 +48,28 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const since24mStr = decalerMois(aujourdhui, -24);
   const since12mStr = decalerMois(aujourdhui, -12);
 
-  const { data: collectes, error } = await supabase
-    .from('collectes')
-    .select(
-      `id, type, statut, date_collecte, taux_recyclage,
-       evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
-         lieux!lieu_id(id, nom),
-         organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url)),
-       collecte_flux(poids_reel_kg),
-       attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)`,
-    )
-    .eq('statut', 'cloturee')
-    .in('evenements.lieu_id', lieuIds)
-    .gte('date_collecte', since24mStr);
+  // Lues page après page (`lireParPages`) : une réponse est amputée à 1 000
+  // lignes sans erreur, des traiteurs manqueraient et les cumuls seraient faux.
+  const { data: collectes, error } = await lireParPages<CollecteLue>(
+    (apresId) => {
+      const q = supabase
+        .from('collectes')
+        .select(
+          `id, type, statut, date_collecte, taux_recyclage,
+           evenements!inner(lieu_id, traiteur_operationnel_organisation_id,
+             lieux!lieu_id(id, nom),
+             organisations:v_traiteurs_gestionnaire!traiteur_operationnel_organisation_id(id, nom, logo_url)),
+           collecte_flux(poids_reel_kg),
+           attributions_antgaspi:v_attributions_gestionnaire(volume_repas_realise)`,
+        )
+        .eq('statut', 'cloturee')
+        .in('evenements.lieu_id', lieuIds)
+        .gte('date_collecte', since24mStr);
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE);
+    },
+  );
 
   if (error) return serverError(error, 'gestionnaire.traiteurs.list');
 
@@ -65,7 +89,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   >();
 
-  for (const c of collectes ?? []) {
+  for (const c of collectes) {
     const evt = Array.isArray(c.evenements) ? c.evenements[0] : c.evenements;
     const orgs = (
       evt as unknown as {
@@ -94,17 +118,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     };
     if (lieuId) cur.lieux.set(lieuId, lieuObj?.nom ?? lieuId);
 
-    const in12m = (c.date_collecte as string) >= since12mStr;
+    const in12m = c.date_collecte >= since12mStr;
     if (in12m) {
       cur.nb12 += 1;
-      const flux = Array.isArray(c.collecte_flux) ? c.collecte_flux : [];
-      const tonnage = flux.reduce(
-        (s, f) => s + ((f as { poids_reel_kg?: number }).poids_reel_kg ?? 0),
+      const tonnage = (c.collecte_flux ?? []).reduce(
+        (s, f) => s + (f.poids_reel_kg ?? 0),
         0,
       );
       if (c.type === 'zero_dechet') {
         cur.tonnage12 += tonnage;
-        const taux = c.taux_recyclage as number | null;
+        const taux = c.taux_recyclage;
         if (taux !== null && tonnage > 0) {
           cur.tauxNum += taux * tonnage;
           cur.tauxDen += tonnage;
@@ -117,9 +140,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           ? [c.attributions_antgaspi]
           : [];
       cur.repas12 += attrs.reduce(
-        (s, a) =>
-          s +
-          ((a as { volume_repas_realise?: number }).volume_repas_realise ?? 0),
+        (s, a) => s + (a.volume_repas_realise ?? 0),
         0,
       );
     }

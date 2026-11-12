@@ -1,10 +1,13 @@
 /**
- * M1.6 — Données du rapport de recyclage ZD (gabarit @3), rassemblées au clic
+ * M1.6 — Données du rapport de recyclage ZD (gabarit @4), rassemblées au clic
  * (décision Val 2026-10-16 : plus de rapport fabriqué par le batch).
  *
  * Données mesurées = celles figées à la clôture (collecte, collecte_flux) ;
- * page 2 = l'instantané `bordereaux_savr` du batch J+1 ; noms et logos lus au
- * moment du clic (BL-P2-18, BL-P2-19).
+ * annexe (page 2) = numéro et date du bordereau, référentiel `flux_dechets`
+ * (code déchet, exutoire habituel, code R/D), forfait transport du snapshot ;
+ * noms et logos lus au moment du clic (BL-P2-18, BL-P2-19). Décisions Val du
+ * 2026-11-12 : l'annexe remplace le bordereau de pesée (C1) et suit le rapport
+ * quel que soit le demandeur (C2) ; les 5 flux toujours imprimés (C5).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -16,7 +19,9 @@ vi.mock('@/lib/pdf/r2-client.js', () => ({
 
 import {
   buildEquivalences,
+  communeDeLAdresse,
   construirePayloadRapport,
+  forfaitTransport,
 } from '@/lib/pdf/payload-rapport.js';
 
 type Res = { data: unknown; error: unknown };
@@ -68,17 +73,57 @@ const BORDEREAU = {
   numero: 'BSAV-2026-00012',
   date_emission: '2026-06-14',
   date_collecte: '2026-06-13',
-  producteur_raison_sociale: 'Kaspia SAS',
-  producteur_siret: '12345678900012',
-  producteur_adresse: '2 rue Y, Paris',
-  transporteur_nom: 'Strike Transport',
-  exutoire_nom: 'Prestataire Savr',
-  detail_flux: [
-    { nom: 'Biodéchets', poids_kg: 12, nb_bacs: 3, equivalent_roll: null },
-    { nom: 'Déchet résiduel', poids_kg: 4, nb_bacs: 1, equivalent_roll: null },
-  ],
-  poids_total_kg: 16,
 };
+
+/** Référentiel `flux_dechets` (valeurs de la migration 20261004203000). */
+const REFERENTIEL = [
+  {
+    code: 'biodechet',
+    nom: 'Biodéchets',
+    code_dechet_europeen: '20 01 08',
+    exutoire: 'GENERIS VSG DCDT',
+    exutoire_adresse:
+      'ZI des Graviers, 6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges',
+    code_traitement: 'R3',
+    filiere_valorisation: 'methanisation',
+  },
+  {
+    code: 'emballage',
+    nom: 'Emballages',
+    code_dechet_europeen: '15 01 06',
+    exutoire: 'CENTRE DE TRI SELECTIF PAPREC TRIVALO 93',
+    exutoire_adresse: '10 rue de la Victoire, 93150 Le Blanc-Mesnil',
+    code_traitement: 'R3/R5',
+    filiere_valorisation: 'recyclage',
+  },
+  {
+    code: 'carton',
+    nom: 'Cartons',
+    code_dechet_europeen: '15 01 01',
+    exutoire: 'TAIS VILLENEUVE LE ROI TDI',
+    exutoire_adresse: '6 rue des Vœux Saint-Georges, 94290 Villeneuve-le-Roi',
+    code_traitement: 'R3',
+    filiere_valorisation: 'recyclage',
+  },
+  {
+    code: 'verre',
+    nom: 'Verre',
+    code_dechet_europeen: '15 01 07',
+    exutoire: 'REVIVAL GENNEVILLIERS TRSFT',
+    exutoire_adresse: '9 route du Môle Central, 92230 Gennevilliers',
+    code_traitement: 'R5',
+    filiere_valorisation: 'recyclage',
+  },
+  {
+    code: 'dechet_residuel',
+    nom: 'Déchet résiduel',
+    code_dechet_europeen: '20 03 01',
+    exutoire: 'NOVAZUR ARGENTEUIL UVEND',
+    exutoire_adresse: '2 rue du Chemin Vert, 95100 Argenteuil',
+    code_traitement: 'R1',
+    filiere_valorisation: 'valorisation_energetique',
+  },
+];
 
 function tables(
   evt: Record<string, unknown> | null = evenement(),
@@ -92,11 +137,11 @@ function tables(
         pax: paxCollecte,
         taux_recyclage: 72.5,
         co2_evite_kg: 312,
-        co2_induit_kg: 41,
-        co2_net_kg: -271,
+        co2_induit_kg: 341,
         energie_primaire_evitee_kwh: 9000,
         co2_facteurs_snapshot: {
           equivalences: { km_voiture: 0.218, foyer_kwh: 4500 },
+          forfait_collecte: { km: 25, fe_camion: 0.4 },
         },
         caps_appliques: { verre: 0.95, carton: 0.85 },
         evenements: evt,
@@ -106,36 +151,22 @@ function tables(
     bordereaux_savr: { data: BORDEREAU, error: null },
     collecte_flux: {
       data: [
-        { poids_reel_kg: 12, flux: { nom: 'Biodéchets', code: 'biodechet' } },
-        {
-          poids_reel_kg: 4,
-          flux: { nom: 'Déchet résiduel', code: 'dechet_residuel' },
-        },
-        { poids_reel_kg: null, flux: { nom: 'Verre', code: 'verre' } },
+        { poids_reel_kg: 12, flux: { code: 'biodechet' } },
+        { poids_reel_kg: 4, flux: { code: 'dechet_residuel' } },
+        { poids_reel_kg: null, flux: { code: 'verre' } },
       ],
       error: null,
     },
+    flux_dechets: { data: REFERENTIEL, error: null },
     ...surcharge,
   };
 }
 
-/**
- * `lisible` = ce que le demandeur lit de `bordereaux_savr` sous SA RLS : une
- * ligne (traiteur programmateur) ou aucune (traiteur opérationnel tiers,
- * gestionnaire qui programme hors de ses lieux).
- */
-async function payload(
-  t: Record<string, Res> = tables(),
-  lisible: Res = LISIBLE,
-) {
+async function payload(t: Record<string, Res> = tables()) {
   const { admin, selects } = makeAdmin(t);
-  const lecteur = makeAdmin({ bordereaux_savr: lisible });
-  const r = await construirePayloadRapport(admin, lecteur.admin, 'c1');
-  return { r, selects, selectsLecteur: lecteur.selects };
+  const r = await construirePayloadRapport(admin, 'c1');
+  return { r, selects };
 }
-
-const LISIBLE: Res = { data: [{ id: 'b1' }], error: null };
-const ILLISIBLE: Res = { data: [], error: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -145,8 +176,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-describe('M1.6 / données du rapport @3 rassemblées au clic', () => {
-  it('mesures figées à la clôture, flux pesés avec leur code, taux de captation, équivalences ; version sans radar', async () => {
+describe('M1.6 / données du rapport @4 rassemblées au clic', () => {
+  it('mesures figées à la clôture, taux de captation, équivalences, forfait transport ; induit et évité séparés, plus de net ; version sans radar', async () => {
     const { r } = await payload();
     if (!r.ok) throw new Error('attendu ok');
     const p = r.payload;
@@ -154,46 +185,64 @@ describe('M1.6 / données du rapport @3 rassemblées au clic', () => {
     expect(p.traiteur_nom).toBe('Kaspia Réceptions');
     expect(p.date_evenement).toBe('13/06/2026');
     expect(p.lieu_nom).toBe('Grand Palais');
-    expect(p.lieu_adresse).toBe('3 avenue 75008 Paris');
     expect(p.nb_pax).toBe(250);
     expect(p.taux_recyclage).toBe(72.5);
-    // Flux non pesé (poids NULL) absent ; total = somme des pesées.
-    expect(p.flux).toEqual([
-      { nom: 'Biodéchets', code: 'biodechet', poids_kg: 12 },
-      { nom: 'Déchet résiduel', code: 'dechet_residuel', poids_kg: 4 },
-    ]);
     expect(p.poids_total_kg).toBe(16);
     expect(p.co2_evite_kg).toBe(312);
-    expect(p.co2_net_kg).toBe(-271);
+    expect(p.co2_induit_kg).toBe(341);
+    expect(p).not.toHaveProperty('co2_net_kg');
+    expect(p.energie_primaire_evitee_kwh).toBe(9000);
     expect(p.caps_appliques).toEqual({ verre: 0.95, carton: 0.85 });
     expect(p.equivalences).toEqual({ km_voiture: 1431, foyer: 2 });
+    expect(p.forfait_transport).toEqual({ km: 25, fe_camion_kg_km: 0.4 });
     expect(p.options).toEqual({ benchmark: false });
     expect(p).not.toHaveProperty('benchmark_flux');
   });
 
-  it('page 2 = instantané du bordereau émis par le batch (numéro, dates, producteur, transporteur, pesées)', async () => {
+  it('C5 + C4 : les 5 flux du référentiel, non pesé = 0 kg, avec code déchet, exutoire habituel et sa commune, code R/D et filière', async () => {
     const { r } = await payload();
     if (!r.ok) throw new Error('attendu ok');
-    expect(r.payload.bordereau).toEqual({
-      numero: 'BSAV-2026-00012',
-      date_emission: '14/06/2026',
-      date_collecte: '13/06/2026',
-      date_evenement: '13/06/2026',
-      nom_evenement: 'Gala Kaspia',
-      lieu_nom: 'Grand Palais',
-      lieu_adresse: '3 avenue 75008 Paris',
-      producteur_raison_sociale: 'Kaspia SAS',
-      producteur_siret: '12345678900012',
-      producteur_adresse: '2 rue Y, Paris',
-      transporteur_nom: 'Strike Transport',
-      exutoire_nom: 'Prestataire Savr',
-      nb_pax: 250,
-      flux: BORDEREAU.detail_flux,
-      poids_total_kg: 16,
+    const flux = r.payload.flux as Record<string, unknown>[];
+    expect(flux.map((f) => [f.code, f.poids_kg])).toEqual([
+      ['biodechet', 12],
+      ['emballage', 0],
+      ['carton', 0],
+      ['verre', 0],
+      ['dechet_residuel', 4],
+    ]);
+    expect(flux[1]).toEqual({
+      nom: 'Emballages',
+      code: 'emballage',
+      poids_kg: 0,
+      code_dechet_europeen: '15 01 06',
+      exutoire: 'CENTRE DE TRI SELECTIF PAPREC TRIVALO 93',
+      exutoire_commune: 'Le Blanc-Mesnil',
+      code_traitement: 'R3/R5',
+      filiere_valorisation: 'recyclage',
+    });
+    expect(flux[0]).toMatchObject({
+      exutoire_commune: 'Villeneuve-Saint-Georges',
+      code_traitement: 'R3',
+      filiere_valorisation: 'methanisation',
     });
   });
 
-  it('convives de LA collecte en page 1 et sur le bordereau ; 0 convive (inconnu) → null, mention omise', async () => {
+  it('C1 + C2 : numéro et date d’émission du bordereau pour l’annexe, lus en service-role quel que soit le demandeur ; plus aucune copie du bordereau de pesée', async () => {
+    const { r, selects } = await payload();
+    if (!r.ok) throw new Error('attendu ok');
+    expect(r.payload.bordereau_numero).toBe('BSAV-2026-00012');
+    expect(r.payload.bordereau_date_emission).toBe('14/06/2026');
+    expect(r.payload).not.toHaveProperty('bordereau');
+    expect(selects.bordereaux_savr).toBe(
+      'numero, date_emission, date_collecte',
+    );
+    expect(r.dateCollecte).toBe('13/06/2026');
+    // La fonction ne reçoit plus de client du demandeur : aucune lecture sous
+    // sa RLS ne peut retirer l'annexe.
+    expect(construirePayloadRapport.length).toBe(2);
+  });
+
+  it('convives de LA collecte ; 0 convive (inconnu) → null, mention omise', async () => {
     // Événement de 1 200 convives, collecte de 250 : ci-dessus. Ici la lecture
     // demandée, puis une collecte reprise de Bubble à 0 convive.
     const { selects } = await payload();
@@ -206,9 +255,6 @@ describe('M1.6 / données du rapport @3 rassemblées au clic', () => {
     const { r } = await payload(tables(evenement(), {}, 0));
     if (!r.ok) throw new Error('attendu ok');
     expect(r.payload.nb_pax).toBeNull();
-    expect(
-      (r.payload.bordereau as { nb_pax: number | null }).nb_pax,
-    ).toBeNull();
   });
 
   it('client : nom saisi à la programmation, sinon nom du compte client, sinon absent (le gabarit affiche l’événement)', async () => {
@@ -302,52 +348,14 @@ describe('M1.6 / données du rapport @3 rassemblées au clic', () => {
         )
       ).r,
     ).toEqual({ ok: false, code: 'INCOMPLET' });
-    const panne = await payload(
-      tables(evenement(), {
-        collecte_flux: { data: null, error: { message: 'timeout' } },
-      }),
-    );
-    expect(panne.r).toMatchObject({ ok: false, code: 'DB_ERROR' });
-  });
-
-  it('§12 §1.7 — bordereau lisible sous la RLS du demandeur (traiteur) → page 2 avec numéro et producteur ; date de collecte pour le nom du fichier', async () => {
-    const { r, selectsLecteur } = await payload();
-    if (!r.ok) throw new Error('attendu ok');
-    expect(selectsLecteur.bordereaux_savr).toBe('id');
-    expect(r.payload.bordereau).toMatchObject({
-      numero: 'BSAV-2026-00012',
-      producteur_raison_sociale: 'Kaspia SAS',
-      producteur_siret: '12345678900012',
-    });
-    expect(r.dateCollecte).toBe('13/06/2026');
-  });
-
-  it('§12 §1.7 — bordereau illisible sous la RLS du demandeur → page 2 retirée : ni numéro, ni producteur, ni SIRET, ni adresse dans le payload', async () => {
-    const { r } = await payload(tables(), ILLISIBLE);
-    if (!r.ok) throw new Error('attendu ok');
-    expect(r.payload.bordereau).toBeNull();
-    const texte = JSON.stringify(r.payload);
-    for (const fuite of [
-      'BSAV-2026-00012',
-      'Kaspia SAS',
-      '12345678900012',
-      '2 rue Y, Paris',
-      'Strike Transport',
-      'Prestataire Savr',
-    ]) {
-      expect(texte).not.toContain(fuite);
+    for (const table of ['collecte_flux', 'flux_dechets']) {
+      const panne = await payload(
+        tables(evenement(), {
+          [table]: { data: null, error: { message: 'timeout' } },
+        }),
+      );
+      expect(panne.r).toMatchObject({ ok: false, code: 'DB_ERROR' });
     }
-    // La page 1 reste : mesures de la collecte et nom du fichier daté.
-    expect(r.payload.taux_recyclage).toBe(72.5);
-    expect(r.dateCollecte).toBe('13/06/2026');
-  });
-
-  it('§12 §1.7 — lecture du bordereau sous la RLS en échec → DB_ERROR, jamais un bordereau imprimé par défaut', async () => {
-    const { r } = await payload(tables(), {
-      data: null,
-      error: { message: 'timeout' },
-    });
-    expect(r).toMatchObject({ ok: false, code: 'DB_ERROR' });
   });
 
   it('les colonnes lues existent dans les requêtes (embeds qualifiés par leur FK)', async () => {
@@ -358,7 +366,37 @@ describe('M1.6 / données du rapport @3 rassemblées au clic', () => {
     expect(selects.collectes).toContain(
       'traiteur_operationnel:organisations!traiteur_operationnel_organisation_id',
     );
-    expect(selects.bordereaux_savr).toContain('detail_flux');
+    expect(selects.flux_dechets).toBe(
+      'code, nom, code_dechet_europeen, exutoire, exutoire_adresse, code_traitement, filiere_valorisation',
+    );
+    expect(selects.collecte_flux).toBe('poids_reel_kg, flux:flux_id ( code )');
+  });
+});
+
+describe('M1.6 / annexe du rapport @4 : commune de l’exutoire et forfait transport', () => {
+  it('commune = ce qui suit la dernière virgule, sans le code postal ; autre forme → null', () => {
+    expect(
+      communeDeLAdresse(
+        'ZI des Graviers, 6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges',
+      ),
+    ).toBe('Villeneuve-Saint-Georges');
+    expect(
+      communeDeLAdresse('9 route du Môle Central, 92230 Gennevilliers'),
+    ).toBe('Gennevilliers');
+    expect(communeDeLAdresse('Paris')).toBeNull();
+    expect(communeDeLAdresse(null)).toBeNull();
+  });
+
+  it('forfait transport lu dans le snapshot figé ; absent ou invalide → null (rien d’inventé)', () => {
+    expect(
+      forfaitTransport({ forfait_collecte: { km: 25, fe_camion: 0.4 } }),
+    ).toEqual({
+      km: 25,
+      fe_camion_kg_km: 0.4,
+    });
+    expect(forfaitTransport({ forfait_collecte: { km: 25 } })).toBeNull();
+    expect(forfaitTransport({ equivalences: {} })).toBeNull();
+    expect(forfaitTransport(null)).toBeNull();
   });
 });
 

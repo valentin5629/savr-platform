@@ -71,7 +71,7 @@
 
 | Job | Cible totale | Note |
 |---|---|---|
-| Batch attestations + bordereaux J+1 6h | < 10 min pour 1 000 collectes | An 1 réel : 15-50 PDFs → ~2 min |
+| Batch attestations + bordereaux (toutes les 15 min) | < 10 min pour 1 000 collectes | An 1 réel : 15-50 PDFs → ~2 min |
 | Relance factures impayées | < 5 min | |
 | Polling Pennylane J+1 3h | < 5 min | |
 | Purge logs / audit | < 30 min (mensuel) | |

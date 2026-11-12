@@ -36,7 +36,7 @@ Ce document fige les **ordres de grandeur** servant de base aux SLA ([[02 - SLA 
 
 - **Pic hebdo** : lundi matin 9h-11h — les traiteurs saisissent les collectes du week-end. ~80 % de l'écriture hebdo se concentre sur cette fenêtre → c'est le profil dimensionnant du scénario de charge nominal (50 users simultanés, mix orienté écriture).
 - **Pic saisonnier** : septembre-décembre (saison événementielle) — volume ×1,5 à ×2 vs été. Le dimensionnement An 1 (50 users / 150 collectes mois) intègre déjà le pic saisonnier, pas la moyenne lissée.
-- **Batch nocturne** : J+1 6h — génération attestations/bordereaux. À An 1, une grosse nuit = 15-20 collectes → 30-50 PDFs (§14 §3). Largement sous le seuil de tension (100 collectes / batch).
+- **Batch des documents** : toutes les 15 min (décision Val 2026-11-04) — génération attestations/bordereaux. À An 1, une grosse nuit = 15-20 collectes → 30-50 PDFs (§14 §3). Largement sous le seuil de tension (100 collectes / batch).
 - **Risque non-linéaire** (§14 §6) : si un grand compte type Viparis impose Savr à ses sites + traiteurs référencés, le volume peut tripler en quelques semaines. Ce n'est pas une montée progressive → surveiller les connexions DB et les slow queries comme signal d'alerte précoce (cf. [[06 - Monitoring perf prod]]).
 
 ---

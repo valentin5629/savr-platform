@@ -200,9 +200,25 @@
       "statut": "implemented",
       "ref_divergence": "_Divergences/M4.1_20261103_export-evenements-code-site-viparis.md",
       "libelle": "Export Événements (demande Val 2026-11-03) : colonne « Code site VIPARIS » juste après « Lieu » (code site du lieu de l'événement, vide hors VIPARIS), lue en service_role avec le code affaire, en une lecture par lot de 100 événements lus sous la RLS du demandeur."
+    },
+    {
+      "id": "M4.1-exports-complets-au-dela-plafonds",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:366",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (buildImpactRseExport, buildPeseesExport, buildFacturesExport, buildPacksAgExport, buildAssociationsAgExport : lireParTranches, tri terminé par id) + packages/plateforme/src/lib/exports/shared.ts (resolveRepas, resolveTraiteurNoms : lireParLots ; pour un client, f_volume_repas_realise par vagues de 20 appels)",
+      "test": "packages/plateforme/tests/api/exports/exports-au-dela-plafond.test.ts",
+      "statut": "implemented",
+      "libelle": "Exports Impact RSE, Pesées par flux, Factures, Packs AG et Associations complets au-delà de 1 000 lignes : lus par tranches jusqu'au total annoncé par la requête, comme l'export Collectes. Repas AG et noms des traiteurs lus par lots d'identifiants (un filtre de 402 identifiants faisait échouer la lecture, 390 passaient : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) ; une lecture ou un appel en échec fait échouer l'export."
+    },
+    {
+      "id": "M4.1-export-collectes-filtre-statut-borne",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:407",
+      "artefact": "packages/plateforme/src/lib/exports/builders.ts (buildCollectesExport, branche staff : filtres appliqués par appliquerFiltresCollectesAdmin) + packages/plateforme/src/lib/statut-collecte-admin.ts (refus de filtreStatutsAdmin au-delà de MAX_ENVOIS_ABANDONNES_FILTRE)",
+      "test": "M4.1 / export Collectes Admin — envois abandonnés en nombre dans le filtre de statut",
+      "statut": "implemented",
+      "libelle": "Export Collectes de l'équipe Savr sous le filtre « Créée » ou « Programmée » : même borne que la liste (250 collectes à l'envoi abandonné dans l'URL du filtre). Au-delà l'export échoue en nommant la cause, sans lire aucune ligne ; à 250 le fichier est servi et le filtre les porte toutes ; sans filtre de statut le fichier est servi quel que soit leur nombre."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc"
   }
 }

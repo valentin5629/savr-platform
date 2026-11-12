@@ -28,11 +28,45 @@ export const DIFFICULTE_VARIANT: Record<
   tres_difficile: 'error',
 } satisfies Record<Enums['acces_difficulte'], 'success' | 'warning' | 'error'>;
 
-/** `plateforme.type_vehicule_enum` — `type_vehicule_max`, `type_vehicule`. */
+/**
+ * `plateforme.type_vehicule` — libellé de toute valeur (`type_vehicule_max`,
+ * `types_vehicules`, `type_vehicule`, `type_vehicule_souhaite`).
+ */
 export const VEHICULE_LABEL: Record<string, string> = {
   velo_cargo: 'Vélo cargo',
   camionnette: 'Camionnette',
   fourgon: 'Fourgon',
   vul: 'VUL',
   poids_lourd: 'Poids lourd',
+  camionnette_frigo: 'Camionnette frigo',
+  camion_frigo: 'Camion frigo',
+  camion_16m3_simple: '16 m³ simple',
+  camion_16m3_double: '16 m³ double',
+  camion_20m3_simple: '20 m³ simple',
+  camion_20m3_double: '20 m³ double',
 } satisfies Record<Enums['type_vehicule'], string>;
+
+/**
+ * Gabarits proposés pour un lieu (véhicule max) et un transporteur : l'échelle
+ * de taille de l'algorithme AG. Les gabarits du véhicule souhaité (Val
+ * 2026-11-10) n'y entrent pas.
+ */
+export const GABARITS_LIEU_TRANSPORTEUR = [
+  'velo_cargo',
+  'camionnette',
+  'fourgon',
+  'vul',
+  'poids_lourd',
+] as const satisfies readonly Enums['type_vehicule'][];
+
+/** Valeur admise pour `lieux.type_vehicule_max`. */
+export function estGabaritLieuTransporteur(v: unknown): boolean {
+  return (GABARITS_LIEU_TRANSPORTEUR as readonly unknown[]).includes(v);
+}
+
+/** Valeur admise pour `transporteurs.types_vehicules` (tableau de gabarits). */
+export function sontGabaritsLieuTransporteur(v: unknown): boolean {
+  return Array.isArray(v) && v.every(estGabaritLieuTransporteur);
+}
+
+export const MESSAGE_GABARIT_INVALIDE = `Type de véhicule invalide (attendu : ${GABARITS_LIEU_TRANSPORTEUR.join(', ')})`;

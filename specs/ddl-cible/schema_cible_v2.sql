@@ -105,6 +105,9 @@
 --     · scripts/check-schema-vs-cible.ts (G6) ne compare que les COLONNES via pg_attribute — il ne
 --       voit ni les contraintes ni les index, donc ce type d'écart continuera de passer inaperçu.
 --       Élargir G6 aux contraintes et index = lot dédié.
+-- Regelé le : 2026-11-11 (cdc-patch-divergences SYNC_20261111, Q3 Val) : + colonne
+--   plateforme.collectes.type_vehicule_souhaite (enum type_vehicule, nullable, V1-only dormante en V2).
+--   Comptes inchangés (pas de table, d'enum ni de FK ajoutés).
 -- Regelé le : 2026-10-25 (décision Val I4 + alignement §04 App, table plateforme.config_auto_accept_ag) :
 --   association_id passe NOT NULL (une règle sans association ne se déclenchait jamais) ;
 --   modifie_par / modifie_le remplacés par created_at / updated_at (structure réalisée V1, auteur
@@ -141,7 +144,7 @@ CREATE TYPE plateforme.mode_paiement AS ENUM ('virement','prelevement','cb','che
 -- 1.3 plateforme — lieux / véhicules
 CREATE TYPE plateforme.region AS ENUM ('idf','province');
 CREATE TYPE plateforme.acces_difficulte AS ENUM ('facile','difficile','tres_difficile');
-CREATE TYPE plateforme.type_vehicule AS ENUM ('velo_cargo','camionnette','fourgon','vul','poids_lourd');
+CREATE TYPE plateforme.type_vehicule AS ENUM ('velo_cargo','camionnette','fourgon','vul','poids_lourd','camionnette_frigo','camion_frigo','camion_16m3_simple','camion_16m3_double','camion_20m3_simple','camion_20m3_double');
 
 -- 1.4 plateforme — tournées
 CREATE TYPE plateforme.creneau AS ENUM ('matin','apres_midi','soir','nuit','journee_complete');
@@ -741,6 +744,7 @@ CREATE TABLE plateforme.collectes (
   type                     plateforme.collecte_type NOT NULL,
   prestataire_logistique_id uuid,                          -- FK -> shared.prestataires
   nb_camions_demande       smallint NOT NULL DEFAULT 1,    -- V1-only MTS-1
+  type_vehicule_souhaite   plateforme.type_vehicule,       -- V1-only (migration 20261001213000, regel 2026-11-11)
   statut                   plateforme.collecte_statut NOT NULL,
   aucun_repas_motif        text,
   aucun_repas_photo_url    text,
@@ -778,6 +782,7 @@ CREATE TABLE plateforme.collectes (
   lieu_overrides           jsonb,
   realisee_at              timestamptz,                    -- base embargo H+24
   annulation_demandee_at   timestamptz,                    -- demande d'annulation du client (base du délai d'annulation tardive, Val 2026-10-15)
+  annulation_tardive       boolean,                        -- annulée < 4 h avant le créneau, imputable au client (Val 2026-11-03) ; NULL = non annulée ou avant le 2026-11-03
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );

@@ -231,7 +231,6 @@
       "BL-P1-API-03": "M1.5b-carrier / dispatch.{vehicle,transporter}ShareableCode → tournees.plaque_immatriculation + chauffeur_nom [adapter.m1-5b.test.ts]"
     },
     "M1.6": {
-      "M1.6-01": "Collecte ZD cloturee avec flux → batch J+1 → 2 jobs enqueués (bordereau + rapport)",
       "M1.6-02": "Collecte ZD sans pesées (0 ligne collecte_flux) → skip, aucun job",
       "M1.6-03": "Collecte skippée depuis > 48h → alerte Admin in-app créée (R9)",
       "M1.6-04": "Collecte déjà traitée (bordereau emis) → idempotent, aucun doublon",
@@ -304,7 +303,6 @@
       "M2.5-created-manually-cycle-de-vie": "everest_created_manually_cycle_de_vie.test.sql (B2-B9 cancelled/assigned/in_progress/completed avec manual_* conservés, B10-B14 23514 si un seul champ) + m2_5_everest_missions_rls.test.sql T10-T12 (T_M14.5 sous admin_savr) + adapter.m2-5.test.ts « écritures locales refusées après A Toutes! » (UPDATE everest_missions en 23514 → Permanent + alerte, jamais Slack)"
     },
     "M3.1": {
-      "M3.1-lieux-autocomplete-programmation-rls": "M1.2 / Lieux — alignement sur la RLS (7 scénarios Vitest) + supabase/tests/lieux_clients_select_cliquet.test.sql",
       "M3.1-lieux-autocomplete-preuve-comportement": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non"
     },
     "M3.5": {

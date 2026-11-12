@@ -36,6 +36,7 @@ for (const m of [
   'gte',
   'lte',
   'order',
+  'limit',
   'not',
   'maybeSingle',
 ]) {

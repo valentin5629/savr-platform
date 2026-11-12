@@ -117,18 +117,21 @@ it('Co2MethodePanel — affiche la méthode + le tableau des facteurs par matiè
           energie: 500,
         },
       ]}
-      equivalences={{ km_voiture: 0.218, repas_boeuf: 7, foyer_kwh: 4500 }}
+      equivalences={{ km_voiture: 0.218, repas_boeuf: 7 }}
     />,
   );
   expect(
     screen.getByText(/Comment ces chiffres sont-ils calculés/),
   ).toBeInTheDocument();
+  // Jamais de bilan net ni d'énergie primaire (Val 2026-11-09).
+  expect(screen.queryByText(/Bilan net/)).toBeNull();
+  expect(screen.queryByText(/Énergie primaire/)).toBeNull();
   // Forfait transport injecté depuis les variables serveur.
   expect(screen.getByText(/50 km/)).toBeInTheDocument();
   // Ligne du tableau des facteurs — primitive Table du DS (R-UI-4b) :
   // sémantique table / columnheader / cell conservée.
   const table = screen.getByRole('table');
-  expect(within(table).getAllByRole('columnheader')).toHaveLength(4);
+  expect(within(table).getAllByRole('columnheader')).toHaveLength(3);
   expect(
     within(table).getByRole('cell', { name: 'Biodéchets' }),
   ).toBeInTheDocument();
@@ -285,18 +288,28 @@ it('BenchmarkRadar — rend 5 axes dont un état insuffisant (données manquante
   expect(getByTestId('benchmark-radar-axe-4').textContent).toContain('n/d');
 });
 
-it('Co2HeroCard — met en avant l’évité et affiche induit/net/énergie + équivalences', () => {
+it('Co2HeroCard — met en avant l’évité estimé, induit à part, sans bilan net ni énergie (Val 2026-11-09)', () => {
   render(
     <Co2HeroCard
       eviteKg={121500}
       induitKg={8200}
-      netKg={113300}
-      energiePrimaireKwh={486000}
-      equivalences={{ kmVoiture: 303750, repasBoeuf: 24300, foyers: 41 }}
+      equivalences={{ kmVoiture: 303750, repasBoeuf: 24300 }}
     />,
   );
   expect(screen.getByText(/CO₂e évité/)).toBeInTheDocument();
-  expect(screen.getByText(/Bilan net/)).toBeInTheDocument();
+  expect(screen.getByText(/CO₂ induit/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/ne se déduisent pas d’un bilan carbone/),
+  ).toBeInTheDocument();
+  // Périmètre + lien vers la méthode publique (Val 2026-11-10).
+  expect(
+    screen.getByText(/porte sur les déchets et excédents collectés par Savr/),
+  ).toBeInTheDocument();
+  const lien = screen.getByRole('link', { name: 'Voir la méthode' });
+  expect(lien.getAttribute('href')).toBe('/methode-co2');
+  expect(lien.getAttribute('target')).toBe('_blank');
+  expect(screen.queryByText(/Bilan net/)).toBeNull();
+  expect(screen.queryByText(/foyers/)).toBeNull();
   expect(screen.getByText(/km en voiture/)).toBeInTheDocument();
 });
 
@@ -309,6 +322,27 @@ it('PackAgRing — affiche crédits restants, consommés et badge solde faible',
 it('PackAgRing — badge « Pack épuisé » à 0', () => {
   render(<PackAgRing creditsInitiaux={20000} creditsRestants={0} />);
   expect(screen.getByText(/Pack épuisé/)).toBeInTheDocument();
+});
+
+it('PackAgRing — « N collectes restantes sur M » et une case par crédit (Val 2026-11-10/11)', () => {
+  const { container } = render(
+    <PackAgRing creditsInitiaux={12} creditsRestants={4} />,
+  );
+  expect(screen.getByText('collectes restantes sur 12')).toBeInTheDocument();
+  expect(screen.queryByText(/consommé/)).toBeNull();
+  expect(screen.queryByText('restants')).toBeNull();
+  expect(container.querySelectorAll('[data-case-credit]')).toHaveLength(12);
+  expect(
+    container.querySelectorAll('[data-case-credit="restant"]'),
+  ).toHaveLength(4);
+});
+
+it('PackAgRing — au-delà de 20 crédits, barre continue sans cases', () => {
+  const { container } = render(
+    <PackAgRing creditsInitiaux={21} creditsRestants={1} />,
+  );
+  expect(container.querySelectorAll('[data-case-credit]')).toHaveLength(0);
+  expect(screen.getByText('collecte restante sur 21')).toBeInTheDocument();
 });
 
 it('EvolutionAgChart — rend des barres repas + la courbe ratio', () => {
@@ -605,8 +639,10 @@ it('Co2MethodePanelAg — formule par repas + facteur, sans tableau par matière
   expect(
     screen.getByText(/Comment ce chiffre est-il calculé/),
   ).toBeInTheDocument();
-  // Formule par repas (méthode FAO) + facteur figé injecté depuis l'endpoint.
-  expect(screen.getByText(/82 repas ×/)).toBeInTheDocument();
+  // Application sur la période : moyenne réelle (les collectes gardent leur
+  // facteur), jamais « N repas × facteur du jour » (faux si facteurs mêlés).
+  expect(screen.getByText(/82 repas donnés/)).toBeInTheDocument();
+  expect(screen.getByText(/en moyenne 2,50/)).toBeInTheDocument();
   expect(screen.getByText(/FAO 2023/)).toBeInTheDocument();
   // Pas de tableau de facteurs par matière (ZD only).
   expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();
@@ -649,12 +685,12 @@ it('Co2 AG — carte cliquable + contenu modale (composants isolés)', () => {
   );
   // Héros AG (suréditeur unique) + méthode par repas (chaînes uniques).
   expect(
-    screen.getByText(/Impact carbone · dons anti-gaspi/),
+    screen.getByText(/Émissions évitées estimées · dons anti-gaspi/),
   ).toBeInTheDocument();
   expect(
     screen.getByText(/Comment ce chiffre est-il calculé/),
   ).toBeInTheDocument();
-  expect(screen.getByText(/82 repas ×/)).toBeInTheDocument();
+  expect(screen.getByText(/82 repas donnés/)).toBeInTheDocument();
   // Rien de la méthode ABC ZD (induit/net/matières) sur l'AG.
   expect(screen.queryByText(/Bilan net/)).toBeNull();
   expect(screen.queryByText(/Facteurs d'émission par matière/)).toBeNull();

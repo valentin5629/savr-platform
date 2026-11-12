@@ -5,6 +5,10 @@ import { geocodeAdresse } from '@/lib/geocoding.js';
 import { serverError } from '@/lib/api-helpers.js';
 import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 import { estCodeSiteViparis } from '@/lib/viparis/codes.js';
+import {
+  estGabaritLieuTransporteur,
+  MESSAGE_GABARIT_INVALIDE,
+} from '@/lib/lieux-labels';
 
 export async function GET(
   req: NextRequest,
@@ -89,6 +93,16 @@ export async function PATCH(
   const updates = Object.fromEntries(
     Object.entries(body).filter(([k]) => ALLOWED_FIELDS.includes(k)),
   );
+
+  if (
+    updates.type_vehicule_max !== undefined &&
+    !estGabaritLieuTransporteur(updates.type_vehicule_max)
+  ) {
+    return NextResponse.json(
+      { error: MESSAGE_GABARIT_INVALIDE },
+      { status: 422 },
+    );
+  }
 
   if (
     updates.code_site_viparis !== undefined &&

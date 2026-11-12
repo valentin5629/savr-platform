@@ -913,6 +913,7 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
       {
         ...collecte,
         informations_supplementaires: composerCommentairesTransporteur({
+          typeCollecte: 'zero_dechet',
           lieu: lieuAcces,
           informationsSupplementaires: 'Demander Karim à la plonge',
           contact: {
@@ -936,7 +937,6 @@ describe('M1.5a / PROG-03 comment MTS-1', () => {
     };
     expect(orderPayload.comment).toBe(
       [
-        'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
         '2 camions prévus pour cette collecte, veuillez vous coordonner pour les appels au traiteur',
         'Départ :',
         "- Instructions d'accès : Quai n°2, sonner interphone B",

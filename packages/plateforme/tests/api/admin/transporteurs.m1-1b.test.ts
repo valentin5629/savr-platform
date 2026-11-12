@@ -73,7 +73,7 @@ const BASE_TRANSPORTEUR = {
   adresse: '1 rue Test',
   code_postal: '75001',
   ville: 'Paris',
-  types_vehicules: ['camion_16m3'],
+  types_vehicules: ['poids_lourd'],
   contact_nom: 'Jean Dupont',
   contact_email: 'jean@strike.fr',
   contact_telephone: '0600000000',
@@ -147,6 +147,83 @@ describe('M1.1b / Transporteurs / Validation MTS-1', () => {
       makeReq('POST', '/api/v1/admin/transporteurs', BASE_TRANSPORTEUR),
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe('Transporteurs / gabarits (échelle de l’algorithme AG, Val 2026-11-10)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSupabaseChain.single.mockReset();
+  });
+
+  it('create — un gabarit du seul véhicule souhaité (camion_20m3_simple) → 422, rien n’est écrit', async () => {
+    setupAuth('admin_savr');
+    const { POST } = await import('@/app/api/v1/admin/transporteurs/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/transporteurs', {
+        ...BASE_TRANSPORTEUR,
+        types_vehicules: ['poids_lourd', 'camion_20m3_simple'],
+        type_tms: 'autre',
+      }),
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('patch — types_vehicules hors gabarits → 422, rien n’est écrit', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValue({
+      data: { id: 'tr-1', type_tms: 'autre', nom: 'Test' },
+      error: null,
+    });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
+        types_vehicules: ['camion_frigo'],
+      }),
+      { params: Promise.resolve({ id: 'tr-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('Transporteurs / gabarits déjà portés par la fiche', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSupabaseChain.single.mockReset();
+  });
+
+  it('patch — une valeur hors gabarit déjà enregistrée ne bloque pas la fiche ; seule une valeur ajoutée est refusée', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValue({
+      data: {
+        id: 'tr-1',
+        type_tms: 'autre',
+        nom: 'Test',
+        types_vehicules: ['camion_ancien', 'fourgon'],
+      },
+      error: null,
+    });
+    const { PATCH } =
+      await import('@/app/api/v1/admin/transporteurs/[id]/route.js');
+    const garde = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
+        types_vehicules: ['camion_ancien', 'fourgon', 'vul'],
+      }),
+      { params: Promise.resolve({ id: 'tr-1' }) },
+    );
+    expect(garde.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalledTimes(1);
+    const ajout = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/transporteurs/tr-1', {
+        types_vehicules: ['camion_ancien', 'camion_20m3_simple'],
+      }),
+      { params: Promise.resolve({ id: 'tr-1' }) },
+    );
+    expect(ajout.status).toBe(422);
+    expect(mockSupabaseChain.update).toHaveBeenCalledTimes(1);
   });
 });
 

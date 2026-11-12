@@ -67,13 +67,13 @@ async function refusChoixPrestataireZd(
       { status: 422 },
     );
   }
-  // A Toutes! (vélo cargo) : son envoi exige l'association destinataire d'une
+  // A Toute! (vélo cargo) : son envoi exige l'association destinataire d'une
   // collecte Anti-Gaspi. Sur une ZD l'ordre finirait en échec définitif et
   // bloquerait tous les envois suivants de la collecte.
   if (t.type_tms === 'a_toutes') {
     return NextResponse.json(
       {
-        error: 'A Toutes! ne prend pas en charge les collectes Zéro Déchet',
+        error: 'A Toute! ne prend pas en charge les collectes Zéro Déchet',
       },
       { status: 422 },
     );
@@ -92,7 +92,7 @@ export async function POST(
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const { prestataire_logistique_id, motif_override_prestataire } = body;
   // Service choisi par l'Admin quand le transporteur visé en distingue et que
-  // la branche retenue n'en désigne aucun (A Toutes!, décision Val 2026-11-03).
+  // la branche retenue n'en désigne aucun (A Toute!, décision Val 2026-11-03).
   const brancheChoisie =
     typeof body.branche_attribution === 'string'
       ? body.branche_attribution
@@ -291,9 +291,9 @@ export async function POST(
     if (refusEcriture) return refusEcriture;
   }
 
-  // AG vers un transporteur qui distingue ses services (A Toutes!) : la branche
+  // AG vers un transporteur qui distingue ses services (A Toute!) : la branche
   // retenue doit en désigner un, sinon l'envoi échoue en définitif (vécu le
-  // 2026-11-02 : branche Marathon gardée en forçant A Toutes!). L'Admin choisit
+  // 2026-11-02 : branche Marathon gardée en forçant A Toute!). L'Admin choisit
   // alors le service, rangé comme branche retenue AVANT l'ordre d'envoi, que
   // l'adapter lit à la consommation (décision Val 2026-11-03).
   if (attributionAg) {

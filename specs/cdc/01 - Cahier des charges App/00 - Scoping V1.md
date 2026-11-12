@@ -2,7 +2,7 @@
 
 **Date de fork** : 2026-06-05
 **Source archive** : `01 - Cahier des charges App _ ARCHIVE V1+V2 2026-06-05/`
-**Périmètre V1** : Plateforme Savr branchée sur **MTS-1 (API V3, dispatch Strike/Marathon)** + **Everest (A Toutes!, vélo cargo)** comme couches logistiques. Le **Savr TMS natif** (CDC `02 - Cahier des charges TMS/`) est intégralement reporté en **V2** (cutover TMS).
+**Périmètre V1** : Plateforme Savr branchée sur **MTS-1 (API V3, dispatch Strike/Marathon)** + **Everest (A Toute!, vélo cargo)** comme couches logistiques. Le **Savr TMS natif** (CDC `02 - Cahier des charges TMS/`) est intégralement reporté en **V2** (cutover TMS).
 
 > Ce document compile les décisions de périmètre déjà prises dans le CDC (Index, §16 Roadmap, §03 Périmètre, §01 Vision). Il n'invente rien : il fige la frontière V1 et liste ce qui est développé / coupé / adapté.
 
@@ -18,15 +18,15 @@ Tous les modules documentés §01→§15, soit :
 - [ ] **Formulaire programmation collecte** : deux écrans puis une page de confirmation (refonte Val 2026-10-22), N collectes ZD et AG event-centrées, tarif ZD base+remises, vérif pack AG (§06.01)
 - [ ] **Machine à états collecte unifiée** ZD+AG : `programmee → validee → en_cours → realisee → cloturee` (§05)
 - [ ] **Intégration logistique V1** (voir MODIFY ci-dessous) : MTS-1 API V3 + Everest derrière l'abstraction `logistique_provider`
-- [ ] **Génération PDF** : bordereau pesée ZD, rapport recyclage ZD, attestation don AG, batch J+1 6h, embargo H+24 (§06, §12)
+- [ ] **Génération PDF** : bordereau pesée ZD, rapport recyclage ZD, attestation don AG, dès que les poids sont là, email à la clôture (48 h) (§06, §12)
 - [ ] **Pennylane v2** : brouillons factures ZD (par collecte + mensuel groupé) + AG, **polling J+1** (webhook → V1.1) (§08)
   - ⚠ **Go-live : facturation hors plateforme (décision Val 2026-10-22)**. Interrupteur `facturationPlateformeActive()` éteint : le batch J+1 ne prépare aucun brouillon ; le traiteur, l'agence et le gestionnaire de lieux ne voient ni leurs factures ni le badge « en attente de facturation » ; l'email `collecte_programmee` ne donne plus le tarif ZD. Back-office Admin inchangé. Retour sur la plateforme plus tard (échéance non fixée), après : date de départ du batch J+1, raccord de la numérotation avec les factures émises hors plateforme, correction du contrat Pennylane v2.
 - [ ] **Dashboards par rôle** : manager, commercial, gestionnaire lieux, agence, client organisateur (§11)
 - [ ] **Reporting + exports CSV** tous profils (§12)
-- [ ] **Registre réglementaire ZD-only** (Module 20 MVP), bordereaux + attestations batch J+1 (§06.03)
-- [ ] **CO₂ ADEME modélisé** : ZD (induit/évité/net) + AG (évité seul, 2,5 kgCO₂e/repas FAO), snapshot figé (§04/§11/§12)
+- [ ] **Registre réglementaire ZD-only** (Module 20 MVP), bordereaux + attestations dès que les poids sont là, passage toutes les 15 min (décision Val 2026-11-04) (§06.03)
+- [ ] **CO₂ ADEME modélisé** : ZD (induit/évité/net) + AG (évité seul, 2,04 kgCO₂e/repas, Base Carbone ADEME), snapshot figé (§04/§11/§12)
 - [ ] **Migration Bubble** : ~1 500 collectes AG + ~175 ZD + lieux + orgas + users (§13)
-- [ ] **Resend** : emails transactionnels (18 templates actifs en seed DB, catalogue §06.02 au 2026-11-02)
+- [ ] **Resend** : emails transactionnels (19 templates actifs en seed DB, catalogue §06.02 au 2026-11-06)
 
 ---
 
@@ -42,7 +42,7 @@ Tous les modules documentés §01→§15, soit :
 | Module 15 — multi-langues | §03 M15 | V2 | Champs traduisibles anticipés data model |
 | Module 16 — signature électronique | §03 M16 | V2 | — |
 | Module 19 — import brief + impact enrichi | §03 M19, §04 N6 | V2 | 6 tables + 3 champs **non créés V1** (migration triviale V2) ; gating = recrutement chargé projet env. |
-| 2FA | §09, §15 | V1.1 | Supabase Auth natif, 1 ligne de config |
+| 2FA des clients | §09, §15 | V1.1 | Supabase Auth natif. Équipe Savr : livrée en V1 (décision Val 2026-11-04). Utilisateurs d'une organisation cochée par l'Admin (VIPARIS) : livrée en V1 (décision Val 2026-11-10) |
 | SSO SAML | §09, §15 | V2 | Archi JWT anticipée V1, activable sans migration |
 | Trackdéchets (BSD officiels) | §01, §15 | V2 | Registre interne V1, renvoi Veolia en audit |
 | Lien partage public rapport (90j) | §12, §15 | V1.1 | V1 : manager télécharge + transmet le PDF |
@@ -61,10 +61,10 @@ Tous les modules documentés §01→§15, soit :
 
 | Module | Modification V1 vs CDC complet | Détail |
 |---|---|---|
-| **Intégration logistique (§16 Phase 5/10, §08)** | Le « TMS Savr » cible du contrat §08 n'existe pas en V1. La Plateforme parle à **MTS-1 (= MyTroopers, API V3)** pour Strike/Marathon + **Everest** (A Toutes!), **derrière l'abstraction `logistique_provider`**. ⚠ **En V1 l'adapter MTS-1 fonctionne en POLLING** (cron qui interroge `GET /v3/customerOrders`, `GET /v3/tours/{id}`, télécharge les photos) — il **n'implémente PAS** le contrat webhook S1-S11 du §08, qui est la **cible V2** (TMS Savr natif, event-driven). L'adapter écrit dans les **mêmes tables Plateforme** que le TMS V2 alimentera. | cf. `Adapter MTS-1 (MyTroopers) — relevé as-built Bubble` ; `Frontière TMS-Ready V1.md` garde-fous 2 & 3 ; §08 §3bis (corrigé) |
+| **Intégration logistique (§16 Phase 5/10, §08)** | Le « TMS Savr » cible du contrat §08 n'existe pas en V1. La Plateforme parle à **MTS-1 (= MyTroopers, API V3)** pour Strike/Marathon + **Everest** (A Toute!), **derrière l'abstraction `logistique_provider`**. ⚠ **En V1 l'adapter MTS-1 fonctionne en POLLING** (cron qui interroge `GET /v3/customerOrders`, `GET /v3/tours/{id}`, télécharge les photos) — il **n'implémente PAS** le contrat webhook S1-S11 du §08, qui est la **cible V2** (TMS Savr natif, event-driven). L'adapter écrit dans les **mêmes tables Plateforme** que le TMS V2 alimentera. | cf. `Adapter MTS-1 (MyTroopers) — relevé as-built Bubble` ; `Frontière TMS-Ready V1.md` garde-fous 2 & 3 ; §08 §3bis (corrigé) |
 | **Pilotage `statut_tms` (Index, §05)** | En V1, la **Plateforme** pilote `statut_tms` (dérivé des webhooks MTS-1 V3 traduits par l'adapter). En V2, le TMS Savr pilotera via les webhooks du contrat natif. | trigger `fn_sync_statut_collecte_from_tms` conservé |
 | **Multi-camions ZD (Sujet 1, §04)** | Concept interne TMS → en V1 MTS-1 gère le dispatch terrain. Substrat data `collecte_tournees` N↔N **conservé** (schéma figé), mais alimenté via l'adapter MTS-1 (1 ordre = 1 course en nominal). | non-destructif V2 |
-| **Multi-vélo AG gros volume (§06.09)** | V1 = **manuel** : Savr crée 1 course Everest, A Toutes! duplique la flotte côté Everest. V2 = split auto côté TMS. | 0 data model V1 |
+| **Multi-vélo AG gros volume (§06.09)** | V1 = **manuel** : Savr crée 1 course Everest, A Toute! duplique la flotte côté Everest. V2 = split auto côté TMS. | 0 data model V1 |
 | **Code transporteur MTS-1 (Index, §08)** | Champ `transporteurs.code_transporteur_mts1` + règle `R_code_mts1_requis` actifs V1 uniquement (pont vers MTS-1). Neutralisés au cutover V2. | external ref logistique neutre (garde-fou 5) |
 
 ---

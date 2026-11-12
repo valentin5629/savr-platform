@@ -281,7 +281,7 @@
     },
     {
       "id": "M1.7-factures-vue-client-non-vide",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:250",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:254",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (f_fichier_visible factures scope) + vue v_factures_client",
       "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager)",
       "statut": "implemented",
@@ -305,7 +305,7 @@
     },
     {
       "id": "M1.7-factures-filtres-choix-multiple",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:408",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:418",
       "artefact": "packages/plateforme/src/app/(admin)/admin/factures/page.tsx (Période en premier, Organisation / Type en FiltreCoches, réponse périmée ignorée) + packages/plateforme/src/app/api/v1/admin/factures/route.ts (organisation_ids CSV UUID, types CSV en liste blanche facture_type ; organisation_id (fiche Client) et type lus comme des listes d'un élément)",
       "test": "M1.7 — Période en premier ; Organisation / Type cochés + M1.7/factures_liste_organisation_ids_types_csv + M1.7/factures_liste_valeurs_invalides_ecartees + M1.7/factures_liste_mono_conserves + M1.7/factures_liste_listes_prioritaires_sur_mono + M1.7 — une réponse plus ancienne arrivée en dernier",
       "statut": "à-vérifier",
@@ -329,7 +329,7 @@
     },
     {
       "id": "M1.7-brouillons-pax-date-de-la-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1099 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:199",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1084 + specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md:199",
       "artefact": "packages/plateforme/src/lib/facturation/batch-brouillons.ts (traiterCollecteZd, traiterCollecteAg)",
       "test": "M1.7 / BatchBrouillons / pax et date de la collecte (lot C2)",
       "statut": "implemented",
@@ -338,11 +338,11 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "63628061ea6f6a5dc701b14dd15fe8607830453d78a0a9a13fbf3fb90ecc7e0f",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "47a805a1a2038dcabef70df46c3a96f374543e58c87236543fbb991ebd7d72a2",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": "05539f712e35566191aa2b0d163e7b47f2d58bd83109da5ab6e2c2b16a18fd76",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "61267fa23e3119d403e0fcd711c943f4f192f83091a81dbe945d86f392ee4594",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "6911d943445819f29b739aec4ab39a438920cab2c1d10d91dd47ea04e21433f1",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc"
   }
 }

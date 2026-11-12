@@ -428,7 +428,7 @@ describe('M1.5b / relève MTS-1 — attribution lue sur la tournée', () => {
 describe('M1.5b / relève MTS-1 — collecte confiée hors MTS-1', () => {
   it.each([
     ['par mail', PRESTA_MANUEL, 'validee', 'acceptee', 'TOUR-1'],
-    ['à A Toutes!', PRESTA_EVEREST, 'validee', 'acceptee', undefined],
+    ['à A Toute!', PRESTA_EVEREST, 'validee', 'acceptee', undefined],
   ])(
     'M1.5b/collecte_hors_mts1 — collecte confiée depuis %s, commande MTS-1 encore vivante : ni son prestataire ni son statut logistique ne sont réécrits',
     async (_cas, prestataire, statut, statutTms, tourId) => {

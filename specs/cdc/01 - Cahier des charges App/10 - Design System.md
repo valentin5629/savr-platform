@@ -37,7 +37,7 @@ Ces 8 leviers transforment un build shadcn générique en interface Savr. Chacun
 | # | Levier | Règle concrète |
 |---|---|---|
 | 1 | **Neutres tintés navy** | Pas de gris pur. Les neutres sont **désaturés vers le navy** (cf. §2 échelle `neutral-*`). Donne une cohésion froide-institutionnelle, jamais le `slate`/`zinc` par défaut. |
-| 2 | **Bloc primaire plein** | La sidebar, la barre du haut (un seul cadre navy `primary-800` en L, décision Val 2026-11-02) et les bandeaux clés sont des **aplats navy** texte blanc — signature visuelle institutionnelle (façon AEGOV), pas une nav blanche fade. Le **hero d'écran** est un **bandeau pâle** `primary-100` à titre `primary-800` (§5.6, décision Val 2026-11-01). |
+| 2 | **Bloc primaire plein** | La sidebar et les bandeaux clés sont des **aplats navy** (`primary-700`) texte blanc — signature visuelle institutionnelle (façon AEGOV), pas une nav blanche fade. La **barre du haut** est bleu ciel (`primary-100`) et porte le **titre de la page** à titre `primary-800` (§5.6, décision Val 2026-11-03). |
 | 3 | **Accent orange parcimonieux** | L'orange `accent-500` est réservé aux **CTA secondaires, highlights, états "à faire"**. Jamais en aplat de fond large. Sa rareté = sa force. |
 | 4 | **Focus ring signature** | Tout élément focusable a un `focus-visible` à **anneau primaire offset** (`outline: 2px solid primary-500; outline-offset: 2px`). Accessibilité = look institutionnel. Jamais le focus bleu navigateur par défaut. |
 | 5 | **Ombres sobres + bordures portantes** | Les cards reposent sur **bordure `neutral-200` + fond blanc**, ombre quasi nulle au repos. La hiérarchie vient de la bordure et de l'espace, pas d'ombres lourdes (anti-effet "carte qui flotte" générique). |
@@ -233,7 +233,7 @@ Les ombres sont **discrètes**. La hiérarchie repose d'abord sur la bordure `ne
 | `--motion-fast` | `120ms ease-out` | Hover, focus, changements d'état |
 | `--motion-base` | `200ms ease-out` | Ouverture dropdown, toast, tab switch |
 | `--motion-slow` | `320ms ease-out` | Entrée modal/sheet |
-| `--motion-chart` | `600ms ease-out` | Construction d'un graphique de dashboard ou de fiche collecte / événement, une seule fois par ouverture de la page ou de la fiche, quand il apparaît à l'écran (au moins un quart visible ; barres, courbes, donut, radar, jauges ; série décalée sur 240 ms au plus) ; jamais rejouée au changement d'un filtre, d'une période, d'une organisation ou d'un onglet ; aucune animation si `prefers-reduced-motion: reduce` ni à l'impression *(décision Val 2026-10-28)* |
+| `--motion-chart` | `600ms ease-out` | Construction d'un graphique de dashboard ou de fiche collecte / événement, une seule fois par ouverture de la page ou de la fiche, quand il apparaît à l'écran (au moins un quart visible ; barres, courbes, donut, radar, jauges ; série décalée sur 240 ms au plus) ; jamais rejouée au changement d'un filtre, d'une période, d'une organisation ou d'un onglet, mais rejouée au clic sur une bascule propre au graphique (ex. Toutes / ZD / AG, Montant HT / Nb collectes) *(décision Val 2026-11-05)* ; aucune animation si `prefers-reduced-motion: reduce` ni à l'impression *(décision Val 2026-10-28)* |
 
 > Respecter `prefers-reduced-motion: reduce` → animations désactivées/réduites. Transitions franches, jamais de rebond (`bounce`) ni d'easing fantaisie. Seule exception : le léger recul et dépassement de la croix Savr de chargement de page (§7, Val 2026-10-31).
 
@@ -262,18 +262,18 @@ Les composants viennent de shadcn/ui ; ces recettes définissent **comment on le
 
 ### 5.2 Card (levier #5)
 
-- Fond blanc, **bordure `1px neutral-200`**, radius `md`, ombre `none` au repos. **Exception — écrans d'authentification (connexion, inscription, réinitialisation)** : carte centrée radius `lg`, ombre `--shadow-md`, sur fond dégradé vertical `neutral-50` → `primary-50` → `accent-50`, logo complet « + savr » en couleurs (`primary-700` + coin `accent-500`) au-dessus de la carte (arbitrage Val 2026-09-28 ; gabarit unique `components/auth/auth-card.tsx`).
+- Fond blanc, **bordure `1px neutral-200`**, radius `md`, ombre `none` au repos. **Exception — écrans d'authentification (connexion, inscription, réinitialisation, code de vérification *(ajout 2026-11-04)*)** : carte centrée radius `lg`, ombre `--shadow-md`, sur fond dégradé vertical `neutral-50` → `primary-50` → `accent-50`, logo complet « + savr » en couleurs (`primary-700` + coin `accent-500`) au-dessus de la carte (arbitrage Val 2026-09-28 ; gabarit unique `components/auth/auth-card.tsx`).
 - Padding interne `--space-6`.
 - Card cliquable : hover → bordure `primary-200` + `--shadow-sm`, transition `--motion-fast`.
 - Titre de card : `--text-lg` poids 600, `neutral-900`. Séparation contenu via bordure `neutral-100`, pas d'ombre interne.
 
 ### 5.3 Bloc primaire plein (levier #2)
 
-Pattern signature institutionnel — sidebar, barre du haut et bandeaux clés. La sidebar et la barre du haut forment un seul cadre `primary-800` en L, sans trait entre elles ; le contenu s'en détache par un coin arrondi en haut à gauche (décision Val 2026-11-02). Le hero d'écran (bandeau de page) n'est plus un aplat navy : il suit le bandeau pâle (§5.6, décision Val 2026-11-01).
+Pattern signature institutionnel — sidebar et bandeaux clés. La sidebar est un aplat `primary-700` ; la barre du haut, bleu ciel (`primary-100`), s'en détache par un coin arrondi `md` en haut à gauche, sur ordinateur (décision Val 2026-11-03, remplace le cadre `primary-800` en L du 2026-11-02). Le hero d'écran n'est plus un bandeau : le titre de la page est dans la barre du haut (§5.6).
 
-- Fond `primary-700` (ou `primary-800` pour la sidebar et la barre du haut, plus profondes).
-- Texte blanc, libellés secondaires `primary-200`.
-- Liens/items actifs : fond `primary-800` + barre accent `accent-500` 3px à gauche (sidebar).
+- Fond `primary-700`.
+- Entrées de la sidebar en graisse normale, texte `primary-100` ; libellés secondaires `primary-200`.
+- Survol : voile blanc 7 %. Item actif : voile blanc 10 %, graisse 500, texte blanc + barre accent `accent-500` 3px à gauche (sidebar).
 - Icônes en `primary-200`, actives en blanc.
 
 ### 5.4 Badge / chip
@@ -291,7 +291,9 @@ Pattern signature institutionnel — sidebar, barre du haut et bandeaux clés. L
 
 **Mise en page des formulaires et filtres (2026-09-28)** : (1) **formulaires de saisie** : libellé au-dessus via `FormField`, jamais à gauche, jamais de placeholder-libellé ; (2) une seule hauteur de contrôle : 40px desktop / 44px mobile (`h-11 sm:h-10`) ; (3) un composant par besoin (Combobox / DatePicker / DateRangePicker / TimePicker) — aucun `<select>` ni `<input type="date">` natif ; (4) **formulaires de saisie** : grille 3 colonnes max, gap 16px ; formulaire de saisie 2 colonnes max ; (5) tous les champs d'une ligne ont un libellé ; (6) Tabs pour changer de vue, ToggleGroup pour filtrer ; (7) **barres de filtres = filtres en ligne** (décision Val 2026-09-30) : chaque filtre est un titre cliquable suivi de sa valeur courante (« Statut Actif ▾ »), jamais un libellé au-dessus d'un champ ; filtres rangés sur une ligne dans un bandeau neutral-50 (`BarreFiltres`, dans `FilterBar` pour les listes), « Réinitialiser » calé à droite. **« Période » en premier** sur toute barre qui en a une (décision Val 2026-09-30). **Tous les filtres sont à choix multiple** (décision Val 2026-09-30, remplace « choix unique = liste avec coche ») : liste à cocher (`FiltreCoches`, recherche au-delà de 7 options) avec une case **« Tous »** en tête — cochée tant qu'aucune valeur n'est choisie (= aucun filtre) ; cocher une valeur la décoche et ne garde que cette valeur ; la recocher efface la sélection ; cocher toutes les options revient à « Tous » (sauf exception ci-après) ; **exception** *(liste Collectes gestionnaire, 2026-10-06)* : une valeur cochée que la liste ne propose pas (lien reçu, option sortie de la liste) y garde une case tant qu'elle est cochée ; tant qu'elle est là, cocher toutes les cases n'équivaut pas à « Tous » ; masquée pendant une recherche dans la liste. **Exception au défaut « Tous »** (confirmée Val 2026-10-01) : sur les listes Admin Associations, Transporteurs et Lieux, le filtre Statut démarre avec **« Actives » / « Actifs » pré-coché** (« Tous » décochée). Le sélecteur de type ZD / AG et les vues « Collectes à venir » / « Collectes passées » restent à valeur unique : ce sont des axes de vue (règle 6), pas des filtres de la barre (confirmé Val). Période = panneau « raccourcis + calendrier » (`DateRangePicker titre`, cf. §6 Panneau Période) ; recherche libre = champ loupe en tête de barre (`FiltreRecherche`), sur les écrans qui en ont une. Déclencheur 44 px mobile / 36 px desktop. **Exception** : les rangées de pastilles rapides à compteur `FilterChips` (§5.7 — Admin Collectes, Admin Factures « Filtrer par statut », Admin Alertes) restent des pastilles (arbitrage Val 2026-09-30) ; (8) actions de formulaire en bas à droite, secondaire puis primaire. Voix : vouvoiement conservé (tutoiement Claude Design non retenu à ce stade).
 
-### 5.6 PageHero (bandeau d'écran)
+### 5.6 PageHero (titre d'écran)
+
+**Dans le cadre de l'application, le titre de la page est dans la barre du haut** (décision Val 2026-11-03) : `PageHero` y place son icône et son `h1` (Archivo 800, 20 px, `letter-spacing -0.02em`, `primary-800`, tronqué sur une ligne), à gauche ; aucun bandeau dans la page. Les actions et badges de statut du slot de droite restent en tête du contenu, alignés à droite, sans fond. Le bandeau pâle décrit ci-dessous ne subsiste que hors du cadre (page CGU) ; l'écart de 16 px avec la barre du haut ne vaut que pour lui.
 
 Bandeau pâle d'en-tête de **toute page** de la plateforme, tous rôles, Admin compris *(ajout 2026-07-04, divergence BOA-UI collectes ; bandeau pâle et extension à toutes les pages : décision Val 2026-11-01, qui remplace l'arbitrage R-UI-6c Q3 b du 2026-10-06 — implémentation de référence `components/ui/page-hero`)*. Exceptions : page 403 et pages de connexion (cartes centrées hors menu), écran de confirmation de programmation, fiches en modale (grand en-tête des fiches §5.11).
 
@@ -359,18 +361,18 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 
 | Composant | Description | Usage |
 |---|---|---|
-| `Sidebar` | Bloc primaire plein, repliable (§5.3) ; 204 px dépliée (64 px repliée) ; logo Savr en tête, sur la ligne de la barre du haut (Val 2026-11-02) | Desktop |
-| `TopBar` | Barre navy du haut (`primary-800`, 56 px) : à droite « Programmer une collecte » (rôles qui programment : traiteur manager et commercial, agence, gestionnaire de lieux, équipe Savr ; jamais le client organisateur ; absent sur le formulaire lui-même ; sur une liste Collectes filtrée par type, le formulaire s'ouvre sur ce type) puis le logo de l'organisation (espaces clients) ; burger menu à gauche sur mobile et tablette (Val 2026-11-02) | Toutes largeurs |
+| `Sidebar` | Bloc primaire plein `primary-700`, repliable (§5.3) ; 224 px dépliée (64 px repliée), la plus étroite largeur où aucun libellé ne passe sur deux lignes, libellés jamais coupés ; logo Savr en tête, bloc de 64 px sur la ligne de la barre du haut (Val 2026-11-03) | Desktop |
+| `TopBar` | Barre bleu ciel du haut (`primary-100`, 64 px, trait bas `primary-200`, coin arrondi `md` côté sidebar sur ordinateur — Val 2026-11-03) : à gauche le titre de la page (§5.6) ; à droite « Programmer une collecte » — bouton blanc, bord `primary-200`, camion `primary-800` dans une pastille `accent-500` (radius `sm`), au survol fond `accent-500` et pastille blanche, pastille seule sur téléphone (Val 2026-11-03) — (rôles qui programment : traiteur manager et commercial, agence, gestionnaire de lieux, équipe Savr ; jamais le client organisateur ; absent sur le formulaire lui-même ; sur une liste Collectes filtrée par type, le formulaire s'ouvre sur ce type) puis le logo de l'organisation (espaces clients) ; burger menu à gauche sur mobile et tablette (Val 2026-11-02) | Toutes largeurs |
 | `BottomNav` | Navigation bas d'écran (4-5 items) | Mobile |
 | `Breadcrumb` | Fil d'Ariane pages imbriquées | Dashboard → Événement → Collecte |
-| `PageHero` | Bandeau pâle d'en-tête d'écran (§5.6) | **Toutes les pages** de la plateforme, tous rôles, Admin compris (Val 2026-11-01) ; seul composant de titre de page (`PageHeader` supprimé). **Pas sur la fiche collecte** *(refonte 2026-07-21)* : celle-ci s'ouvre en **pop-up centré (`Modal`)** ; le titre de la modale est réservé aux lecteurs d'écran et l'en-tête interne est le **grand en-tête commun des fiches** *(2026-10-01)*. |
+| `PageHero` | Titre d'écran, placé dans la barre du haut (§5.6, Val 2026-11-03) ; bandeau pâle hors du cadre seulement | **Toutes les pages** de la plateforme, tous rôles, Admin compris (Val 2026-11-01) ; seul composant de titre de page (`PageHeader` supprimé). **Pas sur la fiche collecte** *(refonte 2026-07-21)* : celle-ci s'ouvre en **pop-up centré (`Modal`)** ; le titre de la modale est réservé aux lecteurs d'écran et l'en-tête interne est le **grand en-tête commun des fiches** *(2026-10-01)*. |
 
 ### Données et tableaux
 
 | Composant | Description |
 |---|---|
 | `DataTable` | Data Table shadcn (TanStack Table) — format UNIQUE de toute liste de l'app (décision Val 2026-09-28). Tri colonne : côté serveur si la liste est paginée (colonnes en liste blanche), dans le navigateur si la liste est complète, absent si la liste est tronquée. Menu « Colonnes » optionnel, précédé à sa gauche du bouton « Exporter CSV » (picto Télécharger) sur les listes qui ont un export *(demande Val 2026-10-30 ; exception : Factures Admin, sans menu « Colonnes », garde son bouton dans le bandeau)* ; barre affichée seulement si la liste a au moins une ligne ; colonne d'actions fixable à droite, ligne activable au clavier. **Hauteur de ligne constante** *(décision Val 2026-10-30, toutes les vues tables)* : sur ordinateur, toute ligne fait 64 px quel que soit le contenu des cellules ; une cellule ne passe jamais à la ligne (au plus 48 px de contenu, 16 rem de large, texte coupé par « … »), aucun contrôle ni contour de focus n'est coupé ; quand une cellule est coupée, son texte complet s'affiche au survol. Une rangée de badges montre les deux premiers puis une pastille « +N » (liste complète au survol). Une information que le CDC impose de montrer ne doit pas tenir au seul survol : la colonne qui la porte se conçoit pour tenir dans la cellule (exception assumée : colonne Indicateurs de la liste Collectes Admin, dont « Rapport consulté / non consulté » et « Sans excédent » peuvent être coupés — §06.06 §3, décision Val 2026-11-02). Adaptatif mobile (cards sous 640px, retour à la ligne conservé) |
-| `StatCard` | KPI : valeur (`--text-kpi` 34 px, décision Val 2026-10-28 ; `--text-4xl` pour une valeur vedette), variation %, label, icône |
+| `StatCard` | KPI : valeur (`--text-kpi` 34 px, décision Val 2026-10-28 ; `--text-4xl` pour une valeur vedette), variation %, label, icône ; prop optionnelle `pictogramme` : grand pictogramme affiché à droite de la valeur (ex. type ZD / AG sur les cartes du Dashboard Admin, décision Val 2026-11-05) |
 | `EmptyState` | État vide illustré + CTA |
 | `Badge` | Pilule statut (§5.4) |
 
@@ -416,7 +418,7 @@ Composants à implémenter pour couvrir tous les écrans V1, issus de shadcn/ui 
 | Composant | Description |
 |---|---|
 | `StatusCollecte` | Badge enrichi + timeline de statuts (timeline §5.10) |
-| `PackAGIndicator` | Jauge de crédit AG (barre `radius-full` + compteur) |
+| `PackAGIndicator` | Jauge de crédit AG : une case par crédit jusqu'à 20 crédits, barre `radius-full` au-delà ; remplissage = crédits restants, rouge sous 10 % ; libellé unique « N collectes restantes sur M » (« collecte restante » au singulier), N en grand à gauche, et « X % du pack restant » sous la jauge (Val 2026-11-10 et 2026-11-11) |
 | `TourneeCard` | Card résumé tournée (camion, N collectes, chauffeur, plaque) |
 | `ImpersonationBanner` | Bandeau **accent-500** quand Admin impersonne un utilisateur |
 

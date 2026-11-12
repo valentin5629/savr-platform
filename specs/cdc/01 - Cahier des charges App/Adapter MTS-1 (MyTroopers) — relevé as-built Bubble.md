@@ -76,7 +76,7 @@
 - **`contact` est un objet UNIQUE** (`CustomerOrderContactInput` : `firstname`, `lastname`, `phone`, `phoneAlternatives`, `email`), **pas** un tableau `contacts` `{name, role}`.
 - **Le créneau est porté par `place.timeslots`** (`Timeslot[{start, end}]`, format **`HH:mm`** — pas un datetime ISO), **pas** au niveau commande. Point fixe V1 : `start = end = heure_collecte` tronquée en `HH:mm`.
 - **Mapping du nom** : Savr n'a qu'un `contact_principal_nom` (nom complet) → **1er mot = `firstname`, reste = `lastname`** (« Paul Pol » → firstname « Paul », lastname « Pol »).
-- **Contact de secours** : MTS-1 n'expose qu'un contact par commande → son **téléphone** va dans `phoneAlternatives`, et **son nom (avec son téléphone) figure dans le champ `comment`** de la commande, ligne « Contact de secours » *(arbitrage Val 2026-09-14 — sans quoi le chauffeur a un numéro de secours sans savoir qui appeler ; format du commentaire décidé par Val le 2026-10-15)*.
+- **Contact de secours** : MTS-1 n'expose qu'un contact par commande → son **téléphone** va dans `phoneAlternatives`, et **son nom (avec son téléphone) figure dans le champ `comment`** de la commande, ligne « - Contact 2 : » sous « Départ : » (format Val 2026-11-03) *(arbitrage Val 2026-09-14 — sans quoi le chauffeur a un numéro de secours sans savoir qui appeler ; format du commentaire décidé par Val le 2026-10-15)*.
 
 **Flux nominal V3 corrigé** : `POST /v3/customerOrders` → `POST /v3/tours {tourDate}` → `PUT /v3/tours/addCustomerOrder`. **Depuis le 2026-10-15 (décisions Val), plus d'envoi au transporteur (`POST /v3/dispatch/{tourId}/toCarrier`) ni de validation (`PUT /v3/tours/{tourId}/validate`) par Savr** : la tournée unitaire de chaque camion attend dans « Commander → Tournées » de la console MTS-1 ; l'Admin Savr fusionne des tournées (plusieurs points de collecte sur une même tournée), les confie au transporteur et les valide. Avec Bubble, d'après Val, les collectes arrivaient de même en tournées unitaires : la route d'envoi au transporteur qu'appelait Bubble n'existait pas (404 `BAD_ROUTE`), le transporteur n'a donc jamais été saisi par Bubble (explication probable, non mesurée).
 
@@ -84,7 +84,7 @@
 
 > ⚠ **Source des contacts + lieu dans le payload V1** : le champ `place` du `POST /v3/customerOrders` est peuplé depuis l'**ÉVÉNEMENT parent** (`evenements.lieu_id`), jamais depuis `collectes`. Les `contacts` viennent de **LA collecte** (`collecte_contacts.contact_principal_*` / `contact_secours_*`) depuis la refonte Val du 2026-10-22 (avant : `evenements.contact_*`). Le worker `outbox-worker.fetchCollecte` lit les contacts sur `collecte_contacts` et le lieu sur l'événement ; une collecte sans ligne de contacts n'est jamais envoyée avec ceux de l'événement (erreur définitive). `mts1/adapter.updateLieu` filtre via `evenements.lieu_id`, non `collectes.lieu_id`. Patch appliqué suite à divergence M1.5a_20260626.
 
-## 5. Everest (A Toutes! / AG vélo cargo) — hors pilote Kaspia ZD
+## 5. Everest (A Toute! / AG vélo cargo) — hors pilote Kaspia ZD
 - `POST Create mission` + `GET Get mission` (même pattern create + poll). À détailler quand l'AG entre dans le périmètre.
 
 ## 6. Résolution véhicule / plaque d'immatriculation — RÉSOLU (doc MTS-1 V3, 2026-06-05)

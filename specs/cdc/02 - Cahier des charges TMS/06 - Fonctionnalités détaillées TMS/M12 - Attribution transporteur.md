@@ -25,7 +25,7 @@ M12 est le **moteur de suggestion d'attribution transporteur**. Pour chaque coll
 - [[M02 - Dispatch Ops Savr]] = écran de consommation des suggestions, validation/override par Ops, déclenche l'attribution réelle (`statut_dispatch = attribuee_en_attente_acceptation`, propagation A1 2026-04-25).
 - [[M06 - Référentiel prestataires]] = référentiel lu par M12 (`shared.prestataires`, `grilles_tarifaires_prestataires`).
 - [[M13 - Administration TMS]] = paramétrage des règles (`parametres_tms.attribution`) + panneau monitoring M12.
-- [[M14 - Intégration Everest (A Toutes!)]] = M12 ne fait **plus** appel `is-handled-address` (refonte audit cohérence A4 2026-05-09 — vérification couverture locale via `parametres_algo.everest_codes_postaux`). M14 reste utilisé pour passer les commandes A Toutes! validées.
+- [[M14 - Intégration Everest (A Toute!)]] = M12 ne fait **plus** appel `is-handled-address` (refonte audit cohérence A4 2026-05-09 — vérification couverture locale via `parametres_algo.everest_codes_postaux`). M14 reste utilisé pour passer les commandes A Toute! validées.
 
 **KPI cibles V1** :
 
@@ -87,7 +87,7 @@ M12 est implémenté comme **un service backend interne** au TMS (Next.js API ro
 - `shared.prestataires` : lit `statut`, `type_prestation[]`, `rayon_intervention_km`, `coords_siege_lat/lng`, `everest_service_ids`, `deleted_at`. RLS cross-schema read-only (app_domain=tms).
 - `tms.grilles_tarifaires_prestataires` : vérifie qu'au moins une grille valide existe à `heure_collecte` pour le prestataire candidat (renommage propagation 2026-04-29).
 - `tms.parametres_tms` (namespace `attribution`) : seuils, plages horaires, flags indisponibilité.
-- `tms.parametres_tms` (namespace `zones`) : mapping code postal → zone A Toutes! (pour branche backup camion).
+- `tms.parametres_tms` (namespace `zones`) : mapping code postal → zone A Toute! (pour branche backup camion).
 - `tms.collectes_tms` : lit `parcours`, `nb_pax`, `heure_collecte`, `lieu_adresse` (renommage propagation 2026-04-29).
 - **Caduc (A4 2026-05-09, purge F3 2026-06-07)** — couverture = check local `code_postal[:2] IN parametres_algo.everest_codes_postaux`, zéro appel API, zéro cache.
 
@@ -119,7 +119,7 @@ Ajout de 4 colonnes à la table existante (propagation §04, revue sobriété 20
 
 > **Colonne supprimée (revue sobriété 2026-04-29)** : `refusee_par_prestataire_id uuid[]` — auto-relance W3 supprimée. L'historique des refus se reconstitue depuis `suggestions_attribution_log` au besoin (rétention 2 ans). L'index GIN associé est supprimé. Ops peut voir le motif refus du dernier prestataire dans le drawer M02 E3 via `motif_refus_code/texte` sur `collectes_tms`.
 
-> **Colonne ajoutée (sobriété M14 2026-04-30 B_M14_02)** : `everest_service_id_target smallint` (nullable, CHECK IN (71, 75, 91)) — single source of truth pour le service Everest cible. M12 pose cette colonne **en même temps que `suggestion_detail`** quand la branche calculée vise A Toutes! (vélo standard 71, vélo express 75, camion backup 91). Si Ops override le prestataire dans M02 vers A Toutes! manuellement → M02 met à jour `everest_service_id_target`. Si Ops override vers Strike/Marathon hors backup → M02 met à NULL. Cette colonne est lue par M14 W1 étape 2 (qui ne re-calcule plus la fenêtre last-minute). Cf. propagation §04 ligne 372.
+> **Colonne ajoutée (sobriété M14 2026-04-30 B_M14_02)** : `everest_service_id_target smallint` (nullable, CHECK IN (71, 75, 91)) — single source of truth pour le service Everest cible. M12 pose cette colonne **en même temps que `suggestion_detail`** quand la branche calculée vise A Toute! (vélo standard 71, vélo express 75, camion backup 91). Si Ops override le prestataire dans M02 vers A Toute! manuellement → M02 met à jour `everest_service_id_target`. Si Ops override vers Strike/Marathon hors backup → M02 met à NULL. Cette colonne est lue par M14 W1 étape 2 (qui ne re-calcule plus la fenêtre last-minute). Cf. propagation §04 ligne 372.
 
 ### 4.2 Data model : table `suggestions_attribution_log`
 
@@ -230,7 +230,7 @@ function m12_suggest(collecte_id uuid, excluded_prestataire_ids uuid[]):
             marathon_id = resolve_prestataire_by_code('marathon');
             if marathon_id not in candidates_excluded and is_prestataire_eligible(marathon_id, c.heure_collecte):
                 return suggestion(marathon_id, 'ag_marathon_nuit', detail={...});
-            # Pas de backup nuit en V1 — A Toutes! fermé
+            # Pas de backup nuit en V1 — A Toute! fermé
             return suggestion(NULL, 'aucun_prestataire', reason='ag_nuit_marathon_exclu');
 
         # Branche AG grand événement (≥ 600 pax) — codes alignés Plateforme audit cohérence 2026-05-09
@@ -238,7 +238,7 @@ function m12_suggest(collecte_id uuid, excluded_prestataire_ids uuid[]):
             marathon_id = resolve_prestataire_by_code('marathon');
             if marathon_id not in candidates_excluded and is_prestataire_eligible(marathon_id, c.heure_collecte):
                 return suggestion(marathon_id, 'ag_marathon_volume', detail={...});
-            # Backup : A Toutes! camion (ID 91) — partage la plage horaire vélo (audit cohérence A2 2026-05-09)
+            # Backup : A Toute! camion (ID 91) — partage la plage horaire vélo (audit cohérence A2 2026-05-09)
             # + garde zone tarifaire (nouveau 2026-06-07, arbitrage Val — cf. §05 R1.3) :
             #   is_zone_tarifaire_atoutes(cp) = left(cp, 2) ∈ keys(zones_codes_postaux_mapping) — 75/92/93/94
             if not params.a_toutes_indisponible and heure < params.regle_ag_plage_velo_fin and is_zone_tarifaire_atoutes(c.lieu_adresse.code_postal):
@@ -251,11 +251,11 @@ function m12_suggest(collecte_id uuid, excluded_prestataire_ids uuid[]):
             return suggestion(NULL, 'aucun_prestataire', reason='ag_volume_marathon_et_atoutes_camion_indispo');
 
         # Branche AG vélo (< 600 pax, plage jour)
-        # Garde zone tarifaire A Toutes! (nouveau 2026-06-07, arbitrage Val — cf. §05 R1.3) : couvre la grande
-        # couronne (77/78/91/95 = IdF mais hors grille A Toutes!) que everest_is_handled_address ne filtre pas
+        # Garde zone tarifaire A Toute! (nouveau 2026-06-07, arbitrage Val — cf. §05 R1.3) : couvre la grande
+        # couronne (77/78/91/95 = IdF mais hors grille A Toute!) que everest_is_handled_address ne filtre pas
         atoutes_id = resolve_prestataire_by_code('a_toutes');
         if params.a_toutes_indisponible OR atoutes_id in candidates_excluded OR not is_prestataire_eligible(atoutes_id, c.heure_collecte) OR not is_zone_tarifaire_atoutes(c.lieu_adresse.code_postal):
-            # Bascule Marathon si A Toutes! indispo — code distinct (audit cohérence A3 2026-05-09)
+            # Bascule Marathon si A Toute! indispo — code distinct (audit cohérence A3 2026-05-09)
             marathon_id = resolve_prestataire_by_code('marathon');
             if marathon_id not in candidates_excluded and is_prestataire_eligible(marathon_id, c.heure_collecte):
                 return suggestion(marathon_id, 'ag_velo_fallback_marathon',
@@ -264,7 +264,7 @@ function m12_suggest(collecte_id uuid, excluded_prestataire_ids uuid[]):
 
         couverture_ok = everest_is_handled_address(c.plateforme_lieu_id);
         if not couverture_ok:
-            # Fallback Marathon si adresse hors zone A Toutes! — code distinct (audit cohérence A3 2026-05-09)
+            # Fallback Marathon si adresse hors zone A Toute! — code distinct (audit cohérence A3 2026-05-09)
             marathon_id = resolve_prestataire_by_code('marathon');
             if marathon_id not in candidates_excluded and is_prestataire_eligible(marathon_id, c.heure_collecte):
                 return suggestion(marathon_id, 'ag_velo_fallback_marathon',
@@ -335,7 +335,7 @@ function branche_province_ag(c, candidates_excluded):
 
 - `is_prestataire_eligible(presta_id, heure_collecte)` : retourne bool. Vérifie `statut = 'actif'` ET `deleted_at IS NULL` ET `EXISTS(grille valide à heure_collecte)`. Si pas de grille valide → trace `integrations_logs` warning seule — supprimée (F4 tranché 2026-06-07, aligné §12ter : cas impossible par construction R_M06) (cf. §7 edge case 7.5).
 - `has_grille_valide(presta_id, date)` : retourne bool. Vérifie existence d'au moins une ligne `grilles_tarifaires_prestataires` avec `prestataire_id = X` ET `date BETWEEN date_debut_validite AND COALESCE(date_fin_validite, 'infinity')`.
-- `resolve_prestataire_by_code(code)` : retourne uuid. Lookup `shared.prestataires.code` UNIQUE (Strike, Marathon, A Toutes! codes figés dans seed). Null-safe (retourne NULL si prestataire retiré).
+- `resolve_prestataire_by_code(code)` : retourne uuid. Lookup `shared.prestataires.code` UNIQUE (Strike, Marathon, A Toute! codes figés dans seed). Null-safe (retourne NULL si prestataire retiré).
 - `haversine(lat1, lng1, lat2, lng2)` : fonction SQL immutable, distance en km.
 - `is_ile_de_france(code_postal text)` : fonction SQL immutable. Match sur préfixes `75`, `77`, `78`, `91`, `92`, `93`, `94`, `95` — **déclencheur de basculement vers les branches IDF dur** (vs scoring province). Ne pas confondre avec la couverture Everest, qui est un sous-ensemble (cf. ci-dessous).
 - `everest_is_handled_address(plateforme_lieu_id uuid)` : **refonte audit cohérence A4 2026-05-09** — vérification **locale** sans appel API. Lit `lieu.code_postal` (depuis `tms.lieux_cache` ou cross-schema), match `code_postal[:2] IN parametres_algo.everest_codes_postaux` (paramètre source Plateforme, cache local TMS, seed V1 `['75','92','93']`). Pas de timeout, pas de fallback nécessaire. **Conséquence** : un lieu IDF en 94/95 déclenche la branche IDF mais `everest_is_handled_address` retourne `false` → bascule `ag_velo_fallback_marathon`.
@@ -384,7 +384,7 @@ Pas d'interaction V1 ( supprimé A4 2026-05-09, purge F3 2026-06-07). Modificati
 -- propagation A1 2026-04-25 — alignement enum statut_dispatch 6 valeurs
 -- propagation M14 2026-04-25 — étape 1bis cascade annulation Everest (R_M14.7)
 1. M03 ou webhook reçoit refus prestataire → UPDATE collectes_tms SET statut_dispatch = 'rejetee_par_prestataire'
-1bis. **Si `prestataire_refusant.integration_externe = 'everest'` (A Toutes!)** : trigger DB `trg_m14_cascade_cancel` enqueue worker `m14_cancel_mission` (M14 W3, R_M14.7) → `POST /missions/cancel` Everest pour annuler la mission active côté A Toutes! (anti double-dispatch).
+1bis. **Si `prestataire_refusant.integration_externe = 'everest'` (A Toute!)** : trigger DB `trg_m14_cascade_cancel` enqueue worker `m14_cancel_mission` (M14 W3, R_M14.7) → `POST /missions/cancel` Everest pour annuler la mission active côté A Toute! (anti double-dispatch).
 2. Trigger DB `AFTER UPDATE` détecte transition vers 'rejetee_par_prestataire'
 3. Appelle m12_suggest(id, ARRAY[prestataire_refusant_id]) — exclusion explicite du refusant pour ce recalcul uniquement
 4. UPDATE collectes_tms SET suggestion_prestataire_id, suggestion_branche_r1_code, suggestion_detail = nouvelle suggestion (PAS de bascule statut_dispatch)
@@ -458,16 +458,16 @@ Renvoi explicite vers §05 [[../05 - Règles métier TMS]] :
 - Fonction retourne `true` par défaut (supposer couvert — réduit faux négatifs).
 - INSERT `integrations_logs` type = `warning`, message = "Everest is_handled_address timeout, fallback=true assumed", collecte_id, lieu_id.
 - **Ne pas persister** en `everest_coverage_cache` (éviter de pérenniser une fausse valeur).
-- Si finalement A Toutes! refuse à l'acceptation → recalcul T2 vers Marathon (W2).
+- Si finalement A Toute! refuse à l'acceptation → recalcul T2 vers Marathon (W2).
 
 ### 7.3 — Everest retourne `is_handled = false` sur adresse IdF — **Caduc (A4 2026-05-09, purge F3 2026-06-07)** : le cas métier survit (adresse IDF hors `everest_codes_postaux`, ex CP 94 → `ag_velo_fallback_marathon`, cf. §4.8) mais sans appel API ni cache
 
-**Cas** : A Toutes! ne couvre pas une adresse spécifique (ex: nouvelle zone non encore intégrée).
+**Cas** : A Toute! ne couvre pas une adresse spécifique (ex: nouvelle zone non encore intégrée).
 
 **Comportement** :
 - Branche AG vélo bascule sur Marathon (`ag_marathon_volume` avec `detail.reason = 'a_toutes_hors_zone'`).
 - Persist cache 7j (pour éviter réappeler Everest à chaque re-run).
-- Ops peut invalider le cache manuellement via M13 si A Toutes! étend sa couverture.
+- Ops peut invalider le cache manuellement via M13 si A Toute! étend sa couverture.
 
 ### 7.4 — Cache Everest expiré mais Everest down — **Caduc (A4 2026-05-09, purge F3 2026-06-07)** : plus de cache
 
@@ -488,14 +488,14 @@ Renvoi explicite vers §05 [[../05 - Règles métier TMS]] :
 
 ### 7.6 — Modification `nb_pax` post-attribution franchissant le seuil 600
 
-**Cas** : collecte acceptée par A Toutes! vélo à 450 pax. Traiteur met à jour à 650 pax. M01 D6 pose `re_confirmation_requise = true`.
+**Cas** : collecte acceptée par A Toute! vélo à 450 pax. Traiteur met à jour à 650 pax. M01 D6 pose `re_confirmation_requise = true`.
 
 **Comportement** (reco C9 validée) :
 - T3 déclenché automatiquement.
 - m12_suggest re-calcule → nouvelle branche `ag_marathon_volume`.
 - UPDATE `suggestion_prestataire_id`, `suggestion_branche_r1_code`, `suggestion_detail`.
-- Notification email Ops Savr : "Collecte #{id} : modif pax 450→650, suggestion bascule A Toutes! vélo → Marathon. Action requise."
-- **Pas** de bascule automatique de l'attribution — Ops doit trancher manuellement (confirmer avec Marathon ou garder A Toutes! si accord spécifique).
+- Notification email Ops Savr : "Collecte #{id} : modif pax 450→650, suggestion bascule A Toute! vélo → Marathon. Action requise."
+- **Pas** de bascule automatique de l'attribution — Ops doit trancher manuellement (confirmer avec Marathon ou garder A Toute! si accord spécifique).
 - Collecte reste `statut_dispatch IN ('acceptee','en_attente_execution')` mais avec flag `re_confirmation_requise = true`.
 
 ### 7.7 — Trigger T3 déclenché mais `suggestion_prestataire_id` identique
@@ -605,7 +605,7 @@ Concept supprimé (revue sobriété 2026-04-29) — auto-relance W3 retirée, ca
 | D8 | V1 flag manuel `a_toutes_indisponible` (pas API availabilities) | API Everest availabilities V1 | Complexité intégration V1 rejetée. Ops déclare indispo en 2 clics M13 — suffit en régime de croisière |
 | D9 | → **Caduc (A4 2026-05-09, purge F3 2026-06-07)** — pas d'appel API, pas de fallback nécessaire | — | — |
 | D10 | Tri province secondaire = `nb_collectes_6_mois_cache ASC` | Alphabétique / score fiabilité (V2) | Répartit la charge sans complexité. Calibre le V2 sans préjuger |
-| D11 | `admin_tms` seul peut modifier `parametres_tms.attribution` | `ops_savr` autorisé | Ces seuils pilotent la marge Strike/Marathon/A Toutes! — pas sujet ops quotidien |
+| D11 | `admin_tms` seul peut modifier `parametres_tms.attribution` | `ops_savr` autorisé | Ces seuils pilotent la marge Strike/Marathon/A Toute! — pas sujet ops quotidien |
 | D12 | → **Supprimé revue sobriété 2026-04-29** | Log minimal | Auto-relance W3 supprimée. Traçabilité réduite à l'INSERT log + audit_logs basique attribution M02 |
 | D13 | Dashboard monitoring dans M13, pas standalone | Écran dédié M12 monitoring | Toutes les infos d'admin système TMS dans M13 — cohérence UX Admin |
 | D14 | Rétention `suggestions_attribution_log` = 2 ans | 5 ans (comme `audit_logs`) / 1 an | Volume estimé 140k lignes sur 2 ans — suffit pour calibrer R1 V2. Pas obligation légale comme `audit_logs` |
@@ -669,6 +669,6 @@ Aucune question bloquante. Points à surveiller en régime de croisière :
 - [[M06 - Référentiel prestataires]] — fournit `shared.prestataires.code` canonique et `coords_siege_*`, `rayon_intervention_km`
 - [[M11 - Alerting et monitoring ops]] — alertes `aucun_prestataire`, presta sans grille (cascade max supprimée revue sobriété 2026-04-29)
 - [[M13 - Administration TMS]] — paramétrage `parametres_tms.attribution` + panneau monitoring M12
-- [[M14 - Intégration Everest (A Toutes!)]] — passage de commandes A Toutes! ( caduc A4 2026-05-09 — couverture = check local)
+- [[M14 - Intégration Everest (A Toute!)]] — passage de commandes A Toute! ( caduc A4 2026-05-09 — couverture = check local)
 - [[../01 - Cahier des charges App/04 - Data Model]] — `shared.prestataires` (cross-schema)
 - [[../01 - Cahier des charges App/08 - APIs et intégrations]] — webhooks TMS → Plateforme inchangés

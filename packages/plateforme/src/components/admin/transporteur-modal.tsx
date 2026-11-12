@@ -29,7 +29,7 @@ import {
   FicheModal,
   FichePied,
 } from '@/components/ui/fiche/fiche-modal';
-import { VEHICULE_LABEL } from '@/lib/lieux-labels';
+import { GABARITS_LIEU_TRANSPORTEUR, VEHICULE_LABEL } from '@/lib/lieux-labels';
 import { estSiren } from '@savr/shared/src/validation/index.js';
 import {
   MESSAGE_FORMAT_SIREN,
@@ -67,12 +67,10 @@ export interface TransporteurRecord {
 
 // Options = sources uniques (R-UI-2 C2/C10/C11) : véhicules `lib/lieux-labels`,
 // type de collecte `lib/libelles/type-collecte`, type TMS `lib/type-tms-labels`.
-const TYPES_VEHICULES = Object.entries(VEHICULE_LABEL).map(
-  ([value, label]) => ({
-    value,
-    label,
-  }),
-);
+const TYPES_VEHICULES = GABARITS_LIEU_TRANSPORTEUR.map((value) => ({
+  value,
+  label: VEHICULE_LABEL[value] ?? value,
+}));
 
 // Flux gérés — valeurs alignées sur collectes.type (multi, décision Val 2026-07-02).
 const TYPES_COLLECTE = (['anti_gaspi', 'zero_dechet'] as const).map(

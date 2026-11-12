@@ -4,14 +4,16 @@
 -- Vérifie que `plateforme.fn_custom_access_token` (migration 20260701120000)
 -- expose `impersonator_id` en claim top-level, LU depuis
 -- `event->'claims'->'app_metadata'->>'impersonator_id'`, UNIQUEMENT si la fenêtre
--- `impersonation_expires_at` n'est pas expirée (fin auto 1h, §09 §7 + §15 §2.3).
+-- `impersonation_expires_at` n'est pas expirée (fin auto 1h, §09 §7 + §15 §2.3)
+-- ET si le jeton est celui de la session ouverte par l'Admin
+-- (`app_metadata.impersonation_session_id` = `session_id`, migration 20261110200000).
 --
 -- Même approche que jwt_hook.m0-5 : fonction SECURITY DEFINER appelée directement
 -- avec un event forgé, sous le rôle postgres (bypass REVOKE), pas de JWT à poser.
 -- =============================================================================
 
 BEGIN;
-SELECT plan(5);
+SELECT plan(7);
 
 -- ─── Fixture : 1 organisation + 1 user (le user IMPERSONÉ) ───────────────────
 INSERT INTO plateforme.organisations
@@ -37,8 +39,10 @@ SELECT is(
   plateforme.fn_custom_access_token(
     ('{"user_id":"a14a0001-0000-0000-0000-000000000001",'
      || '"claims":{"sub":"a14a0001-0000-0000-0000-000000000001","role":"authenticated",'
+     || '"session_id":"5e550000-0000-0000-0000-0000000000aa",'
      || '"app_metadata":{"impersonator_id":"adm00000-0000-0000-0000-0000000000aa",'
-     || '"impersonation_expires_at":"2999-01-01T00:00:00Z"}}}')::jsonb
+     || '"impersonation_expires_at":"2999-01-01T00:00:00Z",'
+     || '"impersonation_session_id":"5e550000-0000-0000-0000-0000000000aa"}}}')::jsonb
   )->'claims'->>'impersonator_id',
   'adm00000-0000-0000-0000-0000000000aa',
   'AUTH-01a : claim impersonator_id injecté quand la fenêtre 1h est active'
@@ -49,8 +53,10 @@ SELECT is(
   plateforme.fn_custom_access_token(
     ('{"user_id":"a14a0001-0000-0000-0000-000000000001",'
      || '"claims":{"sub":"a14a0001-0000-0000-0000-000000000001","role":"authenticated",'
+     || '"session_id":"5e550000-0000-0000-0000-0000000000aa",'
      || '"app_metadata":{"impersonator_id":"adm00000-0000-0000-0000-0000000000aa",'
-     || '"impersonation_expires_at":"2999-01-01T00:00:00Z"}}}')::jsonb
+     || '"impersonation_expires_at":"2999-01-01T00:00:00Z",'
+     || '"impersonation_session_id":"5e550000-0000-0000-0000-0000000000aa"}}}')::jsonb
   )->'claims'->>'user_role',
   'traiteur_manager',
   'AUTH-01a : user_role toujours injecté (rôle métier du user impersoné)'
@@ -63,8 +69,10 @@ SELECT ok(
   plateforme.fn_custom_access_token(
     ('{"user_id":"a14a0001-0000-0000-0000-000000000001",'
      || '"claims":{"sub":"a14a0001-0000-0000-0000-000000000001","role":"authenticated",'
+     || '"session_id":"5e550000-0000-0000-0000-0000000000aa",'
      || '"app_metadata":{"impersonator_id":"adm00000-0000-0000-0000-0000000000aa",'
-     || '"impersonation_expires_at":"2000-01-01T00:00:00Z"}}}')::jsonb
+     || '"impersonation_expires_at":"2000-01-01T00:00:00Z",'
+     || '"impersonation_session_id":"5e550000-0000-0000-0000-0000000000aa"}}}')::jsonb
   )->'claims'->>'impersonator_id' IS NULL,
   'AUTH-01b : impersonator_id NON injecté quand la fenêtre est expirée'
 );
@@ -91,6 +99,37 @@ SELECT ok(
      || '"app_metadata":{"impersonator_id":"adm00000-0000-0000-0000-0000000000aa"}}}')::jsonb
   )->'claims'->>'impersonator_id' IS NULL,
   'AUTH-01d : impersonator_id sans expiration → non injecté (pas d''impersonation illimitée)'
+);
+
+-- =============================================================================
+-- AUTH-01e — fenêtre active mais AUTRE session du compte (vraie connexion de
+--            l'utilisateur pendant l'heure) → claim NON injecté (2026-11-10)
+-- =============================================================================
+SELECT ok(
+  plateforme.fn_custom_access_token(
+    ('{"user_id":"a14a0001-0000-0000-0000-000000000001",'
+     || '"claims":{"sub":"a14a0001-0000-0000-0000-000000000001","role":"authenticated",'
+     || '"session_id":"5e550000-0000-0000-0000-0000000000bb",'
+     || '"app_metadata":{"impersonator_id":"adm00000-0000-0000-0000-0000000000aa",'
+     || '"impersonation_expires_at":"2999-01-01T00:00:00Z",'
+     || '"impersonation_session_id":"5e550000-0000-0000-0000-0000000000aa"}}}')::jsonb
+  )->'claims'->>'impersonator_id' IS NULL,
+  'AUTH-01e : autre session du compte pendant la fenêtre → impersonator_id non injecté'
+);
+
+-- =============================================================================
+-- AUTH-01f — fenêtre active mais flag sans session (lien posé avant 2026-11-10)
+--            → claim NON injecté
+-- =============================================================================
+SELECT ok(
+  plateforme.fn_custom_access_token(
+    ('{"user_id":"a14a0001-0000-0000-0000-000000000001",'
+     || '"claims":{"sub":"a14a0001-0000-0000-0000-000000000001","role":"authenticated",'
+     || '"session_id":"5e550000-0000-0000-0000-0000000000aa",'
+     || '"app_metadata":{"impersonator_id":"adm00000-0000-0000-0000-0000000000aa",'
+     || '"impersonation_expires_at":"2999-01-01T00:00:00Z"}}}')::jsonb
+  )->'claims'->>'impersonator_id' IS NULL,
+  'AUTH-01f : flag sans impersonation_session_id → impersonator_id non injecté'
 );
 
 SELECT * FROM finish();

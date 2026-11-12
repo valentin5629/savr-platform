@@ -151,7 +151,7 @@ Scénario : changement_prestataire_chauffeur
 # Priorité : P2-important
 
 Scénario : activation_everest_test_connexion_ok
-  Étant donné un Admin TMS et le prestataire "a_toutes" (A Toutes!) integration off
+  Étant donné un Admin TMS et le prestataire "a_toutes" (A Toute!) integration off
   Quand il active le toggle Everest, saisit everest_client_id et clique "Tester la connexion" et que M14 W8 répond 200
   Alors integration_externe = 'everest' et everest_client_id est persisté
   Et une entrée tms.integrations_logs (system='everest', type_event='m14_ping') est tracée

@@ -9,6 +9,7 @@ import { jourParis } from '@savr/shared/src/temps/index.js';
 import { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import { getObjectBytes } from '@/lib/pdf/r2-client.js';
+import { lireParLots } from '@/lib/pdf/selection-par-pages.js';
 import { requireRegistreUser } from '@/lib/registre/guard.js';
 import {
   parseRegistreFilters,
@@ -46,15 +47,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Bordereaux disponibles (emis/corrige) de ces collectes (RLS-scopé).
-    const { data, error } = await supabase
-      .from('bordereaux_savr')
-      .select('numero, pdf_fichier_id')
-      .in('collecte_id', collecteIds)
-      .in('statut', ['emis', 'corrige']);
-    if (error) throw erreurInterne(error, 'registre.export_zip');
+    // Bordereaux disponibles (emis/corrige) de ces collectes (RLS-scopé), lus
+    // par lots d'identifiants (`lireParLots`) : un filtre `in` de plusieurs
+    // centaines d'identifiants échoue, et l'export répondait alors par une
+    // erreur, quel que soit le nombre de bordereaux.
+    const lu = await lireParLots<BordereauPdf>(
+      [...new Set(collecteIds)],
+      (lot) =>
+        supabase
+          .from('bordereaux_savr')
+          .select('numero, pdf_fichier_id')
+          .in('collecte_id', lot)
+          .in('statut', ['emis', 'corrige']),
+    );
+    if (lu.error) throw erreurInterne(lu.error, 'registre.export_zip');
 
-    const bordereaux = (data ?? []) as unknown as BordereauPdf[];
+    const bordereaux = lu.data;
     if (bordereaux.length === 0) {
       return NextResponse.json(
         { error: 'Aucun bordereau sur la période' },

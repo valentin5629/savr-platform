@@ -59,6 +59,9 @@ function makeChain() {
     select: () => sansAbandon,
     eq: () => sansAbandon,
     in: () => sansAbandon,
+    // Lecture par pages des créations abandonnées.
+    order: () => sansAbandon,
+    limit: () => sansAbandon,
     then: (resolve: (r: Result) => unknown) =>
       resolve({ data: [], error: null }),
   };
@@ -428,6 +431,22 @@ describe('M4.1 / export collectes — statut affiché Admin', () => {
       lignes.find((l) => l.includes(id))?.split(';')[colonne];
     expect(repasDe('evt-sans-excedent')).toBe('0');
     expect(repasDe('evt-ag-sans-attribution')).toBe('');
+  });
+
+  it('impact-rse : colonne « CO2 net » réservée à l’équipe Savr, induit et énergie pour tous (Val 2026-11-09)', async () => {
+    const entetes = async (role: string, file: typeof rls) => {
+      setupAuth(role, role === 'admin_savr' ? null : 'org-a');
+      file.push({ data: [ligne('evt-zd', {})], error: null });
+      const res = await call('impact-rse');
+      expect(res.status).toBe(200);
+      return ((await res.text()).split('\r\n')[0] ?? '').split(';');
+    };
+    const client = await entetes('traiteur_manager', rls);
+    expect(client).not.toContain('CO2 net (kg)');
+    expect(client).toContain('CO2 induit (kg)');
+    expect(client).toContain('Énergie primaire évitée (kWh)');
+    const staff = await entetes('admin_savr', admin);
+    expect(staff).toContain('CO2 net (kg)');
   });
 
   it('client : ni signaux d’envoi lus (pas de lecture de attributions_antgaspi), ni changement de libellé', async () => {

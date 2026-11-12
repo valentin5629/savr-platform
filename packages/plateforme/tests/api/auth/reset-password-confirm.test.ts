@@ -1,28 +1,52 @@
 /**
  * Parcours « mot de passe oublié » — maillon serveur.
  *
- * Le lien de l'email de réinitialisation ne peut PAS viser directement la page de
- * saisie : `@supabase/ssr` impose le flux PKCE, donc GoTrue redirige avec un
- * `?code=` qu'il faut échanger contre une session, et seule une route peut écrire
- * les cookies. Ces tests épinglent les deux bouts de ce contrat — la cible du lien
- * émis, et le comportement de la route d'échange, y compris quand il échoue.
+ * Depuis le 2026-11-06 (Val), la demande fabrique le lien par
+ * `auth.admin.generateLink` et l'envoie par Resend (gabarit `reset_password`),
+ * après la réponse. Le lien vise la route d'échange, jamais la page de saisie :
+ * seule une route peut écrire les cookies de session. Ces tests épinglent la
+ * demande (lien émis, adresse inconnue, plafond) et la route d'échange, pour le
+ * nouveau lien (`token_hash`) comme pour l'ancien (`code`, flux PKCE).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { sendEmail } from '@savr/shared/src/email/index.js';
+import { _resetDemandesReinitialisation } from '@/lib/reset-password-rate-limit.js';
 
 const mockExchangeCodeForSession = vi.fn();
-const mockResetPasswordForEmail = vi.fn();
+const mockVerifyOtp = vi.fn();
+const mockGenerateLink = vi.fn();
+const mockProfil = vi.fn();
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: {
       exchangeCodeForSession: mockExchangeCodeForSession,
-      resetPasswordForEmail: mockResetPasswordForEmail,
+      verifyOtp: mockVerifyOtp,
     },
   }),
 }));
 vi.mock('next/headers', () => ({
   cookies: () => ({ getAll: () => [], set: () => {} }),
+}));
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => ({
+    from: () => ({
+      select: () => ({ eq: () => ({ maybeSingle: mockProfil }) }),
+    }),
+    auth: { admin: { generateLink: mockGenerateLink } },
+  }),
+}));
+vi.mock('@savr/shared/src/email/index.js', () => ({
+  sendEmail: vi.fn().mockResolvedValue({ statut: 'sent' }),
+}));
+// L'envoi se fait après la réponse (`after`) : les tâches sont attendues ici.
+const tachesApresReponse: Array<Promise<void>> = [];
+vi.mock('next/server', async (original) => ({
+  ...(await original<typeof import('next/server')>()),
+  after: (tache: () => Promise<void>) => {
+    tachesApresReponse.push(tache());
+  },
 }));
 
 function makeGet(query: string): NextRequest {
@@ -31,40 +55,146 @@ function makeGet(query: string): NextRequest {
   );
 }
 
+function demande(email: string, ip = '203.0.113.7'): NextRequest {
+  return new NextRequest('http://localhost/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+  });
+}
+
+async function demander(email: string, ip?: string) {
+  const { POST } = await import('@/app/api/auth/reset-password/route.js');
+  const res = await POST(demande(email, ip));
+  await Promise.all(tachesApresReponse);
+  return res;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  // Le lien de l'email prend son domaine dans la seule configuration.
+  process.env.NEXT_PUBLIC_APP_URL = 'https://app.gosavr.io';
+  tachesApresReponse.length = 0;
+  _resetDemandesReinitialisation();
   mockExchangeCodeForSession.mockResolvedValue({ data: {}, error: null });
-  mockResetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+  mockVerifyOtp.mockResolvedValue({ data: {}, error: null });
+  mockGenerateLink.mockResolvedValue({
+    data: {
+      properties: { hashed_token: 'jeton-haché' },
+      user: { id: 'u-1', email: 'chef@traiteur.fr' },
+    },
+    error: null,
+  });
+  mockProfil.mockResolvedValue({ data: { prenom: 'Léa & Co' }, error: null });
 });
 
-describe('cible du lien de réinitialisation', () => {
-  it("le lien émis vise la route d'échange, jamais la page de saisie seule", async () => {
-    const { POST } = await import('@/app/api/auth/reset-password/route.js');
-    const res = await POST(
-      new NextRequest('http://localhost/api/auth/reset-password', {
-        method: 'POST',
-        body: JSON.stringify({ email: 'chef@traiteur.fr' }),
-        headers: { 'content-type': 'application/json' },
-      }),
-    );
+describe('demande de réinitialisation', () => {
+  it("adresse connue → un email reset_password, lien vers la route d'échange avec le jeton", async () => {
+    const res = await demander('chef@traiteur.fr');
 
     expect(res.status).toBe(200);
-    expect(mockResetPasswordForEmail).toHaveBeenCalledTimes(1);
-    const [email, options] = mockResetPasswordForEmail.mock.calls[0] as [
-      string,
-      { redirectTo: string },
-    ];
-    expect(email).toBe('chef@traiteur.fr');
-    // Le `/api/` est le cœur du contrat : sans lui, la redirection tombe sur la
-    // page, qui ne peut pas poser la session — le formulaire s'afficherait pour
-    // finir en 401 à l'enregistrement.
-    expect(new URL(options.redirectTo, 'http://localhost').pathname).toBe(
-      '/api/auth/reset-password/confirm',
-    );
+    expect(mockGenerateLink).toHaveBeenCalledWith({
+      type: 'recovery',
+      email: 'chef@traiteur.fr',
+    });
+    expect(vi.mocked(sendEmail)).toHaveBeenCalledTimes(1);
+    const [slug, to, variables] = vi.mocked(sendEmail).mock.calls[0]!;
+    expect(slug).toBe('reset_password');
+    expect(to).toBe('chef@traiteur.fr');
+    // Prénom échappé : le corps de l'email est du HTML.
+    expect(variables['prenom']).toBe('Léa &amp; Co');
+    const lien = new URL(variables['lien_reset']!);
+    // Le `/api/` est le cœur du contrat : la page seule ne peut pas poser la session.
+    expect(lien.pathname).toBe('/api/auth/reset-password/confirm');
+    expect(lien.searchParams.get('token_hash')).toBe('jeton-haché');
+    expect(lien.searchParams.get('type')).toBe('recovery');
+  });
+
+  it('adresse inconnue → même réponse 200, aucun email', async () => {
+    mockGenerateLink.mockResolvedValue({
+      data: { properties: null, user: null },
+      error: { message: 'User not found', status: 404 },
+    });
+    const res = await demander('inconnu@traiteur.fr');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true });
+    expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
+  });
+
+  it('au-delà de 3 demandes par heure pour une adresse → 200, aucun lien fabriqué', async () => {
+    for (let i = 0; i < 3; i++) await demander('chef@traiteur.fr');
+    const res = await demander('Chef@Traiteur.fr ');
+
+    expect(res.status).toBe(200);
+    expect(mockGenerateLink).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(sendEmail)).toHaveBeenCalledTimes(3);
+  });
+
+  it('au-delà de 10 demandes par heure depuis une même adresse IP → aucun lien fabriqué', async () => {
+    for (let i = 0; i < 11; i++)
+      await demander(`p${i}@traiteur.fr`, '198.51.100.9');
+    expect(mockGenerateLink).toHaveBeenCalledTimes(10);
+  });
+
+  it("une panne au moment de l'envoi ne remonte pas : la réponse reste 200", async () => {
+    mockGenerateLink.mockRejectedValue(new Error('réseau'));
+    const res = await demander('chef@traiteur.fr');
+    expect(res.status).toBe(200);
+    expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
+  });
+
+  it('email absent → 422, rien de fabriqué', async () => {
+    const res = await demander('   ');
+    expect(res.status).toBe(422);
+    expect(mockGenerateLink).not.toHaveBeenCalled();
   });
 });
 
-describe("route d'échange du code de réinitialisation", () => {
+describe("route d'échange du lien envoyé par Resend (token_hash)", () => {
+  it('jeton valide → verifyOtp recovery, puis le formulaire', async () => {
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?token_hash=jeton-haché&type=recovery'));
+
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      token_hash: 'jeton-haché',
+      type: 'recovery',
+    });
+    expect(mockExchangeCodeForSession).not.toHaveBeenCalled();
+    expect(new URL(res.headers.get('location')!).pathname).toBe(
+      '/reset-password/confirm',
+    );
+  });
+
+  it('jeton refusé (expiré, déjà servi) → retour à la demande, jamais le formulaire', async () => {
+    mockVerifyOtp.mockResolvedValue({
+      data: {},
+      error: { message: 'Token has expired or is invalid' },
+    });
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?token_hash=perime&type=recovery'));
+
+    const location = new URL(res.headers.get('location')!);
+    expect(location.pathname).toBe('/reset-password');
+    expect(location.searchParams.get('error')).toBe('lien_invalide');
+  });
+
+  it("jeton d'un autre type (signup, magiclink) → refusé sans échange", async () => {
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?token_hash=jeton&type=magiclink'));
+
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockExchangeCodeForSession).not.toHaveBeenCalled();
+    expect(
+      new URL(res.headers.get('location')!).searchParams.get('error'),
+    ).toBe('lien_invalide');
+  });
+});
+
+describe("route d'échange de l'ancien lien (code PKCE)", () => {
   it('code valide → session posée puis redirection vers le formulaire', async () => {
     const { GET } =
       await import('@/app/api/auth/reset-password/confirm/route.js');
@@ -119,9 +249,12 @@ describe('lien de réinitialisation et code de vérification', () => {
   const session = (
     role: string,
     factors: Array<{ id: string; factor_type: string; status: string }>,
+    autresClaims: Record<string, unknown> = {},
   ) => ({
     data: {
-      session: { access_token: jeton({ user_role: role, aal: 'aal1' }) },
+      session: {
+        access_token: jeton({ user_role: role, aal: 'aal1', ...autresClaims }),
+      },
       user: { id: 'u-1', factors },
     },
     error: null,
@@ -135,6 +268,16 @@ describe('lien de réinitialisation et code de vérification', () => {
     const { GET } =
       await import('@/app/api/auth/reset-password/confirm/route.js');
     const res = await GET(makeGet('?code=code-valide'));
+    const location = new URL(res.headers.get('location')!);
+    expect(location.pathname).toBe('/code-verification');
+    expect(location.searchParams.get('next')).toBe('/reset-password/confirm');
+  });
+
+  it('nouveau lien (token_hash) : admin avec un code actif → écran du code aussi', async () => {
+    mockVerifyOtp.mockResolvedValue(session('admin_savr', [ACTIF]));
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?token_hash=jeton&type=recovery'));
     const location = new URL(res.headers.get('location')!);
     expect(location.pathname).toBe('/code-verification');
     expect(location.searchParams.get('next')).toBe('/reset-password/confirm');
@@ -163,7 +306,22 @@ describe('lien de réinitialisation et code de vérification', () => {
     );
   });
 
-  it('client → formulaire directement (aucun code pour les clients)', async () => {
+  // Organisation qui exige le code (VIPARIS, Val 2026-11-10) : claim du hook.
+  it('client d’une organisation qui exige le code, code actif → écran du code, puis retour au formulaire', async () => {
+    mockVerifyOtp.mockResolvedValue(
+      session('gestionnaire_lieux', [ACTIF], {
+        code_verification_obligatoire: true,
+      }),
+    );
+    const { GET } =
+      await import('@/app/api/auth/reset-password/confirm/route.js');
+    const res = await GET(makeGet('?token_hash=jeton&type=recovery'));
+    const location = new URL(res.headers.get('location')!);
+    expect(location.pathname).toBe('/code-verification');
+    expect(location.searchParams.get('next')).toBe('/reset-password/confirm');
+  });
+
+  it('client sans claim d’organisation → formulaire directement (aucun code pour lui)', async () => {
     mockExchangeCodeForSession.mockResolvedValue(
       session('traiteur_manager', [ACTIF]),
     );

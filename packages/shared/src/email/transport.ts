@@ -1,10 +1,9 @@
 // Seul point d'appel du SDK Resend : tout email émis VIA RESEND passe ici (règle
 // ESLint `no-restricted-imports` sur 'resend' partout ailleurs).
-// Deux canaux n'y passent pas et ne sont donc PAS couverts par la garde :
-//   - Supabase Auth, qui envoie lui-même l'email de réinitialisation de mot de
-//     passe (`resetPasswordForEmail`) ;
-//   - Pennylane, qui envoie les factures et avoirs à l'adresse qu'il connaît du
-//     client (`send_email`).
+// Un canal n'y passe pas et n'est donc PAS couvert par la garde : Pennylane, qui
+// envoie les factures et avoirs à l'adresse qu'il connaît du client
+// (`send_email`). L'email « mot de passe oublié », autrefois envoyé par Supabase
+// Auth, passe ici depuis le 2026-11-06 (`api/auth/reset-password`).
 // Ce fichier porte trois garanties, et il est le seul à les porter :
 //   - l'expéditeur vient de RESEND_FROM, jamais du code ni de l'appelant ;
 //   - hors production, aucun email n'atteint un vrai destinataire ;

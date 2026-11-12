@@ -85,7 +85,7 @@
     },
     {
       "id": "M1.8-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1585",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1588",
       "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql",
       "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql (S1 : 3 tours → SUM par flux ; idempotence)",
       "statut": "implemented",
@@ -93,7 +93,7 @@
     },
     {
       "id": "BL-P0-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1585",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1588",
       "artefact": "supabase/migrations/20260624130000_plateforme_r1_collecte_flux_derive.sql, packages/plateforme/src/app/api/v1/admin/collectes/[id]/flux/route.ts",
       "test": "supabase/tests/m1_8_collecte_flux_derive.test.sql ; M1.1b/flux/manuel — 200 : UPSERT poids_reel_kg + audit_log avec motif",
       "statut": "implemented",
@@ -109,7 +109,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e306182509f1b929d8b24573e0ea4e3e4988483c81da818841030e4776f9174",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "63628061ea6f6a5dc701b14dd15fe8607830453d78a0a9a13fbf3fb90ecc7e0f"
   }
 }

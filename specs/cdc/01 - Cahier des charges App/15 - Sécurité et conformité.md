@@ -28,8 +28,8 @@
 - JWT session : durée **1h**, refresh token **30 jours**
 - Mots de passe : 10 caractères min, 1 majuscule, 1 chiffre, 1 caractère spécial — hashés bcrypt par Supabase Auth (jamais stockés en clair)
 - Email de vérification obligatoire à la création de compte
-- **2FA** : hors scope V1, à activer en V1.1 (Supabase Auth le supporte nativement)
-- **SSO SAML** : architecture anticipée en V1, activable V2 sans migration
+- **2FA** *(avancée 2026-11-04, décision Val — questionnaire sécurité VIPARIS, exigence IAM1)* : code de vérification à la connexion (application d'authentification, TOTP, Supabase Auth ; pas de SMS) **obligatoire pour l'équipe Savr** (`admin_savr`, `ops_savr`) **en production** (aucun code sur les environnements de développement et les aperçus), demandé une fois par session (nouvel appareil, déconnexion, fin des 30 jours), jamais à chaque page. Aucun code pour les clients, sauf les utilisateurs d'une organisation dont l'Admin a coché « Code de vérification » sur la fiche organisation *(VIPARIS, décision Val 2026-11-10, à la place du SAML)* : mêmes règles que l'équipe Savr ; une session impersonée n'y est pas soumise (l'Admin a passé son propre code pour la lancer). Contrôle côté serveur (niveau `aal2` du jeton lu par le middleware et par les gardes d'API) et en base *(2026-11-04)* : une session de l'équipe Savr sans code, dont le compte a activé son code, ne lit ni n'écrit rien, même par l'API Supabase en direct (policy restrictive sur chaque table, cf. [[09 - Authentification et permissions]] §3). Perte du téléphone : réinitialisation par un autre `admin_savr` (tracée dans `audit_log`), ou dans la console Supabase.
+- **SSO SAML** : architecture anticipée en V1, activable V2 sans migration. VIPARIS : pas de SAML en V1 *(décision Val 2026-11-10)*, code de vérification à la place (cf. 2FA ci-dessus)
 
 ### 2.2 Autorisation — RLS
 
@@ -43,6 +43,7 @@ L'Admin Savr peut se connecter à la place d'un utilisateur pour résoudre un in
 
 - Bandeau orange permanent visible à l'écran pendant toute la session impersonée
 - Chaque action réalisée en mode impersonation est loggée dans `audit_log` avec `impersonator_id` distinct de `user_id`
+- Le code de vérification d'une organisation qui l'exige n'est pas demandé à la session impersonée, et à elle seule *(2026-11-10, cf. [[09 - Authentification et permissions]] §7)*
 - L'utilisateur impersoné voit que son compte a été accédé : bloc « Accès de l'équipe Savr à votre compte » de l'onglet « Mon profil » de « Paramètres » (lecture self `f_mes_acces_compte`, GET /api/me/acces). La carte « Sécurité du compte » est retirée de l'écran (décision Val 2026-11-01), mais la transparence est conservée (arbitrage Val 2026-11-02 ; dette code : réafficher le bloc). La trace reste dans `audit_log`.
 
 ### 2.4 Gestion des secrets
@@ -99,10 +100,13 @@ Savr traite des données personnelles (noms, emails, téléphones des contacts t
 
 | Catégorie | Données | Base légale | Rétention |
 |---|---|---|---|
-| Compte utilisateur | Nom, prénom, email, téléphone, mot de passe hashé | Contrat | Durée du compte + 3 ans |
-| Organisation | Raison sociale, SIRET, TVA, adresse facturation | Contrat | Durée relation commerciale + 10 ans (comptable) |
-| Événements & collectes | Date, lieu, pax, pesées, photos | Contrat + Obligation légale | 10 ans (bordereaux) / 5 ans (registre déchets) |
-| Contacts événementiels | Nom, téléphone (contact sur site) | Intérêt légitime | Durée de l'événement + 1 an |
+| Compte utilisateur | Nom, prénom, email, téléphone, fonction, mot de passe hashé | Contrat | Durée du compte + 5 ans après la fermeture ou la fin de la relation (prescription) ; anonymisation plus tôt sur demande après fermeture |
+| Organisation | Raison sociale, SIRET, TVA, adresse et contact de facturation | Contrat + Obligation légale | Durée de la relation commerciale + 5 ans ; pièces comptables 10 ans |
+| Événements & collectes | Date, lieu, pax, pesées, photos, documents (bordereaux, rapports de don, registre) | Contrat + Obligation légale | 10 ans après la collecte (pièces justificatives comptables et fiscales ; couvre les 5 ans du registre déchets) |
+| Contacts événementiels | Nom, téléphone, email, fonction | Contrat | Carnet de l'organisation : durée de la relation + 5 ans ; fiche de l'événement : 5 ans après la collecte |
+| Chauffeurs | Nom, téléphone, immatriculation | Contrat | 5 ans après la collecte |
+| Contacts des associations | Nom, téléphone de la personne qui réceptionne les dons | Contrat | Durée de la relation avec l'association + 5 ans |
+| Échanges avec les transporteurs | Journaux d'intégration | Contrat | 3 ans au plus (partitions annuelles supprimées au-delà de 2 ans, `f_purge_logs`) |
 | Logs d'audit | Actions utilisateur, impersonations | Intérêt légitime (sécurité) | 5 ans (obligation comptable, cf. §07/06 §4) |
 
 ### 3.3 Droits des utilisateurs
@@ -125,7 +129,7 @@ Tous les droits RGPD sont exercés via :
 
 Un document "Politique de confidentialité" doit être rédigé et publié avant le go-live. Il documente : les données collectées, leur usage, la durée de conservation, les sous-traitants, les droits des utilisateurs et le contact DPO (ou contact RGPD si pas de DPO désigné).
 
-**Format** : page web accessible sans authentification + lien dans le footer de l'app et dans les emails transactionnels.
+**Format** : page web accessible sans authentification (`/confidentialite`) + lien sous les écrans de connexion et d'inscription, dans le menu de l'utilisateur (pied de la barre latérale) et dans le pied de page des emails envoyés par la plateforme. L'email de réinitialisation du mot de passe part par Resend depuis le 2026-11-06 (Supabase ne fabrique plus que le lien, `auth.admin.generateLink`), avec le gabarit `reset_password` en base : il porte le lien dans le pied de page commun des emails (`packages/shared/src/email/enveloppe.ts`). Le gabarit `supabase/templates/recovery.html` ne sert plus qu'à un envoi déclenché directement par Supabase Auth (console, instance locale).
 
 **À faire avant go-live** : rédiger ce document (hors scope CDC technique, à déléguer à un juriste ou rédiger avec l'aide de Claude).
 
@@ -225,7 +229,7 @@ Actions obligatoires avant mise en production avec clients réels :
 - [ ] DPA Pennylane signé
 - [ ] **Confirmation écrite Pennylane : statut certification PDP + date activation** — bloquant absolu si clients ETI/GE (Viparis, Lenôtre, Potel & Chabot) avant sept 2026 (2026-04-28)
 - [ ] Test bout en bout Pennylane sandbox : émission Savr → API v2 → Factur-X → PPF DGFiP
-- [ ] Politique de confidentialité rédigée et publiée (page web + lien footer)
+- [x] Politique de confidentialité rédigée et publiée (page `/confidentialite`, liens connexion, menu utilisateur, emails)
 - [ ] Mentions légales publiées
 - [ ] CGU rédigées et publiées (Draft V1 disponible — voir [[CGU Savr V1 - Draft]])
 - [ ] Watermark activé sur tous les PDFs
@@ -245,7 +249,7 @@ Actions obligatoires avant mise en production avec clients réels :
 | DPAs à signer avant go-live | Couverture par CGU fournisseurs | Non-conformité formelle RGPD sans DPA. Risque aggravé en cas d'incident. Procédure simple (30 min max). |
 | `DENY ALL` par défaut sur RLS | Permissions larges restreintes au besoin | Toute permission non documentée = accès refusé. Principe de moindre privilège. |
 | Audit log non modifiable | Modifiable par Admin | Intégrité de la traçabilité — un Admin ne doit pas pouvoir effacer ses propres actions |
-| 2FA hors scope V1 | 2FA V1 | Supabase Auth le supporte nativement — activable V1.1 en 1 ligne de config |
+| 2FA V1 pour l'équipe Savr et pour les utilisateurs d'une organisation cochée par l'Admin *(décisions Val 2026-11-04 et 2026-11-10)* | 2FA hors scope V1 ; 2FA pour tous les rôles | Exigence IAM1 du questionnaire sécurité VIPARIS : l'accès du fournisseur aux données client exige un second facteur. Les clients en sont exemptés (aucune exigence, friction inutile), sauf les utilisateurs d'une organisation cochée par l'Admin *(VIPARIS, décision Val 2026-11-10 : exigence IAM3, à la place du SAML)*. |
 | Soft delete par défaut | Hard delete immédiat | Permet de corriger une erreur de suppression dans les 48h. Hard delete sur demande RGPD explicite uniquement |
 | Registre déchets sans Trackdéchets V1 | Intégration Trackdéchets V1 | Complexité disproportionnée en V1. Renvoi Veolia en cas d'audit. Trackdéchets V2 si requis réglementairement. |
 

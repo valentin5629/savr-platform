@@ -88,9 +88,9 @@ export async function getVerifiedClaims(
       const { data } = await auth.getClaims();
       const claims = data?.claims as Record<string, unknown> | undefined;
       if (claims && typeof claims['sub'] === 'string') {
-        // Session vérifiée, mais l'équipe Savr n'a pas encore passé le code :
-        // pas une session valide pour l'API (refus définitif, pas de repli).
-        if (codeVerificationManquant(str(claims['user_role']), claims['aal'])) {
+        // Session vérifiée, mais soumise au code et sans code : pas une
+        // session valide pour l'API (refus définitif, pas de repli).
+        if (codeVerificationManquant(claims)) {
           return null;
         }
         return {
@@ -113,7 +113,7 @@ export async function getVerifiedClaims(
     data: { session },
   } = await auth.getSession();
   const claims = parseJwtClaims(session?.access_token ?? '');
-  if (codeVerificationManquant(str(claims['user_role']), claims['aal'])) {
+  if (codeVerificationManquant(claims)) {
     return null;
   }
   return {

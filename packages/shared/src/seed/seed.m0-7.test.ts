@@ -282,7 +282,7 @@ describe('seed — transporteur selon le type de collecte', () => {
     readFileSync(resolve(REPO_ROOT, 'packages/shared/src/seed', f), 'utf8'),
   );
 
-  it('M0.7-33 — Strike ne prend que les ZD ; Marathon, Transnormandie, A Toutes! et Presta sans code que les AG', () => {
+  it('M0.7-33 — Strike ne prend que les ZD ; Marathon, Transnormandie, A Toute! et Presta sans code que les AG', () => {
     expect(TYPES_COLLECTE_TRANSPORTEUR).toEqual({
       strike: ['zero_dechet'],
       marathon: ['anti_gaspi'],

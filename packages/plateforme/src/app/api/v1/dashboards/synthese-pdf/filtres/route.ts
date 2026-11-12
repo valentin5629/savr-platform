@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, createSupabaseServerClient } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 
 /**
  * GET /api/v1/dashboards/synthese-pdf/filtres — options des filtres de la modale
@@ -49,20 +50,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ? 'organisation_id'
       : 'traiteur_operationnel_organisation_id';
 
+  // Événements lus page après page (`lireParPages`) : une réponse est amputée à
+  // 1 000 lignes sans erreur, des options manqueraient aux deux filtres.
   // ── Client organisateur — distinct (id, nom depuis l'événement) ──
-  const { data: cliRows, error: cliErr } = await supabase
-    .from('evenements')
-    .select('client_organisateur_organisation_id, nom_client_organisateur')
-    .eq(scopeCol, org)
-    .not('client_organisateur_organisation_id', 'is', null);
-  if (cliErr)
-    return serverError(cliErr, 'dashboards.synthese_pdf.filtres.list');
-
-  const clientsMap = new Map<string, string>();
-  for (const r of (cliRows ?? []) as {
+  const cli = await lireParPages<{
+    id: string;
     client_organisateur_organisation_id: string | null;
     nom_client_organisateur: string | null;
-  }[]) {
+  }>((apresId) => {
+    const q = supabase
+      .from('evenements')
+      .select(
+        'id, client_organisateur_organisation_id, nom_client_organisateur',
+      )
+      .eq(scopeCol, org)
+      .not('client_organisateur_organisation_id', 'is', null);
+    return (apresId ? q.gt('id', apresId) : q)
+      .order('id', { ascending: true })
+      .limit(TAILLE_PAGE);
+  });
+  if (cli.error)
+    return serverError(cli.error, 'dashboards.synthese_pdf.filtres.list');
+
+  const clientsMap = new Map<string, string>();
+  for (const r of cli.data) {
     const id = r.client_organisateur_organisation_id;
     if (!id) continue;
     if (!clientsMap.has(id))
@@ -75,18 +86,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // ── Commercial — manager et commercial traiteur (Val 2026-10-30) ──
   let commerciaux: Option[] = [];
   if (role === 'traiteur_manager' || role === 'traiteur_commercial') {
-    const { data: evRows, error: evErr } = await supabase
-      .from('evenements')
-      .select('created_by')
-      .eq(scopeCol, org)
-      .not('created_by', 'is', null);
-    if (evErr)
-      return serverError(evErr, 'dashboards.synthese_pdf.filtres.list.ev_err');
+    const ev = await lireParPages<{ id: string; created_by: string | null }>(
+      (apresId) => {
+        const q = supabase
+          .from('evenements')
+          .select('id, created_by')
+          .eq(scopeCol, org)
+          .not('created_by', 'is', null);
+        return (apresId ? q.gt('id', apresId) : q)
+          .order('id', { ascending: true })
+          .limit(TAILLE_PAGE);
+      },
+    );
+    if (ev.error)
+      return serverError(
+        ev.error,
+        'dashboards.synthese_pdf.filtres.list.ev_err',
+      );
     const ids = [
       ...new Set(
-        (evRows ?? [])
-          .map((r) => (r as { created_by: string | null }).created_by)
-          .filter((x): x is string => !!x),
+        ev.data.map((r) => r.created_by).filter((x): x is string => !!x),
       ),
     ];
     if (ids.length > 0) {

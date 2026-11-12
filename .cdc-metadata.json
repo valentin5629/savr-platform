@@ -1,87 +1,95 @@
 {
   "_note": "DÉRIVÉ/régénérable (scripts/gen-cdc-metadata.ts, appelé par sync-specs.sh). Hash sha256 par fichier specs/cdc/**/*.md. Référence de G10 (complétude) et G11 (drift). Ne pas éditer à la main.",
   "generated_from": "specs/cdc",
-  "nb_fichiers": 121,
+  "nb_fichiers": 130,
   "files": {
+    "specs/cdc/01 - Cahier des charges App/00 - Index.md": {
+      "sha256": "fde6297c8fec1bad1b9e78443d9573d170cfe9dac8e39dffb3cad2c0d00eab73",
+      "bytes": 115392
+    },
     "specs/cdc/01 - Cahier des charges App/00 - Scoping V1.md": {
-      "sha256": "427b3bede96646d5992cac0fbc5e26d5c3fce6bffcc531651637c584beef510e",
-      "bytes": 7564
+      "sha256": "9b736b047cc6fa799fa889a297d71d61ab9ead8856981d76803ed940af5c039a",
+      "bytes": 7836
     },
     "specs/cdc/01 - Cahier des charges App/01 - Vision et objectifs.md": {
-      "sha256": "4327972ea564d56b2a85b50a5a1b48a248dfff451967f4a2b6c4708848616c28",
-      "bytes": 18167
+      "sha256": "02cff88f174e625da87710012e1607d2e9840077d071069ba65d3430bcbaa30e",
+      "bytes": 18162
     },
     "specs/cdc/01 - Cahier des charges App/02 - Personas et cas d'usage.md": {
-      "sha256": "514aa0194de6c10885a9757ded35411f22dcbc542ac1356aede9229c01d4c9f7",
-      "bytes": 23945
+      "sha256": "7b1aeb0644e967ca089fb2ee7f83cb980565643b04a09db33175ba55f3f862bd",
+      "bytes": 23943
     },
     "specs/cdc/01 - Cahier des charges App/03 - Périmètre fonctionnel global.md": {
-      "sha256": "598ccc338bf4a40391c3ca389c27c5b9af53fd606740ce24c96b3e67959d73d3",
-      "bytes": 26820
+      "sha256": "34f320b94114c205edf313d13c16092ab21ee7b1180249efff88d712dcb14b26",
+      "bytes": 26875
     },
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": {
-      "sha256": "71a5aff3d68f1e2cd3712add634d51f0ddc97f94d758c1a2f2d36edcf5474cad",
-      "bytes": 352349
+      "sha256": "6e306182509f1b929d8b24573e0ea4e3e4988483c81da818841030e4776f9174",
+      "bytes": 359207
     },
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": {
-      "sha256": "260d3ecc4c82c4ca9e579c4ea7d663b7c71aa073af1c7692cf6efbddb8b6e2f5",
-      "bytes": 143375
+      "sha256": "63628061ea6f6a5dc701b14dd15fe8607830453d78a0a9a13fbf3fb90ecc7e0f",
+      "bytes": 146365
+    },
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/00 - Index section 06.md": {
+      "sha256": "e6a1a32bc165b61006a103359c04fe2f1e440f611b67900806d9c239d55f3529",
+      "bytes": 3508
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": {
-      "sha256": "721634d4b61b4053692f2293eefca7b31f859b0df5341eada7f67bd524827179",
-      "bytes": 81824
+      "sha256": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
+      "bytes": 81945
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": {
-      "sha256": "454cf1fef34eda6c8f510d347b1d5b2d580c6d90febf31d0bdacabe33bf322a3",
-      "bytes": 59716
+      "sha256": "cc6c3563a0c2eba14231d519788e019cce5b3cc8b767dd91554b1d7fcde338d7",
+      "bytes": 59780
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": {
-      "sha256": "1bd6a37c1ff937a32f2e10ab68e05027fcafd18f615cf63e1b525232fa67184c",
-      "bytes": 11804
+      "sha256": "b404815e2c3626158d803dc7b5c18dc5947667958ca5a4681d94206c126ecb69",
+      "bytes": 11942
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": {
-      "sha256": "3b3b4ebba18cfe5ef58baa1c73dd618d031c3b41d8a1494d28cbf18780f81a80",
-      "bytes": 144259
+      "sha256": "2729e3bfb96ff820dc24c62edb4fd05e5149306f7fd8b12be49cc6503199dc38",
+      "bytes": 146029
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": {
-      "sha256": "5557f63f4c2f64caa2cd89f802a7fd19aed2dc55d2f0d35ba45c12b6e808e901",
-      "bytes": 95068
+      "sha256": "7c59e8dde2edd7021e6fcd7d1f8aac595db9131d3669540c828293a244587e36",
+      "bytes": 97407
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
-      "sha256": "d5b6f644aa60e3d7ca36d414cdec3c06d0a954545705e865b8e06f935929f678",
-      "bytes": 164479
+      "sha256": "47a805a1a2038dcabef70df46c3a96f374543e58c87236543fbb991ebd7d72a2",
+      "bytes": 173691
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
       "sha256": "05539f712e35566191aa2b0d163e7b47f2d58bd83109da5ab6e2c2b16a18fd76",
       "bytes": 23889
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": {
-      "sha256": "5129aa28dc9794a842f435362a1103998993507bd90e45787125ab474413aecd",
-      "bytes": 43987
+      "sha256": "e15a9d0b36c784f6e8125ad48e55200e7f0fdd39da9a7b1501adb003fa1a2c11",
+      "bytes": 46049
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/11 - Espace client agence.md": {
-      "sha256": "4482c9a343f5aadb36a4c9f139d30333f6a24eebb74d1c9a89c3e62c95018e34",
-      "bytes": 20104
+      "sha256": "25e1fa0731bf030b5413d6ef9a341f71d0b0ef52330ba8289085ba79f716bceb",
+      "bytes": 20170
     },
     "specs/cdc/01 - Cahier des charges App/07 - Architecture technique.md": {
-      "sha256": "e74d41f0693355036b17c1c1fcd5712bc1c0689ba1e1ba473d911e3c443d7bc3",
-      "bytes": 32378
+      "sha256": "963d84990e5a0ec5fcce3895ea04d169e0c953801e1df4b45864c251832a02b3",
+      "bytes": 32531
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/00 - Stack retenue.md": {
       "sha256": "e6903fad5d9fc48182b6311f9b85610caa7b6c9286edd2abd46262ab2c0d1a31",
       "bytes": 5103
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/01 - Logs business.md": {
-      "sha256": "c0d762959e79e1a034e48b8dfef78eb74370357956a6d9cfdea099bf4c379410",
-      "bytes": 7245
+      "sha256": "cdc71ae048bb870febb18c1059a636e1db05bab842cff73bf628ebf1955ff978",
+      "bytes": 7931
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/02 - Logs techniques.md": {
-      "sha256": "3dece20b7d1f1f553c618abfc5b36096d967bf6ba2f8e68d982a8e83cc7ed054",
-      "bytes": 6555
+      "sha256": "8de330016f22bfe3b118209db046c7dea6b74bc36d057ccf1a8b903f84024cfb",
+      "bytes": 6695
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": {
-      "sha256": "67536ff643130ed80eeae822fd0a46c108ddda9e05630f29ed06bcff7cb33032",
-      "bytes": 7992
+      "sha256": "bb1b5909a595db4e4b4567bedc8d200e7dc874089b468a8a105bb76f74330925",
+      "bytes": 7991
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/04 - Dashboards business.md": {
       "sha256": "b002c6aac1e37194a2a4580d5536a49197a703caf5f9d46962a2224323fa1220",
@@ -92,28 +100,28 @@
       "bytes": 3907
     },
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": {
-      "sha256": "5106e46cfcd6f9197dc77196b058005b1b06486808d4269081c393e692cfc22e",
-      "bytes": 10020
+      "sha256": "b2378a8d3e0a4542259615e26ad5d1449591e43d212e03ca7f5bdc86128438f4",
+      "bytes": 10645
     },
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": {
-      "sha256": "1feba8e10b9a8c5d7065cfb3ab584be8c33e9913a4ea64f5558ac66344373597",
-      "bytes": 154841
+      "sha256": "6911d943445819f29b739aec4ab39a438920cab2c1d10d91dd47ea04e21433f1",
+      "bytes": 160048
     },
     "specs/cdc/01 - Cahier des charges App/08 - Performance/01 - Volumes attendus.md": {
-      "sha256": "5c96bc11e43b37100589bc43ab8b8da3cf2d248d2bf488bdde8b1ff6f1dfbdd1",
-      "bytes": 4589
+      "sha256": "1672c5e779c56ecbab29ca8aa8d24b800e499ad0da998ebaceedcb394370420d",
+      "bytes": 4632
     },
     "specs/cdc/01 - Cahier des charges App/08 - Performance/02 - SLA par endpoint.md": {
-      "sha256": "e4429407a19b952e279b42e52ea01adc6e122e640d62c5ba516cd7ea27ebe1db",
-      "bytes": 5370
+      "sha256": "78a1b735a2a93820b34c63a8cedff8de3f49021718fb5fdcababddac99719f15",
+      "bytes": 5383
     },
     "specs/cdc/01 - Cahier des charges App/08 - Performance/03 - Cibles techniques transverses.md": {
       "sha256": "7c63004d53d2d3fad111930ad82f6c6b53230218e63b9bec5659c5f5b0db16e7",
       "bytes": 2705
     },
     "specs/cdc/01 - Cahier des charges App/08 - Performance/04 - Scenarios de charge.md": {
-      "sha256": "cfb3b4b678af21d4cd7b3f98f1011b468cc1d056855a1914bb3e2790dcffa01c",
-      "bytes": 3245
+      "sha256": "6ebe34373252c7f8485d3fdb28f419bae6fe83122ab6066befe984f4cdd36bd9",
+      "bytes": 3261
     },
     "specs/cdc/01 - Cahier des charges App/08 - Performance/05 - Strategies optimisation.md": {
       "sha256": "6d79f00b679f578f6bc659b3a0d65f55c82aba8922436aa8e5cd19c0ca0e7769",
@@ -124,148 +132,164 @@
       "bytes": 2752
     },
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": {
-      "sha256": "61267fa23e3119d403e0fcd711c943f4f192f83091a81dbe945d86f392ee4594",
-      "bytes": 129206
+      "sha256": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a",
+      "bytes": 133814
     },
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": {
-      "sha256": "c957507b8789dd429a600c8b84a11e336625486cd6d28ee3b6c0fe0b161ae26b",
-      "bytes": 44733
+      "sha256": "a9de6c0417ce9d3897389e87ee1dda40c4415f1970931bea722f9c3ba6ea1534",
+      "bytes": 46411
     },
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": {
-      "sha256": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9",
-      "bytes": 37373
+      "sha256": "3e6024df5d3f8eaed7d6797ebc0f51d5408b42d2fd3816d0400347724c51d4ac",
+      "bytes": 40855
     },
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": {
-      "sha256": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de",
-      "bytes": 66788
+      "sha256": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc",
+      "bytes": 68508
     },
     "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": {
       "sha256": "3a3aaa4307f06b350470f7fafb7c495ecfe25b0ead0c71e7112950a68a3fc8e3",
       "bytes": 15548
     },
     "specs/cdc/01 - Cahier des charges App/14 - Scalabilité et évolutivité.md": {
-      "sha256": "919a2855a4fde7c45b2536776cfdcd0d1f8cda64d51589bff8700ddc9fd522ac",
-      "bytes": 11377
+      "sha256": "49a84655f46bd8adefb44d0df702feb5bd68cb7807771e89e9849909f4978fac",
+      "bytes": 11406
     },
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": {
-      "sha256": "c644989ef4f9ce490f7eb8fe4897e06e57bc506d458a1b876a8a8224896cdeaf",
-      "bytes": 19639
+      "sha256": "d0d2f00a195516f6ed9e84337d9e6936d1f030c01a3a1a841c5ee50fc167fda5",
+      "bytes": 22901
     },
     "specs/cdc/01 - Cahier des charges App/16 - Roadmap et priorisation.md": {
-      "sha256": "b14b6d89cdc5cf52b73bedd8fd7b946322335d4fffceaaa230b086107efd2fac",
-      "bytes": 13988
+      "sha256": "d5f782937183da0a79e94523e8ff6882969a3dd4b25438d51961b303bba619cf",
+      "bytes": 14277
     },
     "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": {
-      "sha256": "760800aa1c0b318f4322548e88712312a10ea71a854be1c9363a43e657438e7d",
-      "bytes": 16391
+      "sha256": "9a862121bc87be8b5c406e4a1668fc6099d2c0ebc34a3046e3790ba6bae3d55c",
+      "bytes": 16430
     },
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": {
       "sha256": "9fa916185db8b53ec027cf688c8cab232a4e35b6f246493934adbe4921f4423d",
       "bytes": 29549
     },
     "specs/cdc/01 - Cahier des charges App/Frontière TMS-Ready V1.md": {
-      "sha256": "1b414231c02037ac24c731a198f8ce5de806a9d0e836b801413b70257d68bb16",
-      "bytes": 12747
+      "sha256": "7b9c8079aff78b9d99ce7cb6cfd110a77049f43d68e08dcf443d63c998efca4c",
+      "bytes": 12973
     },
     "specs/cdc/01 - Cahier des charges App/Interface logistique_provider V1.md": {
-      "sha256": "37434cc2eb9777cb54cb83bc730610e99313c71acd5e09a384eb26f7e34c0817",
-      "bytes": 12124
+      "sha256": "00a8a8ed53c9dc9ce41964eb0bc0dbafe3991d404ff5d7359380e471124614d8",
+      "bytes": 12122
+    },
+    "specs/cdc/01 - Cahier des charges App/_PENDING - Everest API V1 (à intégrer §08 §3).md": {
+      "sha256": "7ab81694c1c6a86b763e401f65063931f45d928f8e218339df75e83c22758337",
+      "bytes": 5576
+    },
+    "specs/cdc/01 - Cahier des charges App/_RAPPORT-EXPORT.md": {
+      "sha256": "98a04a0ae872948415fc7d7f547538dbed7c8460ac0101786daa6284761b9690",
+      "bytes": 17373
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.01-formulaire-programmation-scenarios.md": {
-      "sha256": "683adbf4338a5314ebdd779e6efb07febfbb1cbe80ab1b5f72c9207601db92ca",
-      "bytes": 62397
+      "sha256": "4dbafa8f49544444c2e53c3862597c48b73663ec227329ba91b3372b01582de2",
+      "bytes": 62426
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.02-templates-emails-scenarios.md": {
-      "sha256": "2ca5b9b20b59d99b02334a8d2119dd88b32bd2206c0955a0f203f319be705e0f",
-      "bytes": 36311
+      "sha256": "2973e5e89c029aa2e9e5dd85d037505370277601079331689bf19a89c32dfc83",
+      "bytes": 36819
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.03-registre-reglementaire-scenarios.md": {
-      "sha256": "e4f8889cdc68067c1af5565bfddd791ace5032c0f60a8b5131e787e9cfa78918",
-      "bytes": 28512
+      "sha256": "f5276de9da3d815590cc9c27e9e534e6720172d8ecd08d1d70f41f8bbce583b1",
+      "bytes": 29003
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.04-espace-traiteur-scenarios.md": {
-      "sha256": "beb39e3c07abfbe2eccb0265ae5b9e78a5d82e729dd4bac00f73809558951835",
-      "bytes": 86116
+      "sha256": "476f551616593d294005465323a48786f451f5b55f141519864870c0743e3b1f",
+      "bytes": 87674
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.05-espace-gestionnaire-lieux-scenarios.md": {
-      "sha256": "d730d24e7d3bae05face1bb584ea3229ad456673e021f568d35a114878494eda",
-      "bytes": 76044
+      "sha256": "b01f755d86b92c0483041a7cdfb0c67d9191f4dcfcc4a92baf76366932cf90db",
+      "bytes": 78619
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.06-back-office-admin-scenarios.md": {
-      "sha256": "118ad8aa60ca02527a98e6ac2b270be7a61beb507238ebf66a03e4e47e3ba770",
-      "bytes": 98187
+      "sha256": "3de886fb159d77ac33fed93c2b78ebc88c5888c317b8bfa6d54da21d71193859",
+      "bytes": 101103
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.08-generation-edition-facture-scenarios.md": {
       "sha256": "c4b66eda61f4190685d6473ea2283679ad76f33391f106501a8db490353312d2",
       "bytes": 35242
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.09-algo-attribution-ag-scenarios.md": {
-      "sha256": "8ce478b396fa73946aef88184a42dfaaf8698db4c9bf0f9a2c6290c2522f6616",
-      "bytes": 37858
+      "sha256": "653849e3f499c664939b747e12eb50e28d80c5277ceb357f52e8a8c4a88f52d8",
+      "bytes": 40309
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.11-espace-agence-scenarios.md": {
-      "sha256": "1be630c2ef49af44633f9c5e8b5cd8ede635e02ef12ed036fd54f42a6e33c0dc",
-      "bytes": 31955
+      "sha256": "07880af9a67d2ddca3267ab9a19c4045a5899e25c2d16546f2cc74bbb599457b",
+      "bytes": 31983
     },
     "specs/cdc/01 - Cahier des charges App/tests/08-apis-integrations-scenarios.md": {
-      "sha256": "9805c49a78f6b3359fcb4201e98170e91cec1e0ba23f6ab33fac5bc4bd1203a7",
-      "bytes": 64670
+      "sha256": "868470f712f0be3312f38cb7dc0c642e9ce2ad1d48c56227e722c4b5ff035634",
+      "bytes": 65461
     },
     "specs/cdc/01 - Cahier des charges App/tests/09-rls-app-transverse-scenarios.md": {
-      "sha256": "eb09be116012d4a09e1c520b79cec03c3ac57d8dbf26db0b715c5e9f8fa748b5",
-      "bytes": 43632
+      "sha256": "2328253700a02c6dc95be07706f10ce9f9a5b9484348b56664faee8f331810c8",
+      "bytes": 46262
     },
     "specs/cdc/01 - Cahier des charges App/tests/11-12-dashboards-reporting-scenarios.md": {
-      "sha256": "0333eb62a77aa625dfe8c3fb502991261ac8a6fae912f0970dc352bd521dc3d2",
-      "bytes": 64839
+      "sha256": "3290baf3f711644701f867f95d6a759810c887eb9b5a4253ba424a064408cbbe",
+      "bytes": 67267
+    },
+    "specs/cdc/02 - Cahier des charges TMS/00 - Index.md": {
+      "sha256": "fc83b173e6a355591b5237e68b1272fc3edebdd5c4a371a98bfb2ce5b28f73dc",
+      "bytes": 75491
     },
     "specs/cdc/02 - Cahier des charges TMS/01 - Vision et objectifs TMS.md": {
-      "sha256": "71c9e78dac07c90f0739d1208064db82f4f333b38c78ab0d83459fe1c7f3124c",
-      "bytes": 54402
+      "sha256": "082e106c1443c0746798c2bead89f9cd5897d68ab5f3dc3931c1a6082765c8f5",
+      "bytes": 54392
     },
     "specs/cdc/02 - Cahier des charges TMS/03 - Périmètre fonctionnel TMS.md": {
-      "sha256": "afaec857b3dea79690d2f9857873525641f2db8a345072e65ee471e163d256e4",
-      "bytes": 74179
+      "sha256": "541e9a28d9ba40a3670bb7d6a79cfc00e3d69a2d300991e757c06faeaaee8f82",
+      "bytes": 74132
     },
     "specs/cdc/02 - Cahier des charges TMS/04 - Data Model TMS.md": {
-      "sha256": "617e6f0af51993b7efa400740e712b60ad498a4ea94fdba122fbc3cb6cee2c01",
-      "bytes": 290868
+      "sha256": "451dfd477ab4d140eded6abff94af8e4a9771b4d039b481d837b08e125f228d8",
+      "bytes": 290822
     },
     "specs/cdc/02 - Cahier des charges TMS/05 - Règles métier TMS.md": {
-      "sha256": "a18c55cda6ed3374ca65b35d5a59f070e561704cae8187904f04154dbe9cff3e",
-      "bytes": 124617
+      "sha256": "1b3ef57da5dc67fc6c94d0c9a8e2190126d379d9c87a4caa12b6400a16d0ff71",
+      "bytes": 124574
+    },
+    "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/00 - Index.md": {
+      "sha256": "b731e17817899e8d825e4937aaa3bc097c6c8bab5c51c3bf50b3cf1b1562184a",
+      "bytes": 10166
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M01 - Réception ordres de collecte.md": {
       "sha256": "431bb3661389953e780ca4b4035ff34229e63d512d6ac6dcef5eb877a962a368",
       "bytes": 48083
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M02 - Dispatch Ops Savr.md": {
-      "sha256": "a8fe87d8a4c1cc00760621acde39a78255da8185341f7051b107632ef5d90fda",
-      "bytes": 45672
+      "sha256": "0165ca484b79f148b2239e80b3978124e011917ac7ebc77d0ab8739393ca35ee",
+      "bytes": 45661
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M03 - Portail prestataire self-service.md": {
-      "sha256": "a411dff54633437ec8ffe68c502fd62914a1ffd562c245d049ffe4a186ed38ad",
-      "bytes": 67131
+      "sha256": "c2aa59cf6a4b97a9f439762c00e6deb9a255ab68b1b928d7e8ff7bd0b079a0dd",
+      "bytes": 67125
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M04 - Gestion des tournées.md": {
-      "sha256": "c1d7ac98c17ee00324a935ce6042a58d22167c82bb2f6fbfe478a8bff5559cbc",
-      "bytes": 79817
+      "sha256": "0c73cc3ba1fa1755fa7817538f08eaab3249b101f480d91431033a99d05327a2",
+      "bytes": 79807
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M05 - App mobile chauffeur.md": {
-      "sha256": "563cd693f932765cc655c9b68ec250fc7461f74431a2f03630e83843123b091b",
-      "bytes": 92894
+      "sha256": "ef0ab595b1a3a86b660861a45d1cf59ff4d94e716c8706b646e0e0593254dd06",
+      "bytes": 92885
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M06 - Référentiel prestataires.md": {
-      "sha256": "f231cda23dcfe1fd21da98f7788d693af22d26cd2643f199b643f3eaacc55be5",
-      "bytes": 52578
+      "sha256": "9417d90e4ad85b21fb106b4153a01e3e240bca395c9894d2d060e71db7c87f01",
+      "bytes": 52576
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M07 - Pilotage financier logistique.md": {
-      "sha256": "8fc145f73641d080cb9222823e2ae6ec382d8f44078499d45587002019913361",
-      "bytes": 57723
+      "sha256": "c2834f2d82c5c4044e51dbd48243712a60060dcd41ec36bd886a945910c3acf3",
+      "bytes": 57713
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M08 - Facturation prestataires.md": {
-      "sha256": "c55bacc438307395a244bb91e865ef2d5ff2b148453f04dd1d4f7030704983c8",
-      "bytes": 84755
+      "sha256": "38bfa9aed6783ee35dbcbb5d92d26cd91428a6f6c1a5e4e62d7c2f62e41a1789",
+      "bytes": 84746
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M09 - Stock matériel Savr.md": {
       "sha256": "3ea3961d8831b3544c1ebebf53556034fe87fca087e308f002a6b741cd77206f",
@@ -276,36 +300,36 @@
       "bytes": 49264
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M11 - Alerting transverse.md": {
-      "sha256": "19a8f073c91d56ba2a2fda09a6810d91a38a95d96f7bfd726dcc16e09cfa945d",
-      "bytes": 79222
+      "sha256": "65a522d1f2aa03d4f2c7a4dbc1cc9b728d08236285c63b847867cdb530881a42",
+      "bytes": 79219
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M12 - Attribution transporteur.md": {
-      "sha256": "6651ae99a4e522c7cfd83b29680aa497d3809815fe023bb107b9709b65593e23",
-      "bytes": 51501
+      "sha256": "c1987cba1aa8017ca1a6abb7d678b7807f2344f80ebecf3db0a706c41ffddf52",
+      "bytes": 51478
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M13 - Administration TMS.md": {
-      "sha256": "12930c34b385bc0d8c17ada97eff16874fb77e9f8157eabd5cf0c7c8485e2ab9",
-      "bytes": 77618
+      "sha256": "d43a6834876ff5e10c29a5da1fd71f98a31cdc2aad5c92953859d42278b54751",
+      "bytes": 77615
     },
     "specs/cdc/02 - Cahier des charges TMS/06 - Fonctionnalités détaillées TMS/M14 - Intégration Everest.md": {
-      "sha256": "1504881b1f4087f34ae58dc9918cdcc3b7eab908f14511a3462308780887d991",
-      "bytes": 64872
+      "sha256": "36aea7f2fbbeff90ab7c31b8dd09f74b01f0011a485cbcbb07c572166ceb5ae5",
+      "bytes": 64807
     },
     "specs/cdc/02 - Cahier des charges TMS/07 - Architecture technique TMS.md": {
-      "sha256": "d65c47824a4f7b70fd1d7907c726c847edc6dc2f4f18d9c81425a3c47a20add0",
-      "bytes": 35856
+      "sha256": "df48f236fb4416e8e9a66564299f07aa89af1d71f2c28422b3f4b62db8902f77",
+      "bytes": 35846
     },
     "specs/cdc/02 - Cahier des charges TMS/08 - Contrat API Plateforme-TMS.md": {
-      "sha256": "463313a0bba6120dfcb2c5819de851b8cb2526e156480c1defb0ce3a09c3618f",
-      "bytes": 104543
+      "sha256": "9d1c46897736d5930b93133db779fdd274d4e22634f08b8af786bfb7aef0ad2f",
+      "bytes": 104531
     },
     "specs/cdc/02 - Cahier des charges TMS/08 - savr-api-contracts/README.md": {
       "sha256": "a16ff7cfad1e14761ab54498e9a9e1af73e59473cdd8871bc7fd19a02992fe48",
       "bytes": 3077
     },
     "specs/cdc/02 - Cahier des charges TMS/09 - Authentification et permissions TMS.md": {
-      "sha256": "461c37d4592ae4440a7080cc540c68c41b23915053727b052866a9aedc0d2edc",
-      "bytes": 118279
+      "sha256": "e7ea59b83df7b2c1f222ddb2154e877231df90dbbe8e0eba7e44fe04dee7cf4f",
+      "bytes": 118271
     },
     "specs/cdc/02 - Cahier des charges TMS/10 - Design System TMS.md": {
       "sha256": "69267e02d2bf4aff0bc696c6a02ffb27cc690af2ae3e515c0c202014f14cae33",
@@ -320,48 +344,52 @@
       "bytes": 20921
     },
     "specs/cdc/02 - Cahier des charges TMS/13 - Migration MTS-1.md": {
-      "sha256": "9082cadb2bc19135542f1906fa9b483d4b9722819daff41183974197b94797f7",
-      "bytes": 39987
+      "sha256": "d3ba97422ea6813681427ad69b597f80220d3118741b87ee9f2c591ba0402304",
+      "bytes": 39980
     },
     "specs/cdc/02 - Cahier des charges TMS/14 - Scalabilité TMS.md": {
       "sha256": "edec9cb2eac8107a914667a50f01edee28be8e80d43b6a9aa78aa74fec15eb1a",
       "bytes": 10446
     },
     "specs/cdc/02 - Cahier des charges TMS/15 - Sécurité et conformité TMS.md": {
-      "sha256": "07ef83cbc8f66d9ddab72f1e606ee16510de7838412b5629b284da78f40532a9",
-      "bytes": 43407
+      "sha256": "bf00ae8f5b9e5568ca111474549e7f0fc6c92efbe52733d9a537d7c5c1108fd9",
+      "bytes": 43406
+    },
+    "specs/cdc/02 - Cahier des charges TMS/_RAPPORT-EXPORT.md": {
+      "sha256": "f3a6d4d158d73f1bd8939e10f907f794ad9849a2fe1198a795aa415f3ab7f933",
+      "bytes": 24613
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M01-reception-ordres-scenarios.md": {
       "sha256": "d3dd53029bbcb84294758948833e4e6ff75c27453ea39b2c2544557738b9a9c9",
       "bytes": 23242
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M02-dispatch-scenarios.md": {
-      "sha256": "de2a1f9e7daa250828f623e8d499f2b7c8c5f68799285048b7fb1c218dc8fafb",
-      "bytes": 28385
+      "sha256": "5fe19b187f79cfb2d101b47de439d103f8c45146a502e1c478ca31355cd22170",
+      "bytes": 28381
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M03-portail-prestataire-scenarios.md": {
-      "sha256": "de016cf62fe79482b5371cbbb98246b3972613ce2f1df5e70cdc7032e461a56c",
-      "bytes": 28899
+      "sha256": "02b29697325bd8d05b2ffc4587bebe201340e05466f9b78421c6a63409a471ed",
+      "bytes": 28898
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M04-gestion-tournees-scenarios.md": {
-      "sha256": "fe96ab1e6d59fa6d20500590294de911c14523676a3c9b48e47db5da8c3d9758",
-      "bytes": 38866
+      "sha256": "5ead73f0ee127b7a138e81a9a3bcaa530cfb678efce019968f429a59e733de3f",
+      "bytes": 38860
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M05-app-mobile-chauffeur-scenarios.md": {
-      "sha256": "826a29599b9fe8a91004552a5c0eab37392d7cfd4401f3ee444d0fc5a2de9f13",
-      "bytes": 33450
+      "sha256": "d0c1fa7272f9aef6c1c6e1b6113ad86ec42fa60838a501d07ca2d6663b8674dc",
+      "bytes": 33449
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M06-referentiel-prestataires-scenarios.md": {
-      "sha256": "281391574b17cc47c89d364e6294d9b0478f0cd31a07a9dad693bbf9e6e095c2",
-      "bytes": 31941
+      "sha256": "1a89f3004f002a5a304fb1eb10eb668ce66dec8bd0197ac7d1c758b87ff37503",
+      "bytes": 31940
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M07-pilotage-financier-scenarios.md": {
-      "sha256": "95770e7ada470d6f5eeb2b01d301f42f430d88cd1b80ed50a989cd3608e62827",
-      "bytes": 32955
+      "sha256": "c11422f7bae81c5574bc20bda64fbb589a01c95ce8cbe8c05273b28287588253",
+      "bytes": 32942
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M08-facturation-prestataires-scenarios.md": {
-      "sha256": "c6419012a81064b7c2e598b7d92915d96fdd394aab52bec530974a704df40462",
-      "bytes": 29455
+      "sha256": "1ea59644c41e9ecdafbba53d71a2fad807066cbd648831568838f470e991229e",
+      "bytes": 29454
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M09-stock-materiel-scenarios.md": {
       "sha256": "2049b74668b729deaf2486491b56fb916d3579805c17a1265a5afb564a973cc0",
@@ -376,28 +404,32 @@
       "bytes": 26691
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M12-attribution-transporteur-scenarios.md": {
-      "sha256": "4c832dd033f855e7bc5763b26ab319e14c487365fc29f290aff0e2308329e4f4",
-      "bytes": 32278
+      "sha256": "c292f6006646e385f089856c737f62ae096934d0418dfab6ad04958764c87cd5",
+      "bytes": 32273
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M13-administration-tms-scenarios.md": {
       "sha256": "8d7783ee9fb40f6acc258b9e722303ba019728ef10827ace1b18de6ea6e1ce27",
       "bytes": 33262
     },
     "specs/cdc/02 - Cahier des charges TMS/tests/M14-integration-everest-scenarios.md": {
-      "sha256": "a62cc2f3736b236537444ad4b6eb8e0fd22cb504fea110f24ffa9d3e92fceb68",
-      "bytes": 28908
+      "sha256": "390ec132d45b24890cce0d3711ded65ca884d06a1c81289dee4d05aaf5d7f96c",
+      "bytes": 28894
+    },
+    "specs/cdc/09 - Roadmap exécution/00 - Index.md": {
+      "sha256": "d54fca1125e5af7cf64fded457db5db5d11674bed48a81918f15c00ec8cd8bbc",
+      "bytes": 2977
     },
     "specs/cdc/09 - Roadmap exécution/00 - Niveau 0 Foundations.md": {
-      "sha256": "7e7fb4f68e712ded4bdc648e6db68224c5fac82f206731ebee28dcbe73026cb8",
-      "bytes": 16589
+      "sha256": "1fefe81dd44102523c42c5eb6e11e65d9bfa3bd663635fd74f48d42eecf6f491",
+      "bytes": 16756
     },
     "specs/cdc/09 - Roadmap exécution/01 - Modules transverses émergents.md": {
-      "sha256": "10426f65262b1abec0219e3af4e84795eaa06f1d35a7512e57b606ac7b478038",
+      "sha256": "57b7090b73b1d2ec434fc6e03d2aaa3c62dc30d02e2d2283e1c0d0a15f0caf54",
       "bytes": 5478
     },
     "specs/cdc/09 - Roadmap exécution/02 - Verticales.md": {
-      "sha256": "f187ed39abc9148c5321dc2fc0aa885014539c93d9f7f880b9cc48c9680392f5",
-      "bytes": 11373
+      "sha256": "6c1dbc465b93df63551f9cd4016dac6183bb616a33b7b50f0737eacc541c5e84",
+      "bytes": 11372
     },
     "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V1/M1.1 - Back-office Admin référentiel et collectes.md": {
       "sha256": "c2c5acbf7f61704eb4cafdadc6fa37e6538a015a8e297a850d62d7f32cb8c2de",
@@ -432,8 +464,8 @@
       "bytes": 3100
     },
     "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V2/_squelette V2 - Cycle traiteur AG.md": {
-      "sha256": "f0113d8154fc9fa7d6750dcb1039783fd893b63ae60cca4559ef287e8bc3fe14",
-      "bytes": 2387
+      "sha256": "2ce1559613d3246ecc18f81d0b4f2799a8ac9c2fcab2bf56697da001eebfe44c",
+      "bytes": 2386
     },
     "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V3/_squelette V3 - Espaces clients et dashboards.md": {
       "sha256": "f3f5ee0ac78ceca35740ab37539cf66581bd731f55949ba7036b1f18f1822dea",
@@ -456,8 +488,8 @@
       "bytes": 5258
     },
     "specs/cdc/09 - Roadmap exécution/06 - Suivi exécution.md": {
-      "sha256": "0575b6107b1cde8a051f928687158476be38e0dbebe6189d7a329545a1d02855",
-      "bytes": 25806
+      "sha256": "682c103796e9e70674157f1cdfc5851055c2f4b631a68d316c42c764fd72ebcf",
+      "bytes": 25805
     },
     "specs/cdc/09 - Roadmap exécution/07 - Readiness DEV 2026-06-08.md": {
       "sha256": "ce7617c8ca0cfb8e5dba88e037bd98b296a79239bde7c9e06f12a5ceab0efe96",
@@ -486,6 +518,10 @@
     "specs/cdc/09 - Roadmap exécution/12 - Readiness DEV 2026-06-11 (re-confirmation).md": {
       "sha256": "e776f27670366d252ac55b012c5f8a2598f82434e425653581c0035727d8d599",
       "bytes": 5403
+    },
+    "specs/cdc/09 - Roadmap exécution/_RAPPORT-EXPORT.md": {
+      "sha256": "79f0bb4ad6f8a5f31c45c6f117f3ca34911a6f87142098c9b0c34ddf428e39c9",
+      "bytes": 6143
     }
   }
 }

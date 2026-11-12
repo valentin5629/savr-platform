@@ -277,7 +277,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
   // MTS-1 = le cas de la capture de Val (2026-10-16) : la création doit partir.
   it.each([
     ['mts1', 'MTS-1 (Strike / Marathon)'],
-    ['a_toutes', 'A Toutes! (vélo cargo)'],
+    ['a_toutes', 'A Toute! (vélo cargo)'],
   ])(
     'création %s : aucun champ prestataire, le POST part sans lien',
     async (typeTms, libelle) => {
@@ -340,7 +340,7 @@ describe('M1.1b — modale transporteur (BL-P1-BOA-02)', () => {
     ouvrirOnglet(/Connexion logistique/);
     const typeTms = screen.getByRole('combobox', { name: /Type de TMS/ });
     expect(typeTms).toBeDisabled();
-    expect(typeTms).toHaveTextContent(/^A Toutes! \(vélo cargo\)$/);
+    expect(typeTms).toHaveTextContent(/^A Toute! \(vélo cargo\)$/);
     expect(
       screen.queryByText(/Prestataire logistique/),
     ).not.toBeInTheDocument();

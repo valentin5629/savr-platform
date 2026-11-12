@@ -4,6 +4,8 @@
 //
 //   Commentaire de la mission :
 //     Veuillez peser et prendre de belles photos de ce que vous récupérez svp
+//                                       (AG seulement, Val 2026-11-10)
+//     Véhicule souhaité : camion 20 m³ simple  (un seul véhicule, type précisé, Val 2026-11-10)
 //     2 vélos prévus pour cette collecte, veuillez vous coordonner pour les
 //     appels au traiteur                (seulement s'il y a plusieurs véhicules)
 //
@@ -25,8 +27,8 @@
 // réunis, sous « Départ : » et « Arrivée : » (texte `unique`).
 //
 // Ne partent plus (Val, 2026-11-03) : traiteur, nombre de pax, contraintes
-// horaires, accès office, flux acceptés, véhicule souhaité d'une collecte à un
-// seul véhicule.
+// horaires, accès office, flux acceptés. Le véhicule souhaité d'une collecte à
+// un seul véhicule repart depuis le 2026-11-10 (Val), en ZD comme en AG.
 //
 // Chaque valeur tient sur UNE ligne (`valeurLigne` replie toute rupture de
 // ligne) : aucune saisie ne peut donc forger une ligne lue comme composée par
@@ -143,7 +145,7 @@ const LIMITE_TYPE_VEHICULE = 40;
  */
 const MIN_FRAGMENT_LIGNE = 40;
 
-/** Besoin véhicule saisi à l'attribution AG (décision Val 2026-10-01). */
+/** Besoin véhicule saisi par l'Admin avant l'envoi, AG et ZD (Val 2026-10-01, 2026-11-10). */
 export interface VehiculeSouhaite {
   /** Valeur de l'enum plateforme.type_vehicule, ou null si non précisé. */
   readonly type: string | null | undefined;
@@ -151,18 +153,52 @@ export interface VehiculeSouhaite {
   readonly nombre: number;
   /**
    * `transporteurs.type_tms` du prestataire : nomme les véhicules quand l'Admin
-   * n'a pas précisé de type (« vélos » chez A Toutes!, « camions » chez MTS-1).
+   * n'a pas précisé de type (« vélos » chez A Toute!, « camions » chez MTS-1).
    */
   readonly typeTms?: string | null | undefined;
 }
 
-// Pluriel et accord, pour « N … prévu(e)s pour cette collecte ».
-const PLURIEL_VEHICULE: Record<string, { nom: string; feminin: boolean }> = {
-  velo_cargo: { nom: 'vélos cargo', feminin: false },
-  camionnette: { nom: 'camionnettes', feminin: true },
-  fourgon: { nom: 'fourgons', feminin: false },
-  vul: { nom: 'VUL', feminin: false },
-  poids_lourd: { nom: 'poids lourds', feminin: false },
+// Noms des véhicules : seul (« Véhicule souhaité : … ») et au pluriel avec
+// accord (« N … prévu(e)s pour cette collecte »).
+const NOMS_VEHICULE: Record<
+  string,
+  { seul: string; pluriel: string; feminin: boolean }
+> = {
+  velo_cargo: { seul: 'vélo cargo', pluriel: 'vélos cargo', feminin: false },
+  camionnette: { seul: 'camionnette', pluriel: 'camionnettes', feminin: true },
+  fourgon: { seul: 'fourgon', pluriel: 'fourgons', feminin: false },
+  vul: { seul: 'VUL', pluriel: 'VUL', feminin: false },
+  poids_lourd: { seul: 'poids lourd', pluriel: 'poids lourds', feminin: false },
+  camionnette_frigo: {
+    seul: 'camionnette frigo',
+    pluriel: 'camionnettes frigo',
+    feminin: true,
+  },
+  camion_frigo: {
+    seul: 'camion frigo',
+    pluriel: 'camions frigo',
+    feminin: false,
+  },
+  camion_16m3_simple: {
+    seul: 'camion 16 m³ simple',
+    pluriel: 'camions 16 m³ simple',
+    feminin: false,
+  },
+  camion_16m3_double: {
+    seul: 'camion 16 m³ double',
+    pluriel: 'camions 16 m³ double',
+    feminin: false,
+  },
+  camion_20m3_simple: {
+    seul: 'camion 20 m³ simple',
+    pluriel: 'camions 20 m³ simple',
+    feminin: false,
+  },
+  camion_20m3_double: {
+    seul: 'camion 20 m³ double',
+    pluriel: 'camions 20 m³ double',
+    feminin: false,
+  },
 };
 
 // Sans type précisé par l'Admin : le véhicule habituel du prestataire.
@@ -172,19 +208,23 @@ const PLURIEL_PAR_PRESTATAIRE: Record<string, string> = {
 };
 
 /**
- * Phrase des véhicules multiples (décision Val 2026-11-03), composée UNE fois
- * puis envoyée à l'identique sur chaque commande : « 2 vélos prévus pour cette
- * collecte, veuillez vous coordonner pour les appels au traiteur ». Rien pour
- * un seul véhicule.
+ * Phrase des véhicules, composée UNE fois puis envoyée à l'identique sur chaque
+ * commande. Plusieurs véhicules (Val 2026-11-03) : « 2 vélos prévus pour cette
+ * collecte, veuillez vous coordonner pour les appels au traiteur ». Un seul
+ * véhicule au type précisé (Val 2026-11-10) : « Véhicule souhaité : camion
+ * 20 m³ simple » ; sans type, rien.
  */
 function phraseVehicules(vehicule: VehiculeSouhaite | null): string {
   if (!vehicule) return '';
   const nombre = Number.isInteger(vehicule.nombre) ? vehicule.nombre : 1;
-  if (nombre <= 1) return '';
   const type = uneLigne(vehicule.type, LIMITE_TYPE_VEHICULE);
-  const connu = PLURIEL_VEHICULE[type];
+  if (nombre <= 1) {
+    const nomSeul = NOMS_VEHICULE[type]?.seul || type;
+    return nomSeul ? `Véhicule souhaité : ${nomSeul}` : '';
+  }
+  const connu = NOMS_VEHICULE[type];
   const nom =
-    connu?.nom ||
+    connu?.pluriel ||
     type ||
     PLURIEL_PAR_PRESTATAIRE[valeurLigne(vehicule.typeTms)] ||
     'véhicules';
@@ -211,6 +251,8 @@ export interface ContactCommentaire {
 
 /** Ce que les commentaires au transporteur rassemblent. */
 export interface EntreeCommentaire {
+  /** Type de collecte : la consigne pesée/photos ne part qu'en AG (Val 2026-11-10). */
+  readonly typeCollecte: 'anti_gaspi' | 'zero_dechet';
   /**
    * Lieu **FUSIONNÉ** (sortie de `applyLieuOverrides`), jamais le lieu officiel :
    * les corrections saisies par collecte sont précisément ce qui doit atteindre
@@ -223,7 +265,7 @@ export interface EntreeCommentaire {
   readonly contact: ContactCommentaire;
   /** Contact 2 de l'adresse de départ (contact de secours). */
   readonly contactSecours: ContactCommentaire;
-  /** Besoin véhicule de l'attribution AG, `null` en ZD. */
+  /** Besoin véhicule saisi par l'Admin (AG et ZD). */
   readonly vehicule: VehiculeSouhaite | null;
   /** Adresse d'arrivée d'une collecte AG (l'association), `null` sinon. */
   readonly livraison: {
@@ -234,7 +276,7 @@ export interface EntreeCommentaire {
 
 /** Les textes composés. */
 export interface CommentairesTransporteur {
-  /** Commentaire de la mission : consigne, puis véhicules multiples. */
+  /** Commentaire de la mission : consigne, puis véhicule(s) souhaité(s). */
   readonly general: string;
   /** Commentaire de l'adresse de départ (jamais vide : numéro d'urgence). */
   readonly depart: string;
@@ -321,7 +363,9 @@ export function composerCommentairesTransporteur(
 ): CommentairesTransporteur {
   const general: Bloc = {
     lignes: [
-      { valeur: CONSIGNE_PESEE_PHOTOS },
+      {
+        valeur: e.typeCollecte === 'anti_gaspi' ? CONSIGNE_PESEE_PHOTOS : '',
+      },
       { valeur: phraseVehicules(e.vehicule) },
     ],
   };

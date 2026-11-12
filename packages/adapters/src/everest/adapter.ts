@@ -1,4 +1,4 @@
-// Adapter Everest (A Toutes!) — M2.5 (gate levée 2026-06-15).
+// Adapter Everest (A Toute!) — M2.5 (gate levée 2026-06-15).
 //
 // Pipeline dispatchCollecte :
 //   1. Vérifier idempotence via everest_missions
@@ -130,7 +130,7 @@ export class AdapterEverest implements LogistiqueProvider {
     private readonly transporteur: Transporteur,
     private readonly supabase: SupabaseClient,
   ) {
-    // Jeton fixe du compte A Toutes! lu dans EVEREST_API_TOKEN (cf. client.ts).
+    // Jeton fixe du compte A Toute! lu dans EVEREST_API_TOKEN (cf. client.ts).
     this.client = new EverestClient(supabase);
   }
 
@@ -198,7 +198,7 @@ export class AdapterEverest implements LogistiqueProvider {
       );
     }
 
-    // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toutes!
+    // Créer ou récupérer la tournée. Le rang déjà lié à une tournée A Toute!
     // est repris tel quel : c'est le cas d'une mission refusée puis réattribuée,
     // dont fn_dispatcher_collecte a réinitialisé la tournée en place (arbitrage
     // Val 2026-09-17). Sa reference_interne porte alors la tentative (`-r{n}`) :
@@ -324,7 +324,7 @@ export class AdapterEverest implements LogistiqueProvider {
 
     const n = collecte.nb_camions_demande;
     let envoyees = 0;
-    // Un refus d'A Toutes! sur une mission n'empêche pas de modifier les
+    // Un refus d'A Toute! sur une mission n'empêche pas de modifier les
     // autres : il remonte une fois la boucle finie (comme MTS-1, §08 3bis.8).
     const refus: LogistiquePermanentError[] = [];
     for (const t of avecRef.filter((t) => t.rang <= n)) {
@@ -356,10 +356,10 @@ export class AdapterEverest implements LogistiqueProvider {
     if (ecartVehicules) {
       await sendAlert({
         canal: 'info',
-        titre: 'Nombre de véhicules A Toutes! non propagé',
+        titre: 'Nombre de véhicules A Toute! non propagé',
         message:
-          `Collecte ${collecte.id} : ${n} véhicule(s) demandé(s), ${rangsAvecMission.size} mission(s) A Toutes! ` +
-          `enregistrée(s). Ajouter ou annuler les courses manquantes auprès d'A Toutes!.`,
+          `Collecte ${collecte.id} : ${n} véhicule(s) demandé(s), ${rangsAvecMission.size} mission(s) A Toute! ` +
+          `enregistrée(s). Ajouter ou annuler les courses manquantes auprès d'A Toute!.`,
         metadata: {
           collecte_id: collecte.id,
           event: 'everest.update_collecte.nb_vehicules',
@@ -403,7 +403,7 @@ export class AdapterEverest implements LogistiqueProvider {
         `cancel-${collecte.id}-${t.id}`,
       );
 
-      // À partir d'ici la course EST annulée chez A Toutes! : une écriture locale
+      // À partir d'ici la course EST annulée chez A Toute! : une écriture locale
       // refusée ne se voit plus nulle part si on l'avale. Vécu : sous l'ancien
       // CHECK en équivalence, l'UPDATE d'une mission `created_manually` échouait
       // en 23514 et la collecte restait « mission vivante » en base.
@@ -418,9 +418,9 @@ export class AdapterEverest implements LogistiqueProvider {
         if (error) {
           await this.echecEcritureLocale(collecte.id, error, {
             code: 'everest_annulation_non_enregistree',
-            titre: 'Annulation A Toutes! non enregistrée',
+            titre: 'Annulation A Toute! non enregistrée',
             message:
-              `La course ${t.external_ref_commande} a été annulée chez A Toutes!, mais son statut n'a pas pu être enregistré ` +
+              `La course ${t.external_ref_commande} a été annulée chez A Toute!, mais son statut n'a pas pu être enregistré ` +
               `(${error.message}). La mission apparaît encore active côté Savr.`,
           });
         }
@@ -443,9 +443,9 @@ export class AdapterEverest implements LogistiqueProvider {
       if (errAudit) {
         await this.echecEcritureLocale(collecte.id, errAudit, {
           code: 'everest_trace_annulation_non_enregistree',
-          titre: 'Trace d’annulation A Toutes! non enregistrée',
+          titre: 'Trace d’annulation A Toute! non enregistrée',
           message:
-            `La course ${t.external_ref_commande} a été annulée chez A Toutes!, mais la trace de l'annulation Savr n'a pas pu être écrite ` +
+            `La course ${t.external_ref_commande} a été annulée chez A Toute!, mais la trace de l'annulation Savr n'a pas pu être écrite ` +
             `(${errAudit.message}). Le webhook d'annulation la lira comme une annulation externe.`,
         });
       }
@@ -553,7 +553,10 @@ export class AdapterEverest implements LogistiqueProvider {
             address_end_tel: collecte.association_contact_telephone,
           }
         : {}),
-      comment: general || CONSIGNE_PESEE_PHOTOS,
+      // Consigne pesée/photos : AG seulement (Val 2026-11-10).
+      comment:
+        general ||
+        (collecte.type === 'anti_gaspi' ? CONSIGNE_PESEE_PHOTOS : ''),
     };
   }
 
@@ -574,7 +577,7 @@ export class AdapterEverest implements LogistiqueProvider {
   }
 
   /**
-   * Tournées d'une collecte **exécutées par A Toutes! (Everest)**.
+   * Tournées d'une collecte **exécutées par A Toute! (Everest)**.
    *
    * Symétrique de l'adapter MTS-1 : sans ce filtre, une tournée MTS-1
    * résiduelle faisait partir un `POST /missions/cancel` vers Everest avec un
@@ -824,16 +827,16 @@ export class AdapterEverest implements LogistiqueProvider {
     if (error) {
       await this.echecEcritureLocale(collecteId, error, {
         code: 'everest_dispatch_non_enregistre',
-        titre: 'Mission A Toutes! non enregistrée sur la collecte',
+        titre: 'Mission A Toute! non enregistrée sur la collecte',
         message:
-          `La mission ${reference} existe chez A Toutes!, mais sa référence n'a pas pu être écrite sur la collecte ` +
+          `La mission ${reference} existe chez A Toute!, mais sa référence n'a pas pu être écrite sur la collecte ` +
           `(${error.message}). La collecte apparaît encore « non transmise ».`,
       });
     }
   }
 
   /**
-   * Refus d'A Toutes! : `statut_tms` ET `statut` = rejetee_par_prestataire
+   * Refus d'A Toute! : `statut_tms` ET `statut` = rejetee_par_prestataire
    * (visibilité dashboard, décision Val 2026-06-15 — §08 §3). Le trigger fn_sync
    * ne dérive rien de ce statut : l'écriture est explicite. Gardée sur
    * `programmee` (seul statut d'une collecte pas encore acceptée) : une collecte
@@ -853,9 +856,9 @@ export class AdapterEverest implements LogistiqueProvider {
     if (error) {
       await this.echecEcritureLocale(collecteId, error, {
         code: 'everest_dispatch_non_enregistre',
-        titre: 'Refus A Toutes! non enregistré sur la collecte',
+        titre: 'Refus A Toute! non enregistré sur la collecte',
         message:
-          `A Toutes! a refusé la course, mais le refus n'a pas pu être écrit sur la collecte ` +
+          `A Toute! a refusé la course, mais le refus n'a pas pu être écrit sur la collecte ` +
           `(${error.message}). La collecte apparaît encore « programmée » : réattribuez-la.`,
       });
     }
@@ -867,7 +870,7 @@ export class AdapterEverest implements LogistiqueProvider {
       .rpc('f_upsert_alerte_admin', {
         p_code: 'collecte_rejetee_prestataire',
         p_titre: 'Course Everest rejetée par le prestataire',
-        p_message: `A Toutes! a refusé la course à sa création — collecte ${collecteId} passée en rejetee_par_prestataire. Réattribution requise (§08 §3).`,
+        p_message: `A Toute! a refusé la course à sa création — collecte ${collecteId} passée en rejetee_par_prestataire. Réattribution requise (§08 §3).`,
         p_entity_type: 'collectes',
         p_entity_id: collecteId,
       })
@@ -888,16 +891,16 @@ export class AdapterEverest implements LogistiqueProvider {
     if (error) {
       await this.echecEcritureLocale(collecteId, error, {
         code: 'everest_dispatch_non_enregistre',
-        titre: 'Statut A Toutes! non enregistré sur la collecte',
+        titre: 'Statut A Toute! non enregistré sur la collecte',
         message:
-          `Le statut « ${statutTms} » renvoyé par A Toutes! n'a pas pu être écrit sur la collecte ` +
+          `Le statut « ${statutTms} » renvoyé par A Toute! n'a pas pu être écrit sur la collecte ` +
           `(${error.message}). Le statut affiché ne reflète pas la réponse du transporteur.`,
       });
     }
   }
 
   /**
-   * Écriture locale refusée après un échange avec A Toutes! : alerte Ops in-app
+   * Écriture locale refusée après un échange avec A Toute! : alerte Ops in-app
    * (anomalie fonctionnelle, jamais Slack — CLAUDE.md §13), puis levée.
    *
    * L'alerte est posée AVANT de lever : le worker qui rejoue ne répare pas

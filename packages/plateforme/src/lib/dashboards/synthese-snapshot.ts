@@ -21,6 +21,7 @@
 import type { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estFluxZd, FLUX_ZD_CODES, libelleFlux } from '@/lib/libelles/flux.js';
+import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 import {
   attributionsAgOf,
   embedAttributionsAg,
@@ -329,14 +330,17 @@ export async function buildSyntheseSnapshot(
   };
 }
 
-// Builder PostgREST minimal — chaînage typé (eq/in/gte/lte → FB), awaité comme un
+// Builder PostgREST minimal — chaînage typé (eq/in/gte/lte… → FB), awaité comme un
 // thenable. Évite `any` (no-explicit-any) tout en s'affranchissant de la distinction
 // QueryBuilder/FilterBuilder du client Supabase généré.
 interface FB {
   eq(column: string, value: unknown): FB;
   in(column: string, values: unknown[]): FB;
+  gt(column: string, value: unknown): FB;
   gte(column: string, value: unknown): FB;
   lte(column: string, value: unknown): FB;
+  order(column: string, options: { ascending: boolean }): FB;
+  limit(count: number): FB;
 }
 
 // ── Fetch scopé par rôle (défense en profondeur + RLS) ───────────────────────
@@ -369,17 +373,24 @@ async function fetchScopedRows(
     return x;
   };
 
+  // Lues page après page (`lireParPages`) : une réponse est amputée à 1 000
+  // lignes sans erreur, les totaux du rapport porteraient alors sur une partie
+  // des collectes.
   const runQuery = async (scope: (q: FB) => FB): Promise<CollecteRow[]> => {
-    const base = supabase
-      .from('collectes')
-      .select(selectPour(ctx.role)) as unknown as FB;
-    const q = scope(applyCommon(base));
-    const { data, error } = await (q as unknown as Promise<{
-      data: unknown;
-      error: { message: string } | null;
-    }>);
-    if (error) throw erreurInterne(error, 'dashboards.synthese_snapshot');
-    return (data ?? []) as unknown as CollecteRow[];
+    const lu = await lireParPages<CollecteRow>((apresId) => {
+      const base = supabase
+        .from('collectes')
+        .select(selectPour(ctx.role)) as unknown as FB;
+      const q = scope(applyCommon(base));
+      return (apresId ? q.gt('id', apresId) : q)
+        .order('id', { ascending: true })
+        .limit(TAILLE_PAGE) as unknown as PromiseLike<{
+        data: unknown;
+        error: { message: string } | null;
+      }>;
+    });
+    if (lu.error) throw erreurInterne(lu.error, 'dashboards.synthese_snapshot');
+    return lu.data;
   };
 
   const withTraiteurFilter = (q: FB): FB =>

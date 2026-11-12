@@ -75,7 +75,7 @@ Ordre interne : 0.1 → 0.2 → 0.3 → 0.4 → 0.5 → 0.6 (gate qualité) → 
 
 - **Objectif** : auth Supabase email/password, inscription self-service, JWT avec rôle, middleware Next.js par rôle.
 - **À coder** : login/logout/refresh ; inscription (validation **SIRET INSEE + TVA VIES** + CGV) ; rattachement orga par domaine email ; claims JWT (rôle, org_id) ; middleware de route par rôle ; **emails bienvenue + vérif** (1er usage transverse C → poser `packages/shared/email`).
-- **Hors scope** : 2FA (V1.1), SSO SAML (V2), gestion fine profils secondaires (V3).
+- **Hors scope** : 2FA des clients (V1.1 ; celle de l'équipe Savr et celle des utilisateurs d'une organisation cochée par l'Admin, VIPARIS, sont livrées, décisions Val 2026-11-04 et 2026-11-10), SSO SAML (V2), gestion fine profils secondaires (V3).
 - **Définition de fini** : un compte se crée (SIRET/TVA validés), se connecte, reçoit un JWT avec rôle, accède à une route protégée selon son rôle ; emails partent (Resend).
 - **/goal** : `Le module 0.5 est terminé quand les tests Vitest auth + les tests Playwright login/signup passent ET pnpm test:pgtap reste vert ET un compte de test traverse signup → vérif email → login → route protégée.`
 - **Budget** : 400k (M).
@@ -91,7 +91,7 @@ Ordre interne : 0.1 → 0.2 → 0.3 → 0.4 → 0.5 → 0.6 (gate qualité) → 
 ### Module 0.7 — Seed minimal + demo
 
 - **Objectif** : jeux de données injectables `seed_minimal` + `seed_demo`, commandes pnpm, refus en prod.
-- **À coder** : scripts `pnpm seed:minimal` / `pnpm seed:demo` (cf. `05 - Fixtures/`, grilles réelles Strike/Marathon/A Toutes!) ; garde `NODE_ENV=production` → refus.
+- **À coder** : scripts `pnpm seed:minimal` / `pnpm seed:demo` (cf. `05 - Fixtures/`, grilles réelles Strike/Marathon/A Toute!) ; garde `NODE_ENV=production` → refus.
 - **Définition de fini** : `pnpm seed:demo` peuple un dev vierge sans erreur, refus en prod, données conformes au catalogue Fixtures.
 - **/goal** : `Le module 0.7 est terminé quand pnpm seed:demo s'exécute sans erreur sur une DB dev vierge ET un test confirme le refus si NODE_ENV=production ET les volumétries correspondent au catalogue Fixtures.`
 - **Budget** : 300k (M).

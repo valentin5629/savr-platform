@@ -1113,7 +1113,7 @@ describe('M2.5 / AdapterEverest — cancelCollecte', () => {
 
 // ─── Acceptation manuelle (Everest indisponible) — §06.06 §3 Bloc 0 ──────────
 //
-// Arbitrage Val 2026-09-16 : la référence de mission communiquée par A Toutes!
+// Arbitrage Val 2026-09-16 : la référence de mission communiquée par A Toute!
 // est obligatoire et écrite comme au dispatch normal
 // (`fn_accepter_mission_everest_manuelle`). Les fixtures ci-dessous reproduisent
 // l'état EXACT que laisse cette RPC — vérifié par pgTAP
@@ -1137,7 +1137,7 @@ describe('M2.5 / AdapterEverest — mission acceptée manuellement AVEC référe
     },
   };
 
-  it('annulation : cancelCollecte RETROUVE la mission et l’annule chez A Toutes! avec la référence saisie', async () => {
+  it('annulation : cancelCollecte RETROUVE la mission et l’annule chez A Toute! avec la référence saisie', async () => {
     const { cancelledIds } = setupEverestMock();
     const supabase = makeMockSupabase(ETAT_APRES_ACCEPTATION);
 
@@ -1192,7 +1192,7 @@ describe('M2.5 / AdapterEverest — mission acceptée manuellement AVEC référe
 
 // ─── Tests sync + updateLieu ──────────────────────────────────────────────────
 
-// ─── Écritures locales refusées APRÈS un échange avec A Toutes! ──────────────
+// ─── Écritures locales refusées APRÈS un échange avec A Toute! ──────────────
 //
 // Scénario 06.06 `mission_created_manually_reprend_le_cycle_de_vie` : « une erreur
 // de l'UPDATE everest_missions dans cancelCollecte n'est PLUS avalée : elle
@@ -1209,7 +1209,7 @@ function alertesOps(
     .map(([, args]) => args as Record<string, unknown>);
 }
 
-describe('M2.5 / AdapterEverest — écritures locales refusées après A Toutes!', () => {
+describe('M2.5 / AdapterEverest — écritures locales refusées après A Toute!', () => {
   const MISSION_MANUELLE = {
     tourneeExistante: {
       id: 'tournee-manuelle-002',
@@ -1250,7 +1250,7 @@ describe('M2.5 / AdapterEverest — écritures locales refusées après A Toutes
     await expect(annulation).rejects.toBeInstanceOf(LogistiquePermanentError);
     await expect(annulation).rejects.toThrow(/chk_everest_created_manually/);
 
-    // L'annulation est bien partie chez A Toutes! : c'est son enregistrement
+    // L'annulation est bien partie chez A Toute! : c'est son enregistrement
     // local qui a échoué — exactement l'état qui passait inaperçu.
     expect([...cancelledIds]).toEqual(['EVR-TEL-002']);
     const alertes = alertesOps(supabase);
@@ -1350,7 +1350,7 @@ describe('M2.5 / AdapterEverest — écritures locales refusées après A Toutes
     );
   });
 
-  it('dispatch refusé par A Toutes! + statut rejetee non écrit → le refus du transporteur reste l’erreur levée', async () => {
+  it('dispatch refusé par A Toute! + statut rejetee non écrit → le refus du transporteur reste l’erreur levée', async () => {
     setupEverestMock({ createFails: true, createFailsStatus: 422 });
     const supabase = makeMockSupabase({ updateCollecteError: 'statut_tms' });
 
@@ -1390,7 +1390,7 @@ describe('M2.5 / AdapterEverest — sync + updateLieu', () => {
 
 // ─── E2 : modification d'une mission envoyée (POST /missions/update) ──────────
 //
-// Avant le 2026-10-30, une modification n'atteignait jamais A Toutes! (alerte
+// Avant le 2026-10-30, une modification n'atteignait jamais A Toute! (alerte
 // seule) : un changement de contacts sur une course déjà envoyée restait chez
 // Savr.
 
@@ -1472,7 +1472,7 @@ describe('M2.5 / AdapterEverest — updateCollecte', () => {
     });
   });
 
-  it('jamais envoyée à A Toutes! : rien à modifier', async () => {
+  it('jamais envoyée à A Toute! : rien à modifier', async () => {
     const { updates } = setupEverestMock();
     const supabase = makeMockSupabase({ tourneeExistante: null });
     const adapter = new AdapterEverest(TRANSPORTEUR_EVEREST, supabase);
@@ -1500,7 +1500,7 @@ describe('M2.5 / AdapterEverest — updateCollecte', () => {
     },
   );
 
-  it('refus d’A Toutes! (4xx) : erreur définitive, la collecte n’est PAS rejetée', async () => {
+  it('refus d’A Toute! (4xx) : erreur définitive, la collecte n’est PAS rejetée', async () => {
     setupEverestMock({ updateFailsStatus: 400 });
     const supabase = makeMockSupabase({
       tourneeExistante: TOURNEE_ENVOYEE,
@@ -1541,7 +1541,7 @@ describe('M2.5 / AdapterEverest — updateCollecte', () => {
     expect(updates).toHaveLength(1);
     const info = alerts.filter((a) => a.canal === 'info');
     expect(info).toHaveLength(1);
-    expect(info[0]!.titre).toBe('Nombre de véhicules A Toutes! non propagé');
+    expect(info[0]!.titre).toBe('Nombre de véhicules A Toute! non propagé');
   });
   it('sans association attribuée : refus définitif, rien n’est envoyé', async () => {
     const { updates } = setupEverestMock();
@@ -1665,6 +1665,7 @@ describe('M1.5 / commentaires au transporteur → champs Everest', () => {
       brancheAttribution: 'ag_velo_programme',
     });
     const c = composerCommentairesTransporteur({
+      typeCollecte: 'anti_gaspi',
       lieu: LIEU_ACCES,
       informationsSupplementaires: 'Demander Karim à la plonge',
       contact: { nom: 'Alice Martin', telephone: '+33600000001' },
@@ -1718,6 +1719,21 @@ describe('M1.5 / commentaires au transporteur → champs Everest', () => {
         'Veuillez peser et prendre de belles photos de ce que vous récupérez svp',
       address_start_comment: '',
       address_end_comment: '',
+    });
+  });
+
+  it('ZD sans commentaire composé : aucune consigne pesée/photos (AG seulement, Val 2026-11-10)', async () => {
+    const { payloads } = setupEverestMock();
+    await new AdapterEverest(
+      TRANSPORTEUR_EVEREST,
+      makeMockSupabase({ brancheAttribution: 'ag_velo_programme' }),
+    ).dispatchCollecte(
+      { ...COLLECTE_AG, type: 'zero_dechet', commentaire_general: '   ' },
+      1,
+    );
+
+    expect(payloads.get('tournee-everest-new-001')).toMatchObject({
+      comment: '',
     });
   });
 });

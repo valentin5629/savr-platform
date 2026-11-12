@@ -26,7 +26,7 @@ Règle de design : API générique dans `packages/shared` au 1er usage, pas d'an
 
 ### C — Templates emails + envoi (Resend)
 - **Pose** : Niveau 0 module 0.5 (emails bienvenue + vérification).
-- **API shared** : `sendEmail(templateKey, to, vars)` ; **18 templates actifs** en **seed DB** (+ 15 désactivés ; catalogue §06.02 au 2026-11-02 — vouvoiement, FR, 0 emoji, signature « L'équipe Savr ») ; gestion échec Resend (statut `echec`, 3 retries). UI d'édition templates = V1.1.
+- **API shared** : `sendEmail(templateKey, to, vars)` ; **19 templates actifs** en **seed DB** (+ 14 désactivés ; catalogue §06.02 au 2026-11-06 — vouvoiement, FR, 0 emoji, signature « L'équipe Savr ») ; gestion échec Resend (statut `echec`, 3 retries). UI d'édition templates = V1.1.
 - **Réutilisé par** : confirmation collecte (V1), pré-bascule migration (V5), toutes notifs email V1 (pas d'in-app/SMS V1).
 
 ### G — Wrappers API tierces

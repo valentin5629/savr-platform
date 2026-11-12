@@ -85,7 +85,7 @@ VALUES (
 );
 
 INSERT INTO shared.prestataires (id, nom, code, mode_integration)
-VALUES ('fa250001-0000-0000-0000-000000000001'::uuid, 'A Toutes! test', 'a-toutes-m25', 'api');
+VALUES ('fa250001-0000-0000-0000-000000000001'::uuid, 'A Toute! test', 'a-toutes-m25', 'api');
 
 INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, type_vehicule, prestataire_logistique_id, statut)
 VALUES (
@@ -280,7 +280,7 @@ UPDATE plateforme.everest_missions
        everest_mission_id = 'EVR-TEL-M25',
        manual_acceptance_at = now(),
        manual_acceptance_by_user_id = '05250004-0000-0000-0000-000000000001'::uuid,
-       manual_acceptance_contact = 'Mathieu (A Toutes!)'
+       manual_acceptance_contact = 'Mathieu (A Toute!)'
  WHERE id = 'ed250001-0000-0000-0000-000000000001'::uuid;
 
 SELECT test_set_jwt(

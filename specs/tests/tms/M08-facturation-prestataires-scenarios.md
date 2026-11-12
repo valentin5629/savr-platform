@@ -251,7 +251,7 @@ Scénario : facture_sans_tournee_sur_periode_ecart_total
 # Couche : db
 # Priorité : P1-critique
 Scénario : tournee_sans_cout_rapprochement_manuel_requis
-  Étant donné une période contenant au moins une tournée 'terminee' avec cout_final_ht IS NULL (grille A Toutes! absente)
+  Étant donné une période contenant au moins une tournée 'terminee' avec cout_final_ht IS NULL (grille A Toute! absente)
   Quand une facture est uploadée et rapprochée
   Alors statut_rapprochement = 'rapprochement_manuel_requis'
   Et la tournée sans coût est exclue du montant_ht_calcule_tms

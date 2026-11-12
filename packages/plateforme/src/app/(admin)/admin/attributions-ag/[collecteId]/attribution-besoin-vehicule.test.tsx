@@ -172,12 +172,12 @@ describe('M2.3 / Attribution AG (écran dédié) — besoin véhicule jamais env
         undefined,
         ATTENTE_UI,
       );
-      choisirType('Camionnette');
+      choisirType('Camion frigo');
       fireEvent.click(valider);
 
       await waitFor(() => {
         const sent = corpsValider(fetchMock);
-        expect(sent?.type_vehicule_souhaite).toBe('camionnette');
+        expect(sent?.type_vehicule_souhaite).toBe('camion_frigo');
         expect(sent).not.toHaveProperty('nb_camions_demande');
       }, ATTENTE_UI);
     },
@@ -195,17 +195,17 @@ describe('M2.3 / Attribution AG (écran dédié) — besoin véhicule jamais env
       render(<AttributionDetailPage />);
       const valider = await attendreFormulairePret();
       // L'Admin choisit le type AVANT que la collecte ne soit lue.
-      choisirType('Camionnette');
+      choisirType('Camion frigo');
       livrer({ ok: true, body: COLLECTE_OPS });
 
       await waitFor(() => expect(champNombre().value).toBe('3'), ATTENTE_UI);
-      expect(comboboxType()).toHaveTextContent('Camionnette');
+      expect(comboboxType()).toHaveTextContent('Camion frigo');
       fireEvent.click(valider);
 
       await waitFor(() => {
         const sent = corpsValider(fetchMock);
         expect(sent?.nb_camions_demande).toBe(3);
-        expect(sent?.type_vehicule_souhaite).toBe('camionnette');
+        expect(sent?.type_vehicule_souhaite).toBe('camion_frigo');
       }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,

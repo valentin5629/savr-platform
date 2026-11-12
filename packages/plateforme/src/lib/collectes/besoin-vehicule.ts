@@ -2,20 +2,17 @@ import { NextResponse } from 'next/server';
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { Constants } from '@savr/shared/src/database.types.js';
 
 // Besoin véhicule d'une collecte (type souhaité + nombre de véhicules), saisi
 // par l'Admin avant l'envoi au prestataire : à l'attribution AG (décision Val
 // 2026-10-01) et au choix du prestataire d'une ZD (décision Val 2026-10-27).
 // Écrit AVANT l'event de dispatch, que l'adapter lit ensuite.
 
-// Valeurs de l'enum plateforme.type_vehicule (lieux.type_vehicule_max, tournees.type_vehicule).
-export const TYPES_VEHICULE = [
-  'velo_cargo',
-  'camionnette',
-  'fourgon',
-  'vul',
-  'poids_lourd',
-] as const;
+// Toute valeur de l'enum plateforme.type_vehicule. Le menu n'en propose que
+// quatre (Val 2026-11-10) ; les anciennes restent acceptées pour les
+// collectes qui les portent.
+export const TYPES_VEHICULE = Constants.plateforme.Enums.type_vehicule;
 
 export const NB_VEHICULES_MAX = 20;
 

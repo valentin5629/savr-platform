@@ -191,18 +191,7 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
     const evt = { id: 'e-1', lieu_id: 'lieu-1', pax: 900 };
     rls.push({
       data: [
-        {
-          id: 'c-s',
-          type: 'zero_dechet',
-          taux_recyclage: 0.8,
-          realisee_at: null,
-          pax: 300, // S
-          evenements: evt,
-          collecte_flux: [
-            { poids_reel_kg: 100, flux_dechets: { code: 'carton' } },
-          ],
-          attributions_antgaspi: [],
-        },
+        // Rangées par identifiant, comme la base les rend (lecture par pages).
         {
           id: 'c-m',
           type: 'zero_dechet',
@@ -212,6 +201,18 @@ describe('M3.2 / P2 dashboard filtres globaux', () => {
           evenements: evt,
           collecte_flux: [
             { poids_reel_kg: 400, flux_dechets: { code: 'carton' } },
+          ],
+          attributions_antgaspi: [],
+        },
+        {
+          id: 'c-s',
+          type: 'zero_dechet',
+          taux_recyclage: 0.8,
+          realisee_at: null,
+          pax: 300, // S
+          evenements: evt,
+          collecte_flux: [
+            { poids_reel_kg: 100, flux_dechets: { code: 'carton' } },
           ],
           attributions_antgaspi: [],
         },

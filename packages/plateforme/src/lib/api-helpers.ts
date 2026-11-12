@@ -216,13 +216,36 @@ export function businessError(
  * lu, jamais retourné.
  */
 export function authAccountError(
-  error: { code?: string; message?: string } | null,
+  error: { code?: string; message?: string; reasons?: unknown } | null,
   event: string,
   repli = 'Création du compte impossible.',
 ): NextResponse {
   logApiError(error, event, 'write');
   const code = error?.code ?? '';
   const msg = (error?.message ?? '').toLowerCase();
+  // Mot de passe refusé parce qu'il figure dans une fuite publique (protection
+  // HaveIBeenPwned de Supabase Auth, raison `pwned`). Il peut faire 10 caractères
+  // ou plus : le libellé « trop faible (10 caractères minimum) » l'induirait en
+  // erreur. Si une règle de longueur ou de caractères échoue aussi, c'est elle
+  // qu'on annonce. Sans liste de raisons, le message GoTrue sert de repli.
+  const raisonsBrutes = error?.reasons;
+  const raisons = Array.isArray(raisonsBrutes)
+    ? (raisonsBrutes as unknown[])
+    : null;
+  const fuite = raisons
+    ? raisons.includes('pwned')
+    : msg.includes('known to be weak');
+  const regleNonRespectee = raisons
+    ? raisons.includes('length') || raisons.includes('characters')
+    : msg.includes('should be at least') || msg.includes('should contain');
+  if (fuite && !regleNonRespectee)
+    return NextResponse.json(
+      {
+        error:
+          'Ce mot de passe figure dans une fuite de données connue. Choisissez-en un autre.',
+      },
+      { status: 422 },
+    );
   if (
     code === 'email_exists' ||
     code === 'user_already_exists' ||

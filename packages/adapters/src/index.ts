@@ -149,6 +149,13 @@ export interface Transporteur {
 export interface FenetreSync {
   readonly depuis: Date;
   readonly jusqu_a: Date;
+  /**
+   * Borne de la relève d'attribution lointaine (décision Val 2026-11-12) : au-delà
+   * de `jusqu_a` et jusqu'à cet instant, seule l'attribution des collectes pas
+   * encore acceptées est relue. Absente : pas de relève lointaine. Un provider
+   * sans relève d'attribution l'ignore.
+   */
+  readonly attribution_jusqu_a?: Date;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +230,30 @@ export type {
   PhotoTransporteur,
   PhotosTransporteur,
 } from './photos-transporteur.js';
+
+/**
+ * Notification MTS-1, étape 2 (décision Val 2026-11-12) — seul point d'entrée du
+ * webhook récepteur, qui ne parle jamais directement à MTS-1 (garde-fou 3). Relit
+ * chez MTS-1 les commandes que la notification désigne et les traite comme la
+ * relève. Aucun transporteur MTS-1 au référentiel : rien n'est relu.
+ */
+export async function releverNotificationMts1(
+  supabase: SupabaseClient,
+  signal: { commandes: readonly unknown[]; tournee: unknown },
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('transporteurs')
+    .select('id, type_tms, code_transporteur_mts1, prestataire_logistique_id')
+    .eq('type_tms', 'mts1')
+    .order('id', { ascending: true })
+    .limit(1);
+  if (error) {
+    throw new Error(`Transporteurs MTS-1 non lus — ${error.message}`);
+  }
+  const transporteur = (data ?? [])[0] as Transporteur | undefined;
+  if (!transporteur) return;
+  await new AdapterMts1(transporteur, supabase).releverSignal(signal);
+}
 
 export function getLogistiqueProvider(
   transporteur: Transporteur,

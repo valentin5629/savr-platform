@@ -100,7 +100,7 @@ SELECT is(
   (SELECT statut::text || '|' || statut_tms::text FROM plateforme.collectes
     WHERE id = 'e917a000-0000-0000-0000-000000000001'),
   'programmee|non_envoye',
-  'programmee + statut_tms rejetee (rejet A Toutes! avant correctif) → statut_tms non_envoye'
+  'programmee + statut_tms rejetee (rejet A Toute! avant correctif) → statut_tms non_envoye'
 );
 
 SELECT is(

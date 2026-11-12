@@ -59,7 +59,7 @@ import {
 // Tooltip méthode UE (§06.04 Bloc 2bis) — texte figé.
 const TOOLTIP_TAUX_UE =
   'Taux de recyclage net (méthode UE 2019/1004) — calculé avec les taux de captation ' +
-  'effectifs par filière (verre, carton, biodéchets, emballages). L’OMR (déchet ' +
+  'retenus par Savr pour chaque filière (verre, carton, biodéchets, emballages). L’OMR (déchet ' +
   'résiduel) entre uniquement au dénominateur. Voir Méthodologie.';
 
 const TITRE_RADAR = 'Votre collecte face aux événements comparables';
@@ -446,7 +446,7 @@ export function BilanCollecte({
             />
             <ChiffreCle
               ton="succes"
-              label="CO₂ évité"
+              label="CO₂e évité estimé"
               nombre={
                 realisee && c.co2_evite_kg != null
                   ? fmtInt(c.co2_evite_kg)
@@ -469,7 +469,7 @@ export function BilanCollecte({
             />
             <ChiffreCle
               ton="succes"
-              label="CO₂ évité"
+              label="CO₂e évité estimé"
               nombre={
                 realisee && c.co2_evite_kg != null
                   ? fmtInt(c.co2_evite_kg)

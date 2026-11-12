@@ -58,8 +58,7 @@ export async function requirePageSession(
   const organisationId = claims['organisation_id'] as string | undefined;
 
   // Défense en profondeur du middleware (lib/code-verification.ts).
-  if (codeVerificationManquant(role, claims['aal']))
-    redirect(ROUTES.codeVerification);
+  if (codeVerificationManquant(claims)) redirect(ROUTES.codeVerification);
   if (!role || !allowedRoles.includes(role)) redirect(ROUTES.interdit);
   if (!organisationId) redirect(ROUTES.interdit);
 
@@ -112,8 +111,7 @@ export async function requireStaffPage(): Promise<StaffPageSession> {
 
   if (!isStaff(role)) redirect(ROUTES.interdit);
   // Défense en profondeur du middleware (lib/code-verification.ts).
-  if (codeVerificationManquant(role, claims['aal']))
-    redirect(ROUTES.codeVerification);
+  if (codeVerificationManquant(claims)) redirect(ROUTES.codeVerification);
 
   return {
     userId: user.id,

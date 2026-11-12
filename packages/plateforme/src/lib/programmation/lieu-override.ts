@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
+import { GABARITS_LIEU_TRANSPORTEUR } from '@/lib/lieux-labels';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -19,15 +20,6 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
 /** `plateforme.difficulte_acces_enum` — colonnes `stationnement`, `acces_office`. */
 const DIFFICULTE_ACCES = ['facile', 'difficile', 'tres_difficile'] as const;
-
-/** `plateforme.type_vehicule_enum` — colonne `type_vehicule_max`. */
-const TYPE_VEHICULE = [
-  'velo_cargo',
-  'camionnette',
-  'fourgon',
-  'vul',
-  'poids_lourd',
-] as const;
 
 /**
  * Postgres REFUSE `\u0000` dans un `jsonb` (22P05). Sans ce filtre, une chaîne
@@ -78,7 +70,7 @@ const CHAMPS_LIEU_OVERRIDABLES: Record<string, RegleChamp> = {
   contraintes_horaires: { kind: 'texte', max: 500, obligatoire: false },
   stationnement: { kind: 'enum', valeurs: DIFFICULTE_ACCES },
   acces_office: { kind: 'enum', valeurs: DIFFICULTE_ACCES },
-  type_vehicule_max: { kind: 'enum', valeurs: TYPE_VEHICULE },
+  type_vehicule_max: { kind: 'enum', valeurs: GABARITS_LIEU_TRANSPORTEUR },
   flux_autorises: { kind: 'liste_texte', maxItems: 20, maxParItem: 64 },
 };
 

@@ -35,7 +35,7 @@
     },
     {
       "id": "BL-P1-PARITE-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:62",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:63",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_auth_401_sans_jwt + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_traiteur_zd_montes_et_benchmark_reel",
       "statut": "implemented",
@@ -43,7 +43,7 @@
     },
     {
       "id": "M3.5-charts-lib",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:81",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:82",
       "artefact": "packages/plateforme/src/components/dashboards/charts/",
       "test": "TonnagesDonut — rend le total au centre et la légende des 5 flux",
       "statut": "implemented",
@@ -51,7 +51,7 @@
     },
     {
       "id": "M3.5-evolution-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:135",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:136",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/evolution/route.ts",
       "test": "M3.5/evolution_zd_barres_5_flux_taux_pondere — sommes par flux + taux pondéré (exclut NULL)",
       "statut": "implemented",
@@ -59,15 +59,15 @@
     },
     {
       "id": "BL-P1-PARITE-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:208",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:209",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/synthese-pdf/route.ts + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts + packages/plateforme/src/components/dashboards/ExportSyntheseBloc.tsx + apps/pdf-renderer/src/templates/synthese-dashboard.ts",
       "test": "M3.5 / route synthèse PDF — génération synchrone + M3.5 / synthèse PDF — snapshot §12 §1.6 + M3.5 / renderer synthèse §12 §1.6 — template agrégé",
       "statut": "implemented",
-      "libelle": "Export synthèse PDF (Bloc 8 ZD/AG) implémenté R20b-2 sur les 3 rôles : bouton dashboard → modale 3 étapes (pré-remplie, type figé selon onglet) → route SYNCHRONE /api/v1/dashboards/synthese-pdf (snapshot sous JWT, RLS f_collecte_visible, prédicat embargo H+24) → renderer Railway 'synthese-dashboard' → objet R2 pré-signé 1h, AUCUN archivage (pas de jobs_pdf, pas de rapports_synthese). Décisions Val 2026-07-07 : génération synchrone + sections du type sélectionné (Q1/Q2)."
+      "libelle": "Export synthèse PDF (Bloc 8 ZD/AG) implémenté R20b-2 sur les 3 rôles : bouton dashboard → modale 3 étapes (pré-remplie, type figé selon onglet) → route SYNCHRONE /api/v1/dashboards/synthese-pdf (snapshot sous JWT, RLS f_collecte_visible, collectes clôturées seules (la borne realisee_at + 24 h est redondante depuis la clôture à 48 h du 2026-11-04)) → renderer Railway 'synthese-dashboard' → objet R2 pré-signé 1h, AUCUN archivage (pas de jobs_pdf, pas de rapports_synthese). Décisions Val 2026-07-07 : génération synchrone + sections du type sélectionné (Q1/Q2)."
     },
     {
       "id": "BL-P2-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:36",
       "artefact": "packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts",
       "test": "M3.5/admin_revenus_6_colonnes — nom · type · nb/CA ZD · nb/CA AG",
       "statut": "implemented",
@@ -75,15 +75,15 @@
     },
     {
       "id": "M3.5-kpi-admin-ca-eco-ag",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:34",
       "artefact": "supabase/migrations/20260707120000_plateforme_r20a_kpi_admin_ca_economique_ag.sql, supabase/migrations/20261030120000_plateforme_v_kpi_admin_avoirs_negatifs.sql",
       "test": "supabase/tests/m3_5_v_kpi_admin_ca_eco_ag.test.sql — v_kpi_admin CA AG économique (pack) + non-régression ZD + exclusion facture/avoir pack",
       "statut": "implemented",
-      "libelle": "v_kpi_admin — montant AG de l'histogramme = CA économique = Σ (collectes AG livrées realisee/cloturee × coût/collecte pack = prix_unitaire_ht, fallback montant_total_ht/crédits), imputé au mois de date_collecte ; remplace la facture d'achat de pack (les factures achat_pack_antigaspi ET leurs avoirs sont exclus du CA AG de pilotage) ; ZD inchangé (factures emise/payee par date_emission, avoirs ZD soustraits : leur montant est négatif en base, sommé tel quel depuis 20261030120000 — la version précédente les ajoutait, décision Val 2026-10-30 de corriger la vue plutôt que la retirer). Divergence CDC §11 §1.1 tracée (Val 2026-07-07)."
+      "libelle": "v_kpi_admin — montant AG de l'histogramme = CA économique = Σ (collectes AG livrées realisee/cloturee × coût/collecte pack = prix_unitaire_ht, fallback montant_total_ht/crédits), imputé au mois de date_collecte ; remplace la facture d'achat de pack (les factures achat_pack_antigaspi ET leurs avoirs sont exclus du CA AG de pilotage) ; ZD inchangé (factures emise/payee par date_emission, avoirs ZD soustraits : leur montant est négatif en base, sommé tel quel depuis 20261030120000 — la version précédente les ajoutait, décision Val 2026-10-30 de corriger la vue plutôt que la retirer). Divergence CDC §11 §1.1 tracée (Val 2026-07-07). Depuis le 2026-11-03 (#729, _Divergences/M3.5_20261103_montant-prestation-hors-facturation.md) l'histogramme ne lit plus v_kpi_admin : il lit le montant de la prestation (livrable M3.5-montant-prestation) ; la vue reste en base."
     },
     {
       "id": "M3.5-revenus-filtres-lieu-organisation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:34",
       "artefact": "packages/plateforme/src/lib/dashboards/revenus-admin.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-mensuels/route.ts, packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts, packages/plateforme/src/app/(admin)/admin/dashboard/page.tsx",
       "test": "M3.5/revenus_filtres_perimetre + M3.5/revenus_filtres_tableau + M3.5/revenus_filtres_histogramme + M3.5/revenus_filtres_tableau_gestionnaire_sans_lieu + M3.5/revenus_mensuels_montants + M3.5/admin_revenus_filtres_lieu_organisation + M3.5/admin_revenus_filtre_retour_page_1",
       "statut": "implemented",
@@ -91,7 +91,7 @@
     },
     {
       "id": "BL-P2-11",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:102",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:103",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/page.tsx + packages/plateforme/src/app/(agence)/agence/page.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -99,7 +99,7 @@
     },
     {
       "id": "BL-P2-43",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:102",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:103",
       "artefact": "packages/plateforme/src/app/(traiteur)/traiteur/collectes/page.tsx, packages/plateforme/src/components/collecte/liste-collectes-client.tsx",
       "test": "M3.1/blocs_traiteur_kpi_cartes_cliquables",
       "statut": "implemented",
@@ -107,7 +107,7 @@
     },
     {
       "id": "M3.5-blocs-endpoint",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
       "artefact": "packages/plateforme/src/app/api/v1/dashboards/blocs/route.ts",
       "test": "M3.5/blocs_role_hors_perimetre_403 + M3.1/blocs_top_lieux_zd_ordre_tonnage + M3.1/blocs_sans_prochaines_collectes",
       "statut": "implemented",
@@ -115,7 +115,7 @@
     },
     {
       "id": "M3.5-filtres-type-taille-grain-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:87",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows, buildSyntheseSnapshot)",
       "test": "M3.5/blocs_filtres_type_et_taille_de_la_collecte + M3.5/evolution_filtres_type_et_taille_de_la_collecte + M3.5/synthese_filtres_type_et_taille_de_la_collecte",
       "statut": "implemented",
@@ -123,7 +123,7 @@
     },
     {
       "id": "M3.5-cumuls-pax-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:76",
       "artefact": "packages/plateforme/src/lib/dashboard-kpi.ts (aDesConvives, paxCumules, ratioParPax, computeDashboardKpi) + packages/plateforme/src/lib/dashboards/loaders.ts (buildEvolutionSeries, topLieuxFrom, aggregateActeurs, kgParPaxParFluxFrom, loadBlocs, loadEvolution) + packages/plateforme/src/components/dashboards/useEvolutionBlocs.ts (FluxSeriePoint.kg_par_pax)",
       "test": "Lot3/kpi_pax_deux_soirees + Lot3/kpi_zd_kg_par_pax_filtre_partiel + Lot3/kpi_zd_collecte_sans_convives_ecartee + Lot3/kpi_ag_collecte_sans_convives_ecartee + Lot3/kpi_ratio_aucun_convive + Lot3/kg_par_pax_par_flux_collectes + Lot3/blocs_ag_repas_par_pax_collectes + Lot3/blocs_zd_kg_par_pax_par_flux_collectes + Lot3/evolution_ag_ratio_pax_collectes + Lot3/evolution_ag_filtre_partiel + M3.2/kpi_sparkline_serie_zd_nb_collectes_pax_co2_par_bucket + M3.2/kpi_sparkline_serie_ag_nb_collectes_par_bucket",
       "statut": "implemented",
@@ -132,7 +132,7 @@
     },
     {
       "id": "M3.5-v-kpi-traiteur-pax-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:200",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:201",
       "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql (v_kpi_traiteur : pax_total = Σ collectes.pax, colonnes tonnage_kg_pax_connu et nb_repas_pax_connu ajoutées en fin) + packages/shared/src/database.types.ts",
       "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-1 : deux soirées » « L3-VUE-2 : deux soirées » « L3-VUE-3 : même soir » « L3-VUE-5 : collecte ZD à 0 convive » « L3-VUE-6 : collecte AG à 0 convive » « L3-VUE-7 : une ligne AG » « L3-VUE-8 : deux mois » « L3-VUE-10 : v_kpi_traiteur reste security_invoker » « L3-VUE-11 : droits inchangés »",
       "statut": "implemented",
@@ -141,7 +141,7 @@
     },
     {
       "id": "M3.5-filtre-type-evenement-uuid",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:85",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:86",
       "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadBlocs, loadEvolution : typeEvtIds filtrés par estUuid)",
       "test": "Lot3/blocs_type_evenement_illisible_vide + Lot3/blocs_type_evenement_valeurs_mal_formees_ecartees + Lot3/evolution_type_evenement_illisible_vide",
       "statut": "implemented",
@@ -150,16 +150,33 @@
     },
     {
       "id": "M3.5-montant-prestation",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:35",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:34",
       "artefact": "packages/plateforme/src/lib/montant-prestation.ts (montantsPrestation, STATUTS_REVENUS, FILTRE_STATUTS_REVENUS) branché dans packages/plateforme/src/app/api/v1/admin/collectes/route.ts (colonne « Montant » de la liste Admin), packages/plateforme/src/app/api/v1/admin/dashboard/revenus-mensuels/route.ts et packages/plateforme/src/app/api/v1/admin/dashboard/revenus-organisations/route.ts ; annulation tardive marquée par supabase/migrations/20261103190000_plateforme_collectes_annulation_tardive.sql (collectes.annulation_tardive, trg_marquer_annulation_tardive)",
       "test": "M3.5/montant_prestation_zd_grille_defaut + M3.5/montant_prestation_zd_grille_organisation + M3.5/montant_prestation_zd_grille_hors_validite + M3.5/montant_prestation_zd_remise_max + M3.5/montant_prestation_zd_inconnu + M3.5/montant_prestation_remise_eligibilite + M3.5/montant_prestation_ag_remise_gestionnaire + M3.5/montant_prestation_ag_pack_debite + M3.5/montant_prestation_ag_hors_pack + M3.5/montant_prestation_lots_de_100 + M3.5/montant_prestation_sans_remise_a_lire + M3.5/montant_prestation_lecture_tronquee + M3.5/montant_prestation_lot_vide + M3.5/montant_prestation_liste_route + M3.5/montant_prestation_liste_affichage + M3.5/montant_prestation_statuts_revenus + M3.5/revenus_mensuels_montants + revenus/aucune_facture_lue + revenus/statuts_programmees_et_realisees + revenus/6_colonnes_split_zd_ag + M3.5/revenus_periode_sans_fin + M3.5/admin_revenus_defaut_12_mois + M3.5/montant_prestation_filtre_annulation_tardive + M3.5/revenus_annulation_tardive_montant_plein + revenus/annulation_tardive_montant_plein + supabase/tests/collectes_annulation_tardive.test.sql",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M3.5_20261103_montant-prestation-hors-facturation.md + _Divergences/M3.5_20261103_annulation-tardive-revenus.md",
       "libelle": "Montant de la prestation, facturée ou non (Val 2026-11-03) : liste Admin Collectes (colonne « Montant ») et section Revenus du Dashboard Admin (graphe et tableau). ZD = tarif de la grille de l'organisation programmatrice (sinon grille par défaut) au pax de la collecte, moins la plus forte remise éligible ; AG = prix du pack réellement débité (collectes.pack_antgaspi_id), sinon tarif unitaire public moins la remise AG. Revenus = collectes programmées et réalisées (programmee, validee, en_cours, realisee, realisee_sans_collecte, cloturee), au mois de la collecte ; aucune facture lue. Période par défaut du graphe et du tableau : depuis le 1er du mois il y a 11 mois, sans borne de fin, pour que les collectes programmées à venir comptent (Val 2026-11-03). Plus les annulations tardives (statut annulee et collectes.annulation_tardive = true : moins de 4 h avant le créneau, heure de Paris, imputables au client ou sans incident), au montant plein, nombres et montants ; marque posée au passage à annulee depuis le 2026-11-03, annulations antérieures non comptées."
+    },
+    {
+      "id": "M3.5-dashboards-collectes-par-pages",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md:49",
+      "artefact": "packages/plateforme/src/lib/dashboards/loaders.ts (loadEvolution, loadBlocs, loadMargeAttente, loadFiltresParcGestionnaire : lireParPages) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (fetchScopedRows : lireParPages)",
+      "test": "M3.5 / dashboards clients au-delà du plafond",
+      "statut": "implemented",
+      "libelle": "Dashboards des espaces clients au-delà de 1 000 collectes : évolution, Top listes, badge « en attente de facturation », filtres du parc du gestionnaire et synthèse PDF lisent les collectes page après page (lireParPages) et portent sur toutes. Synthèse PDF : une page en échec fait échouer le rapport."
+    },
+    {
+      "id": "M3.5-revenus-titre-par-mois",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:34",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "ref_divergence": "_Divergences/M3.5_20261103_montant-prestation-hors-facturation.md",
+      "libelle": "Titre de l'histogramme de la section Revenus du Dashboard Admin : « Revenus par mois » (décision Val 2026-11-10, §11 l.34 et §06.06 §2.1), la période suivant le filtre commun et incluant les mois à venir. CDC en avance : packages/plateforme/src/components/dashboards/RevenusHistogramme.tsx affiche encore « Revenus 12 mois glissants »."
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "3b3b4ebba18cfe5ef58baa1c73dd618d031c3b41d8a1494d28cbf18780f81a80",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "2729e3bfb96ff820dc24c62edb4fd05e5149306f7fd8b12be49cc6503199dc38",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "3e6024df5d3f8eaed7d6797ebc0f51d5408b42d2fd3816d0400347724c51d4ac"
   }
 }

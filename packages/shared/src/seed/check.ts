@@ -292,7 +292,7 @@ async function checkDemo(c: Pg, scalar: Scalar): Promise<void> {
     )) >= 1,
   );
   check(
-    'A Toutes! présent mais zéro collecte servie (GATE Everest)',
+    'A Toute! présent mais zéro collecte servie (GATE Everest)',
     (await scalar(
       `select count(*) n from plateforme.collectes where prestataire_logistique_id='${seedUuid('prest_a_toutes')}'`,
     )) === 0,

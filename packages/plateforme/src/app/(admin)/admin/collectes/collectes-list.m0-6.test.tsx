@@ -1237,14 +1237,16 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — carte urgente (AG à attribuer < 48h) : badge Urgent affiché, pas sur la lointaine',
+    'M0.6 — carte urgente (non acceptée par le prestataire, < 48h) : badge Urgent affiché, pas sur la lointaine',
     async () => {
+      // Demain 10:00 (Paris) : entre 10 h et 34 h d'ici, quelle que soit
+      // l'heure du test. Un créneau déjà passé n'est plus urgent.
       const urgente = ag({
         id: 'ag-urgente',
-        date_collecte: jourParis(new Date(Date.now() + 2 * 60 * 60 * 1000)),
+        date_collecte: jourParis(new Date(Date.now() + 24 * 60 * 60 * 1000)),
         heure_collecte: '10:00:00',
       });
-      // AG à attribuer, mais loin (> 48h) : pas urgente. Posée à J+10 depuis
+      // Non acceptée, mais loin (> 48h) : pas urgente. Posée à J+10 depuis
       // l'heure courante : une date fixe deviendrait urgente 48 h avant elle.
       const lointaine = ag({
         id: 'ag-lointaine',

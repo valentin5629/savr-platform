@@ -85,12 +85,12 @@ VALUES
 -- rattaché à la fois à un transporteur `mts1` et à un `a_toutes` entrerait dans
 -- les deux ensembles de résolution des adapters, et un id de mission Everest
 -- repartirait vers MTS-1. Cette fixture posait exactement cet état (un seul
--- prestataire pour Marathon + A Toutes + Manuel) ; le partage n'était utile à
+-- prestataire pour Marathon + A Toute + Manuel) ; le partage n'était utile à
 -- aucune assertion — seul T21c lit le prestataire, et seulement pour Marathon.
 INSERT INTO shared.prestataires (id, nom, code, type_prestation, mode_integration, siret, statut)
 VALUES
   ('a0000000-0000-0000-0000-000000000050'::uuid, 'Marathon Test', 'MARATHON_TEST', ARRAY['ag'], 'mts1', '123456789012345', 'actif'),
-  ('a0000000-0000-0000-0000-000000000051'::uuid, 'A Toutes Test', 'ATOUTES_TEST', ARRAY['ag'], 'everest', '987654321012345', 'actif'),
+  ('a0000000-0000-0000-0000-000000000051'::uuid, 'A Toute Test', 'ATOUTES_TEST', ARRAY['ag'], 'everest', '987654321012345', 'actif'),
   ('a0000000-0000-0000-0000-000000000052'::uuid, 'Manuel Test', 'MANUEL_TEST', ARRAY['ag'], 'manuel', '555555555012345', 'actif')
 ON CONFLICT (id) DO NOTHING;
 
@@ -101,13 +101,13 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
 VALUES
   ('a0000000-0000-0000-0000-000000000040'::uuid, 'Marathon Test', '123456789', '22 Rue Marathon', '75020', 'Paris', 'mts1', true, 'Contact Marathon', 'marathon@test.test', '0600000001', ARRAY['fourgon','poids_lourd'], 48.8616, 2.3722, 'a0000000-0000-0000-0000-000000000050'::uuid),
-  ('a0000000-0000-0000-0000-000000000041'::uuid, 'A Toutes Test', '987654321', '3 Rue Velo', '75011', 'Paris', 'a_toutes', true, 'Contact A Toutes', 'atoutes@test.test', '0600000002', ARRAY['velo_cargo'], 48.8536, 2.3622, 'a0000000-0000-0000-0000-000000000051'::uuid);
+  ('a0000000-0000-0000-0000-000000000041'::uuid, 'A Toute Test', '987654321', '3 Rue Velo', '75011', 'Paris', 'a_toutes', true, 'Contact A Toute', 'atoutes@test.test', '0600000002', ARRAY['velo_cargo'], 48.8536, 2.3622, 'a0000000-0000-0000-0000-000000000051'::uuid);
 
 -- Transporteur type_tms=autre (route provider_manual) avec son propre prestataire
 INSERT INTO plateforme.transporteurs (id, nom, siren, adresse, code_postal, ville, type_tms, actif, contact_nom, contact_email, contact_telephone, types_vehicules, latitude, longitude, prestataire_logistique_id)
 VALUES ('a0000000-0000-0000-0000-000000000043'::uuid, 'Manuel Test', '555555555', '9 Rue Manuel', '75009', 'Paris', 'autre', true, 'Contact Manuel', 'manuel@test.test', '0600000003', ARRAY['fourgon'], 48.8716, 2.3322, 'a0000000-0000-0000-0000-000000000052'::uuid);
 
--- Mettre les params algo en mode A Toutes disponible pour certains tests
+-- Mettre les params algo en mode A Toute disponible pour certains tests
 -- (on les restaurera après)
 
 -- ── Événements + collectes de test ────────────────────────────────────────
@@ -268,13 +268,13 @@ SELECT is(
   'T2 : 600 pax >= seuil 600 → branche ag_marathon_volume'
 );
 
--- ── T3 : Branche IDF vélo programmé (599 pax, A Toutes dispo) → ag_velo_programme/express
+-- ── T3 : Branche IDF vélo programmé (599 pax, A Toute dispo) → ag_velo_programme/express
 
 SELECT ok(
   (plateforme.fn_calculer_algo_attribution_ag(
     'a0000000-0000-0000-0000-000000000073'::uuid
   ))->>'branche' IN ('ag_velo_programme', 'ag_velo_express'),
-  'T3 : 599 pax + A Toutes dispo → branche vélo (programme ou express selon délai)'
+  'T3 : 599 pax + A Toute dispo → branche vélo (programme ou express selon délai)'
 );
 
 -- ── T4 : a_toutes_indisponible=true → branche vélo fallback Marathon ──────
@@ -847,7 +847,7 @@ SELECT ok(
 
 -- ── T31 : ag_everest_camion_express — grand volume urgent IDF, Marathon absent ──
 -- Conditions : pax=600 >= seuil, Marathon inactif → pas ag_marathon_volume,
---              A Toutes! dispo + IDF + délai négatif (passé) < 90 min → ag_everest_camion_express
+--              A Toute! dispo + IDF + délai négatif (passé) < 90 min → ag_everest_camion_express
 
 UPDATE plateforme.transporteurs SET actif = false
 WHERE id = 'a0000000-0000-0000-0000-000000000040'::uuid;
@@ -865,7 +865,7 @@ SELECT is(
     'a0000000-0000-0000-0000-000000000091'::uuid
   ))->>'branche',
   'ag_everest_camion_express',
-  'T31 : grand volume IDF urgent, Marathon absent, A Toutes! dispo → ag_everest_camion_express'
+  'T31 : grand volume IDF urgent, Marathon absent, A Toute! dispo → ag_everest_camion_express'
 );
 
 UPDATE plateforme.transporteurs SET actif = true
@@ -890,7 +890,7 @@ SELECT is(
     'a0000000-0000-0000-0000-000000000092'::uuid
   ))->>'branche',
   'ag_marathon_volume_backup_camion',
-  'T32 : grand volume IDF non-urgent, Marathon absent, A Toutes! dispo → ag_marathon_volume_backup_camion'
+  'T32 : grand volume IDF non-urgent, Marathon absent, A Toute! dispo → ag_marathon_volume_backup_camion'
 );
 
 UPDATE plateforme.transporteurs SET actif = true

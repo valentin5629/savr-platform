@@ -32,3 +32,7 @@ packages/shared/src/database.types.ts
 # Aperçus du design system Claude Design : fichiers denses publiés tels quels dans l'artefact (voir design-system-sync/README dans SYNC_CLAUDE_DESIGN.md)
 packages/plateforme/design-system-sync/previews/
 packages/plateforme/design-system-sync/dist/
+
+# Maquettes validées du rapport de recyclage (Claude Design), copiées octet pour
+# octet : elles servent d'étalon au test de régression visuelle du gabarit.
+design/rapport-recyclage/

@@ -757,7 +757,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       // 1 000 kg pour les 500 convives des collectes ZD réalisées (pas les
       // 800 pax de l'événement).
       expect(zd).toHaveTextContent(/Pesée par pax\s*2\s000\s*g/);
-      expect(zd).toHaveTextContent(/CO₂ évité\s*100/);
+      expect(zd).toHaveTextContent(/CO₂e évité estimé\s*100/);
       // Donut de répartition des flux, sur le cumul de l'événement.
       expect(zd).toHaveTextContent('Répartition des tonnages');
       expect(zd).toHaveTextContent(/Biodéchets\s*600\s*kg/);
@@ -776,7 +776,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       );
       expect(ag).toHaveTextContent(/Repas donnés\s*230\s*repas/);
       expect(ag).toHaveTextContent(/Repas par pax\s*1,15/);
-      expect(ag).toHaveTextContent(/CO₂ évité\s*575/);
+      expect(ag).toHaveTextContent(/CO₂e évité estimé\s*575/);
       const assos = within(ag).getByTestId('associations-beneficiaires');
       expect(assos).toHaveTextContent('Restos du Cœur · Paris150 repas');
       expect(assos).toHaveTextContent('Linkee80 repas');

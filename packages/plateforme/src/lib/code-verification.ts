@@ -4,8 +4,15 @@
  * Décision Val 2026-11-04 (questionnaire sécurité VIPARIS, exigence IAM1) : le
  * code est obligatoire pour l'équipe Savr, demandé une fois par session (nouvel
  * appareil, déconnexion, fin des 30 jours de `[auth.sessions].timebox`), jamais
- * à chaque page. Aucun code pour les clients. Avance le CDC §15 (« 2FA V1.1 ») :
- * fiche `_Divergences/` du 2026-11-04.
+ * à chaque page. Avance le CDC §15 (« 2FA V1.1 ») : fiche `_Divergences/` du
+ * 2026-11-04.
+ *
+ * Décision Val 2026-11-10 (exigence IAM3, pas de SAML) : il est aussi exigé des
+ * utilisateurs d'une organisation cochée par l'Admin (VIPARIS), et d'eux seuls
+ * parmi les clients. Le hook du jeton pose alors le claim
+ * `code_verification_obligatoire: true` (migration 20261110200000). Une session
+ * impersonée n'y est pas soumise : l'administrateur a passé son propre code pour
+ * la lancer. Fiche `_Divergences/` du 2026-11-10.
  *
  * EN PRODUCTION SEULEMENT (Val 2026-11-04, pour ne pas le saisir sans cesse
  * pendant le développement) : sur les aperçus Vercel, `dev.app.gosavr.io`, en
@@ -15,17 +22,15 @@
  * après le mot de passe, `aal2` après le code. Il survit au rafraîchissement du
  * jeton, d'où « une fois par session ».
  *
- * Tenu côté serveur, en trois points qui appellent tous cette règle :
+ * Tenu côté serveur, en trois points qui appellent tous cette règle avec les
+ * claims du jeton :
  *  - `middleware.ts` (toute page hors pages publiques) ;
  *  - `getVerifiedClaims` (`lib/api-auth.ts`), sur lequel reposent toutes les
- *    gardes d'API : une session de l'équipe Savr sans code n'y est pas valide ;
+ *    gardes d'API : une session soumise au code et sans code n'y est pas valide ;
  *  - les gardes de page (`lib/page-auth.ts`) et les routes qui lisent elles-mêmes
  *    le rôle (`api/health/*`, `api/auth/update-password`).
  *
- * Comptes VIPARIS (non construit, en attente de leur réponse sur le SAML) : il
- * suffira d'étendre `exigeCodeVerification` à leur organisation, en lui passant
- * le claim `organisation_id` (déjà présent dans chaque JWT) ; les trois points
- * ci-dessus n'auront pas à changer.
+ * La base applique la même règle (`plateforme.f_code_verification_ok`).
  *
  * ⚠ Module PUR (seulement `./roles`, lui-même pur) : importé par le middleware
  * (Edge runtime).
@@ -52,22 +57,31 @@ export function codeVerificationActif(): boolean {
   );
 }
 
-/** Vrai si ce rôle doit passer le code de vérification à chaque session. */
-export function exigeCodeVerification(
-  role: string | null | undefined,
-): boolean {
-  return codeVerificationActif() && isStaff(role);
+/** Claims du jeton tels que les rendent `parseJwtClaims` et `claimsJeton`. */
+export type ClaimsJeton = Readonly<Record<string, unknown>>;
+
+/**
+ * Vrai si cette session doit passer le code de vérification : équipe Savr, ou
+ * organisation qui l'exige (claim `code_verification_obligatoire` à `true`
+ * exactement) hors session impersonée.
+ */
+export function exigeCodeVerification(claims: ClaimsJeton): boolean {
+  if (!codeVerificationActif()) return false;
+  const role = claims['user_role'];
+  if (isStaff(typeof role === 'string' ? role : undefined)) return true;
+  const impersonee =
+    typeof claims['impersonator_id'] === 'string' &&
+    claims['impersonator_id'] !== '';
+  return claims['code_verification_obligatoire'] === true && !impersonee;
 }
 
 /**
- * Vrai si la session doit encore passer le code : rôle soumis au code ET niveau
- * `aal` différent de `aal2` (absent, `aal1`, ou toute autre valeur : refus).
+ * Vrai si la session doit encore passer le code : session soumise au code ET
+ * niveau `aal` différent de `aal2` (absent, `aal1`, ou toute autre valeur :
+ * refus).
  */
-export function codeVerificationManquant(
-  role: string | null | undefined,
-  aal: unknown,
-): boolean {
-  return exigeCodeVerification(role) && aal !== 'aal2';
+export function codeVerificationManquant(claims: ClaimsJeton): boolean {
+  return exigeCodeVerification(claims) && claims['aal'] !== 'aal2';
 }
 
 /** Un facteur tel que Supabase Auth le rend dans `user.factors`. */

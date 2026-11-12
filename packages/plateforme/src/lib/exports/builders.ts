@@ -353,24 +353,27 @@ export async function buildPeseesExport(
   const from = sp.get('from');
   const to = sp.get('to');
 
-  let q = ctx.supabase
-    .from('collecte_flux')
-    .select(
-      `poids_reel_kg, nb_bacs, equivalent_roll,
-       flux_dechets!flux_id(nom, ordre_affichage),
-       collectes!inner(id, type, date_collecte,
-         evenements!inner(nom_evenement, date_evenement,
-           traiteur_operationnel_organisation_id,
-           lieux!lieu_id(nom, code_postal, ville)))`,
-    )
-    .eq('collectes.type', 'zero_dechet');
-
-  if (from) q = q.gte('collectes.date_collecte', from);
-  if (to) q = q.lte('collectes.date_collecte', to);
-
-  const { data, error } = await q;
-  if (error) throw erreurInterne(error, 'exports.builders');
-  const rows = (data ?? []) as Row[];
+  // Une ligne par flux pesé : lues par tranches (`lireParTranches`), triées sur
+  // `id` pour qu'aucune ne soit servie deux fois ni sautée d'une tranche à
+  // l'autre. L'ordre du fichier est posé plus bas.
+  const rows = await lireParTranches<Row>(() => {
+    let q = ctx.supabase
+      .from('collecte_flux')
+      .select(
+        `poids_reel_kg, nb_bacs, equivalent_roll,
+         flux_dechets!flux_id(nom, ordre_affichage),
+         collectes!inner(id, type, date_collecte,
+           evenements!inner(nom_evenement, date_evenement,
+             traiteur_operationnel_organisation_id,
+             lieux!lieu_id(nom, code_postal, ville)))`,
+        { count: 'exact' },
+      )
+      .eq('collectes.type', 'zero_dechet')
+      .order('id');
+    if (from) q = q.gte('collectes.date_collecte', from);
+    if (to) q = q.lte('collectes.date_collecte', to);
+    return q;
+  });
 
   const col = (r: Row) => unwrap(r.collectes);
   const evt = (r: Row) => unwrap(col(r).evenements);
@@ -458,27 +461,29 @@ export async function buildFacturesExport(
   const dateFin = ctx.isStaff ? sp.get('date_fin') : null;
   const enErreur = ctx.isStaff && sp.get('en_erreur') === '1';
 
-  let q = ctx.supabase
-    .from('factures')
-    .select(
-      `numero_facture, type, statut, montant_ht, montant_ttc,
-       date_emission, date_echeance, date_paiement`,
-    )
-    .order('date_emission', { ascending: false, nullsFirst: false });
+  // Lues par tranches ; `id` départage les ex æquo de date d'émission.
+  const rows = await lireParTranches<Row>(() => {
+    let q = ctx.supabase
+      .from('factures')
+      .select(
+        `numero_facture, type, statut, montant_ht, montant_ttc,
+         date_emission, date_echeance, date_paiement`,
+        { count: 'exact' },
+      )
+      .order('date_emission', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false });
 
-  if (!ctx.isStaff) q = q.neq('statut', 'brouillon');
-  if (statut) q = q.eq('statut', statut);
-  if (types.length > 0) q = q.in('type', types);
-  if (orgIds.length > 0) q = q.in('organisation_id', orgIds);
-  if (from) q = q.gte('date_emission', from);
-  if (to) q = q.lte('date_emission', to);
-  if (dateDebut) q = q.gte('created_at', dateDebut);
-  if (dateFin) q = q.lte('created_at', `${dateFin}T23:59:59.999Z`);
-  if (enErreur) q = q.not('erreur_synchro', 'is', null);
-
-  const { data, error } = await q;
-  if (error) throw erreurInterne(error, 'exports.builders');
-  const rows = (data ?? []) as Row[];
+    if (!ctx.isStaff) q = q.neq('statut', 'brouillon');
+    if (statut) q = q.eq('statut', statut);
+    if (types.length > 0) q = q.in('type', types);
+    if (orgIds.length > 0) q = q.in('organisation_id', orgIds);
+    if (from) q = q.gte('date_emission', from);
+    if (to) q = q.lte('date_emission', to);
+    if (dateDebut) q = q.gte('created_at', dateDebut);
+    if (dateFin) q = q.lte('created_at', `${dateFin}T23:59:59.999Z`);
+    if (enErreur) q = q.not('erreur_synchro', 'is', null);
+    return q;
+  });
 
   const columns: CsvColumn<Row>[] = [
     { header: 'Numéro', value: (r) => r.numero_facture as string },
@@ -526,15 +531,17 @@ export async function buildPacksAgExport(
   // financier : cet export est accessible à gestionnaire_lieux (EXPORT_MATRIX) où
   // tout élément financier est masqué (§06.05). Le montant pré-existait en
   // colonne phantom (toujours null) → aucune régression pour les autres rôles.
-  const { data, error } = await ctx.supabase
-    .from('packs_antgaspi')
-    .select(
-      `type_pack, credits_initiaux, credits_consommes, credits_restants,
-       date_achat, date_expiration, statut`,
-    )
-    .order('created_at', { ascending: false });
-  if (error) throw erreurInterne(error, 'exports.builders');
-  const rows = (data ?? []) as Row[];
+  const rows = await lireParTranches<Row>(() =>
+    ctx.supabase
+      .from('packs_antgaspi')
+      .select(
+        `type_pack, credits_initiaux, credits_consommes, credits_restants,
+         date_achat, date_expiration, statut`,
+        { count: 'exact' },
+      )
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false }),
+  );
 
   const columns: CsvColumn<Row>[] = [
     { header: 'Type de pack', value: (r) => r.type_pack as string },
@@ -577,15 +584,17 @@ export async function buildAssociationsAgExport(
   void _sp;
 
   if (ctx.isStaff) {
-    const { data, error } = await ctx.supabase
-      .from('associations')
-      .select(
-        `nom, adresse, ville, region, contact_nom, contact_email,
-         habilitee_attestation_fiscale, actif`,
-      )
-      .order('nom');
-    if (error) throw erreurInterne(error, 'exports.builders');
-    const rows = (data ?? []) as Row[];
+    const rows = await lireParTranches<Row>(() =>
+      ctx.supabase
+        .from('associations')
+        .select(
+          `nom, adresse, ville, region, contact_nom, contact_email,
+           habilitee_attestation_fiscale, actif`,
+          { count: 'exact' },
+        )
+        .order('nom')
+        .order('id'),
+    );
     const columns: CsvColumn<Row>[] = [
       { header: 'Association', value: (r) => r.nom as string },
       { header: 'Adresse', value: (r) => r.adresse as string },
@@ -602,16 +611,20 @@ export async function buildAssociationsAgExport(
     return { filenamePrefix: 'associations', csv: toCsv(rows, columns) };
   }
 
-  // traiteur_manager : bénéficiaires via ses collectes AG (RLS-scopées).
-  const { data, error } = await ctx.supabase
-    .from('collectes')
-    .select(
-      `id, type,
-       attributions_antgaspi(association_id, volume_repas_realise,
-         associations!association_id(nom, ville, region))`,
-    )
-    .eq('type', 'anti_gaspi');
-  if (error) throw erreurInterne(error, 'exports.builders');
+  // traiteur_manager : bénéficiaires via ses collectes AG (RLS-scopées), lues
+  // par tranches — les cumuls par association portent sur TOUTES ses collectes.
+  const collectes = await lireParTranches<Row>(() =>
+    ctx.supabase
+      .from('collectes')
+      .select(
+        `id, type,
+         attributions_antgaspi(association_id, volume_repas_realise,
+           associations!association_id(nom, ville, region))`,
+        { count: 'exact' },
+      )
+      .eq('type', 'anti_gaspi')
+      .order('id'),
+  );
 
   interface Agg {
     nom: string;
@@ -621,7 +634,7 @@ export async function buildAssociationsAgExport(
     repas: number;
   }
   const byAsso = new Map<string, Agg>();
-  for (const c of (data ?? []) as Row[]) {
+  for (const c of collectes) {
     // Embed to-one (collecte_id UNIQUE) → objet PostgREST : l'envelopper, sinon
     // `: []` le jette silencieusement et l'export associations sort vide.
     const attrs = (
@@ -671,25 +684,27 @@ export async function buildImpactRseExport(
   const from = sp.get('from');
   const to = sp.get('to');
 
-  let q = ctx.supabase
-    .from('collectes')
-    .select(
-      `id, type, statut, date_collecte, taux_recyclage,
-       co2_induit_kg, co2_evite_kg, co2_net_kg, energie_primaire_evitee_kwh,
-       collecte_flux(poids_reel_kg),
-       evenements!inner(nom_evenement, date_evenement,
-         traiteur_operationnel_organisation_id,
-         lieux!lieu_id(nom, ville))`,
-    )
-    .order('date_collecte', { ascending: false });
+  // Lues par tranches ; `id` départage les ex æquo de date de collecte.
+  const rows = await lireParTranches<Row>(() => {
+    let q = ctx.supabase
+      .from('collectes')
+      .select(
+        `id, type, statut, date_collecte, taux_recyclage,
+         co2_induit_kg, co2_evite_kg, co2_net_kg, energie_primaire_evitee_kwh,
+         collecte_flux(poids_reel_kg),
+         evenements!inner(nom_evenement, date_evenement,
+           traiteur_operationnel_organisation_id,
+           lieux!lieu_id(nom, ville))`,
+        { count: 'exact' },
+      )
+      .order('date_collecte', { ascending: false })
+      .order('id', { ascending: false });
 
-  if (type === 'zero_dechet' || type === 'anti_gaspi') q = q.eq('type', type);
-  if (from) q = q.gte('date_collecte', from);
-  if (to) q = q.lte('date_collecte', to);
-
-  const { data, error } = await q;
-  if (error) throw erreurInterne(error, 'exports.builders');
-  const rows = (data ?? []) as Row[];
+    if (type === 'zero_dechet' || type === 'anti_gaspi') q = q.eq('type', type);
+    if (from) q = q.gte('date_collecte', from);
+    if (to) q = q.lte('date_collecte', to);
+    return q;
+  });
 
   const traiteurNoms = await resolveTraiteurNoms(
     ctx.supabase,
@@ -747,10 +762,15 @@ export async function buildImpactRseExport(
       header: 'CO2 induit (kg)',
       value: (r) => formatPoidsKg(r.co2_induit_kg as number),
     },
-    {
-      header: 'CO2 net (kg)',
-      value: (r) => formatPoidsKg(r.co2_net_kg as number),
-    },
+    // Le bilan net ne sort que dans l'export de l'équipe Savr (Val 2026-11-09).
+    ...(ctx.isStaff
+      ? ([
+          {
+            header: 'CO2 net (kg)',
+            value: (r) => formatPoidsKg(r.co2_net_kg as number),
+          },
+        ] satisfies CsvColumn<Row>[])
+      : []),
     {
       header: 'Énergie primaire évitée (kWh)',
       value: (r) => formatNombreFr(r.energie_primaire_evitee_kwh as number),

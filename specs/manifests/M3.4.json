@@ -32,11 +32,11 @@
   "deliverables": [
     {
       "id": "M3.4-liste-vues-a-venir-passees",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:150",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:151",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx + packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx (liens des cadrans « Événements ZD / AG » : onglet=passees)",
       "test": "M3.4/collectes_vues_a_venir_passees_par_date + M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
-      "libelle": "Page « Mes collectes » du client organisateur : vues « Collectes à venir » (par défaut, date croissante) / « Collectes passées » (date décroissante), rangées par date ; les cadrans du dashboard y renvoient sur « passées » (décision Val 2026-10-19 ; fiche _Divergences/M3.1_20261019_collectes-a-venir-passees)."
+      "libelle": "Page « Mes collectes » du client organisateur : vues « Collectes à venir » (par défaut, date croissante) / « Collectes passées » (date décroissante), rangées par date ; les cadrans du dashboard y renvoient sur « passées » (décision Val 2026-10-19 ; fiche _Divergences/M3.1_20261019_collectes-a-venir-passees). Depuis le 2026-11-03, les deux vues sont tranchées au créneau, à la minute, et non plus au jour (livrable M3.1-vues-collectes-a-la-minute)."
     },
     {
       "id": "M3.4-01",
@@ -136,11 +136,11 @@
     },
     {
       "id": "M3.4-cockpit-declinaison",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:150",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:151",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/page.tsx",
       "test": "M3.4/cockpit_declinaison_kpi_cards",
       "statut": "implemented",
-      "libelle": "R24c — Déclinaison Cockpit du dashboard client_organisateur (§11 §7, « Mon impact RSE », lecture seule). Les cadrans passent en KpiCockpitCard (chrome data-viz partagé) : bandeau YTD + onglet ZD (dont CO₂ évité en headline) + détail bilan carbone ABC repliable + onglet AG, hrefs de navigation préservés. Dashboard SIMPLE conservé à l'identique du §11 §7 : pas de benchmark ni de Top listes (ce rôle n'en a pas). Suppression de KpiCard (orphelin). DS appliqué. Aucune régression fonctionnelle ; endpoint kpi-client-organisateur inchangé."
+      "libelle": "R24c — Déclinaison Cockpit du dashboard client_organisateur (§11 §7, « Mon impact RSE », lecture seule). Les cadrans passent en KpiCockpitCard (chrome data-viz partagé) : bandeau YTD + onglet ZD (dont CO₂ évité en headline) + détail bilan carbone ABC repliable + onglet AG, hrefs de navigation préservés. Dashboard SIMPLE conservé à l'identique du §11 §7 : pas de benchmark ni de Top listes (ce rôle n'en a pas). Suppression de KpiCard (orphelin). DS appliqué. Aucune régression fonctionnelle ; endpoint kpi-client-organisateur inchangé. Depuis le 2026-11-09 (_Divergences/M3_20261109_co2-allegations-ecrans-emails.md) : CO₂e évité estimé seul, avec sa mention et le lien vers /methode-co2 (le détail du bilan carbone n'est plus affiché)."
     },
     {
       "id": "M3.4-documents-ag-rapport-de-don",
@@ -152,7 +152,7 @@
     },
     {
       "id": "M3.4-liste-organisateur-sans-excedent",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:166",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:167",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (liste Collectes du client organisateur, onglet Anti-Gaspi, colonne « Repas » : « Sans excédent » pour une collecte AG `realisee_sans_collecte`, à la place du 0 que rend la route ; colonne Statut = « Réalisée » via le mapping client)",
       "test": "M3.4/liste_organisateur_sans_excedent",
       "statut": "implemented",
@@ -160,7 +160,7 @@
     },
     {
       "id": "M3.4-liste-organisateur-sans-excedent-rendu-visuel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:166",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md:167",
       "artefact": "packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx (colonne « Repas », alignée à droite : le texte « Sans excédent » dans une colonne de nombres ; aucun style nouveau)",
       "test": "M3.4/liste_organisateur_sans_excedent",
       "statut": "à-vérifier",
@@ -168,7 +168,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "87c1aab8f65c3c441dde53838d9a377ca73bb9ba2fded8568fba0c4c3f4e84e9",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "feef61cba6a8862153919aac255dff700a3fb091075b5c6afe5829d9ad1553de"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "3e6024df5d3f8eaed7d6797ebc0f51d5408b42d2fd3816d0400347724c51d4ac",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc"
   }
 }

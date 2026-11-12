@@ -3,8 +3,8 @@
 //
 // Le service d'une collecte AG se lit sur `attributions_antgaspi.branche_attribution`
 // (§08 « Mapping branche_attribution → service »). Quand l'algorithme retient
-// Marathon et que l'Admin force A Toutes!, la branche calculée (Marathon) ne
-// désigne aucun service A Toutes! : l'envoi échouait en définitif (vécu le
+// Marathon et que l'Admin force A Toute!, la branche calculée (Marathon) ne
+// désigne aucun service A Toute! : l'envoi échouait en définitif (vécu le
 // 2026-11-02). L'Admin choisit alors le service, rangé comme branche retenue.
 //
 // Module sans dépendance : la plateforme l'importe sans nommer le prestataire

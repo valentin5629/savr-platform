@@ -158,7 +158,7 @@ describe('M3.3 / agence — déclinaison Cockpit', () => {
 // ── Client organisateur (M3.4) ───────────────────────────────────────────────
 describe('M3.4 / organisateur — déclinaison Cockpit', () => {
   it(
-    'M3.4/cockpit_declinaison_kpi_cards — page RSE montée en StatCard (bandeau YTD + onglet ZD + détail ABC)',
+    'M3.4/cockpit_declinaison_kpi_cards — page RSE montée en StatCard (bandeau YTD + onglet ZD, évité estimé sans bilan net)',
     async () => {
       vi.stubGlobal(
         'fetch',
@@ -194,8 +194,29 @@ describe('M3.4 / organisateur — déclinaison Cockpit', () => {
       expect(
         await screen.findByText('Événements ZD', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByText('CO₂ évité')).toBeInTheDocument();
+      expect(screen.getAllByText('CO₂e évité estimé')).toHaveLength(2);
       expect(screen.getByText('Taux de recyclage')).toBeInTheDocument();
+      // Évité seul, jamais présenté comme un chiffre de bilan carbone ni
+      // accompagné d'un bilan net (Val 2026-11-09, C1/C2).
+      expect(
+        screen.getByText(/ne se déduisent pas d’un bilan carbone/),
+      ).toBeInTheDocument();
+      // Périmètre et lien vers la méthode publique (Val 2026-11-10, guide
+      // anti-greenwashing Climeet : un chiffre dit sur quoi il porte).
+      expect(
+        screen.getByText(
+          /Elle porte sur les déchets et excédents collectés par Savr/,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen
+          .getByRole('link', { name: 'Voir la méthode' })
+          .getAttribute('href'),
+      ).toBe('/methode-co2');
+      expect(screen.queryByText(/à communiquer dans votre/)).toBeNull();
+      expect(screen.queryByText(/Détail du bilan carbone/)).toBeNull();
+      expect(screen.queryByText('CO₂ net')).toBeNull();
+      expect(screen.queryByText(/détournés/)).toBeNull();
       // Le cadran mesure l'impact réalisé : son lien ouvre les collectes
       // passées (décision Val 2026-10-19).
       expect(

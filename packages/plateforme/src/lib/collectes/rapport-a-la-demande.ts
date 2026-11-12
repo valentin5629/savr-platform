@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { logger } from '@savr/shared/src/logger/index.js';
-import {
-  createAdminSupabaseClient,
-  type SupabaseClient,
-} from '@savr/shared/src/supabase-client.js';
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
 import {
   createSupabaseServerClient,
@@ -40,8 +37,9 @@ import {
 // J+1) n'est jamais contourné, et le radar est calculé par la fonction de l'écran
 // sous l'identité de l'appelant : même k-anonymat pour l'Admin que pour un client,
 // ce PDF part chez le client. Les données mesurées sont lues en service-role
-// (construirePayloadRapport), une fois l'accès établi ; la page 2 (bordereau)
-// n'est jointe que si le demandeur lit le bordereau sous sa RLS (§12 §1.7).
+// (construirePayloadRapport), une fois l'accès établi ; la page 2 (annexe
+// technique, numéro du bordereau compris) suit le rapport quel que soit le
+// demandeur (décision Val 2026-11-12, C2).
 
 const radarIndisponible = (sujet: string) =>
   `La comparaison au parc n’est pas disponible pour ${sujet}.`;
@@ -143,18 +141,14 @@ function nomFichier(dateCollecte: string, id: string): string {
   return `rapport-recyclage-${m ? `${m[3]}-${m[2]}-${m[1]}` : id.slice(0, 8)}.pdf`;
 }
 
-/**
- * Fabrique le PDF d'une collecte ZD dont l'accès est établi. `lecteur` = client
- * du demandeur (sa RLS dit si le bordereau de la page 2 lui est lisible).
- */
+/** Fabrique le PDF d'une collecte ZD dont l'accès est établi. */
 export async function fabriquerRapport(
   id: string,
   version: VersionRapport,
   evenementLog: string,
-  lecteur: SupabaseClient,
 ): Promise<NextResponse> {
   const admin = createAdminSupabaseClient();
-  const construit = await construirePayloadRapport(admin, lecteur, id);
+  const construit = await construirePayloadRapport(admin, id);
   if (!construit.ok) {
     return construit.code === 'DB_ERROR'
       ? serverError(construit.erreur, evenementLog)
@@ -168,6 +162,8 @@ export async function fabriquerRapport(
     payload.options = { benchmark: true };
     payload.benchmark_flux = version.radar.benchmark_flux;
     payload.benchmark_legende = version.radar.benchmark_legende;
+    payload.benchmark_effectif = version.radar.benchmark_effectif;
+    payload.benchmark_criteres = version.radar.benchmark_criteres;
   }
 
   let pdf: Buffer;
@@ -269,12 +265,7 @@ export async function repondreRapportClient(
   );
   if ('refus' in lu) return lu.refus;
 
-  const reponse = await fabriquerRapport(
-    id,
-    lu.version,
-    evenementLog,
-    rls as unknown as SupabaseClient,
-  );
+  const reponse = await fabriquerRapport(id, lu.version, evenementLog);
 
   if (reponse.ok && ligne) {
     await marquerConsulte(ligne.id, ligne.consulte_par_user_at, evenementLog);
@@ -343,10 +334,5 @@ export async function repondreRapportStaff(
     filtresParDefaut,
   );
   if ('refus' in lu) return lu.refus;
-  return fabriquerRapport(
-    id,
-    lu.version,
-    evenementLog,
-    rls as unknown as SupabaseClient,
-  );
+  return fabriquerRapport(id, lu.version, evenementLog);
 }

@@ -34,7 +34,7 @@
         },
         "controle_acces_requis": {
           "type": "boolean",
-          "description": "Si true → manager prestataire doit pré-saisir plaque + nom chauffeur en M03 E4 avant validation tournée (R_M03.4 + R_M04.CONTROLE_ACCES). Exception A Toutes! vélo cargo sur le critère plaque uniquement. Renommé 2026-05-03 (ex plaque_requise)."
+          "description": "Si true → manager prestataire doit pré-saisir plaque + nom chauffeur en M03 E4 avant validation tournée (R_M03.4 + R_M04.CONTROLE_ACCES). Exception A Toute! vélo cargo sur le critère plaque uniquement. Renommé 2026-05-03 (ex plaque_requise)."
         },
         "informations_supplementaires": {
           "type": ["string", "null"],

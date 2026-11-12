@@ -1,5 +1,6 @@
 // POST /api/auth/code-verification/activation — prépare l'activation du code de
-// vérification (TOTP) d'un compte de l'équipe Savr : QR code + clé à saisir dans
+// vérification (TOTP) d'un compte soumis au code (équipe Savr, utilisateur d'une
+// organisation qui l'exige) : QR code + clé à saisir dans
 // l'application d'authentification. Le code n'est actif qu'après la première
 // saisie réussie (`/verification`). Règle : lib/code-verification.ts.
 //
@@ -34,7 +35,7 @@ export const POST = withApiTrace(
     if (!session) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
-    if (!exigeCodeVerification(session.role)) {
+    if (!exigeCodeVerification(session.claims)) {
       return NextResponse.json(
         { error: 'Aucun code de vérification n’est demandé pour ce compte.' },
         { status: 403 },

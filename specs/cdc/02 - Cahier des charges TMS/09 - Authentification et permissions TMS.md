@@ -711,7 +711,7 @@ Gating en 2 couches :
 |------|-------|--------|--------------------|
 | `ops_savr` | Équipe Savr (Ops logistique, SAV) | Globale (toutes prestataires) | Dispatch collectes, valider factures, lire tous les dashboards, corriger une pesée, déclarer un passage Veolia |
 | `admin_tms` | Super-admin Savr (CTO + 1 backup) | Globale + configuration | Créer/désactiver users, modifier `parametres_tms` sensibles, éditer `formules_catalogue`, reset MFA, modifier grilles tarifaires |
-| `manager_prestataire` | Dirigeant ou ops chez Strike/Marathon/A Toutes!/province | Limitée à `prestataire_id` | Gérer chauffeurs/véhicules de son entreprise, consulter tournées, uploader factures, suivre acceptation collectes |
+| `manager_prestataire` | Dirigeant ou ops chez Strike/Marathon/A Toute!/province | Limitée à `prestataire_id` | Gérer chauffeurs/véhicules de son entreprise, consulter tournées, uploader factures, suivre acceptation collectes |
 | `chauffeur` | Chauffeur ou équipier | Limitée à ses propres tournées | Accepter tournée, saisir pesées, photos, rolls, incidents via app mobile M05 |
 
 ### Cumul de rôles
@@ -1586,7 +1586,7 @@ CREATE POLICY everest_staff_all ON everest_missions
   USING (auth.user_is_staff())
   WITH CHECK (auth.user_is_staff());
 
--- Manager A Toutes! : lecture de ses missions
+-- Manager A Toute! : lecture de ses missions
 -- (corrigé test-scenarios M14 2026-06-07, floue #1 tranchée Val : `everest_missions` n'a pas de
 --  colonne `prestataire_id` — le prédicat passe par la tournée porteuse)
 CREATE POLICY everest_manager_atoutes_read ON everest_missions
@@ -1597,13 +1597,13 @@ CREATE POLICY everest_manager_atoutes_read ON everest_missions
       SELECT t.id FROM tms.tournees t
       WHERE t.prestataire_id = auth.user_prestataire_id()
     )
-    -- contrainte implicite : seul A Toutes! a integration_externe = 'everest'
+    -- contrainte implicite : seul A Toute! a integration_externe = 'everest'
   );
 ```
 
 ### 18bis. Couverture RLS M14 (propagation M14 V1 rédigée 2026-04-25)
 
-La RLS `everest_missions` (section 18) couvre les 4 nouvelles colonnes `manual_acceptance_*` ajoutées par l'addendum M14 §04. Le manager A Toutes! peut voir `manual_acceptance_contact` (qui chez eux a confirmé l'acceptation orale lors d'un failover Ops) — non sensible, et plutôt utile côté A Toutes! pour cohérence interne. Pas de policy column-level dédiée V1.
+La RLS `everest_missions` (section 18) couvre les 4 nouvelles colonnes `manual_acceptance_*` ajoutées par l'addendum M14 §04. Le manager A Toute! peut voir `manual_acceptance_contact` (qui chez eux a confirmé l'acceptation orale lors d'un failover Ops) — non sensible, et plutôt utile côté A Toute! pour cohérence interne. Pas de policy column-level dédiée V1.
 
 Les 6 API Routes M14 (5 internes `/api/internal/m14/*` + 1 publique `/api/webhooks/everest`) opèrent sous `service_role` (mutations système) ou rôle utilisateur (manual_accept = `ops_savr`, test_connection = `admin_tms`). Route `/api/internal/m14/missions/replay/:inbox_id` supprimée (sobriété 2026-04-30 A_M14_04 — Admin replay via SQL Studio si besoin, runbook §15). Cf. §07 section 18 Architecture API Routes M14.
 
@@ -1612,8 +1612,8 @@ Le webhook public `/api/webhooks/everest` :
 - Pas de RLS table-level applicable (route publique). La sécurité est dans la validation du token et l'idempotence `integrations_inbox`.
 
 **Tests pgTAP ajoutés** (cf. §15) :
-- T_M14.1 : Manager Strike ne peut pas SELECT une `everest_missions` rattachée à A Toutes! (RLS `prestataire_id = auth.user_prestataire_id()`).
-- T_M14.2 : Chauffeur A Toutes! ne peut pas SELECT `everest_missions` (rôle `chauffeur` exclu de la policy).
+- T_M14.1 : Manager Strike ne peut pas SELECT une `everest_missions` rattachée à A Toute! (RLS `prestataire_id = auth.user_prestataire_id()`).
+- T_M14.2 : Chauffeur A Toute! ne peut pas SELECT `everest_missions` (rôle `chauffeur` exclu de la policy).
 - T_M14.3 : Ops Savr peut UPDATE `manual_acceptance_*` (route `manual_accept` autorisée).
 - T_M14.4 : Trigger `trg_m14_cascade_cancel` ne s'enclenche pas si **aucune mission Everest active n'existe** dans `tms.everest_missions` pour la collecte ou sa tournée parente (no-op). Revue sobriété §04 2026-04-30 A6 — colonnes miroir `everest_mission_id` supprimées V1, lookup direct sur `everest_missions`.
 - T_M14.5 : CHECK constraint `(statut_everest <> 'created_manually' OR (manual_acceptance_at IS NOT NULL ...))` rejette un `created_manually` sans ses 3 champs de traçabilité ; une mission sortie de `created_manually` conserve ces champs (implication, révisé 2026-09-16).
@@ -1987,7 +1987,7 @@ Maintenu par Val (responsable traitement RGPD). Chaque nouveau champ PII ajouté
 - **Supabase** (hébergement DB + Auth + Storage) : DPA signé, hébergement EU (Frankfurt région).
 - **Cloudflare** (CDN, WAF, rate limit) : DPA, EU residency.
 - **Pennylane** (facturation) : DPA, FR hosting.
-- **Everest** (A Toutes!) : DPA à signer avant go-live.
+- **Everest** (A Toute!) : DPA à signer avant go-live.
 - **Strike / Marathon** : prestataires eux-mêmes (managers accédant au TMS) → pas sous-traitants au sens RGPD, mais destinataires de données de leurs propres chauffeurs (traitement conjoint limité).
 
 Liste mise à jour dans §15 Sécurité TMS.

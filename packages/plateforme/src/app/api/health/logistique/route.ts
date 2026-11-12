@@ -81,7 +81,7 @@ async function isAuthorized(req: NextRequest): Promise<boolean> {
   const claims = parseJwtClaims(session?.access_token ?? '');
   const role = claims['user_role'] as string | undefined;
   // Équipe Savr sans code de vérification sur cette session (lib/code-verification.ts).
-  if (codeVerificationManquant(role, claims['aal'])) return false;
+  if (codeVerificationManquant(claims)) return false;
   return !!role && ALLOWED_ROLES.includes(role);
 }
 

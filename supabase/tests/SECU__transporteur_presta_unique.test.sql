@@ -87,7 +87,7 @@ SELECT throws_ok(
   $$INSERT INTO plateforme.transporteurs
       (nom, siren, adresse, code_postal, ville, types_vehicules, type_tms,
        contact_nom, contact_email, contact_telephone, prestataire_logistique_id)
-    VALUES ('A Toutes Test', '900000003', '3 rue du Test', '75001', 'Paris',
+    VALUES ('A Toute Test', '900000003', '3 rue du Test', '75001', 'Paris',
             ARRAY['fourgon'], 'a_toutes', 'Test', 'dup-evr@example.invalid',
             '+33600000000', 'd0000000-0000-0000-0000-0000000000a1')$$,
   '23505',

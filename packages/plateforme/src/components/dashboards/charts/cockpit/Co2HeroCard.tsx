@@ -3,34 +3,23 @@
 import * as React from 'react';
 import { fmtInt, fmtMasse } from './fmt';
 import { CO2, WHITE } from './palette';
+import { LIEN_METHODE_CO2, MENTION_CO2_EVITE } from '@/lib/co2-mention';
+import { ROUTES } from '@/lib/routes';
 
-// Co2HeroCard — bloc héros à FOND NAVY (PAS ChartCard) présentant l'impact
-// carbone. Un seul composant, deux variantes (R-UI-6b, I8 — ex-jumeaux
-// Co2HeroCard / Co2HeroCardAg) :
-//   - `zd` : règle ABC (méthode ADEME) — le CO₂e ÉVITÉ est mis en héros,
-//     l'INDUIT et le NET sont des lignes distinctes, jamais soustraits pour
-//     annoncer une compensation ; 3 équivalences (km voiture, repas de bœuf,
-//     foyers) ;
-//   - `ag` : « évité SEUL en V1 » (§05 Règles métier R_co2_ag l.587, §11 l.163) :
-//     le facteur (repas moyen, Base Carbone ADEME) compte un repas évité par repas donné, sans induit ni
-//     bilan net (V2) ; 2 équivalences (« foyers » est énergie-dépendant → sans
-//     objet pour l'AG).
-// Composant purement présentationnel (props → rendu, aucune donnée serveur),
-// palette DS via tokens.
-interface Co2HeroCardZdProps {
-  variant?: 'zd';
+// Co2HeroCard — bloc héros à FOND NAVY (PAS ChartCard) présentant le CO₂e
+// ÉVITÉ ESTIMÉ (décisions Val 2026-11-09) : jamais de bilan net, ni d'énergie
+// primaire / foyers. Deux variantes :
+//   - `zd` : évité des flux zéro déchet + CO₂ induit sur une ligne distincte ;
+//   - `ag` : évité des repas donnés seul (facteur repas moyen, Base Carbone ADEME).
+// 2 équivalences (km voiture, repas de bœuf). Composant purement
+// présentationnel (props → rendu), palette DS via tokens.
+interface Co2HeroCardProps {
+  variant?: 'zd' | 'ag';
   eviteKg: number;
-  induitKg: number;
-  netKg: number;
-  energiePrimaireKwh: number;
-  equivalences: { kmVoiture: number; repasBoeuf: number; foyers: number };
-}
-interface Co2HeroCardAgProps {
-  variant: 'ag';
-  eviteKg: number;
+  /** CO₂ induit (ZD seulement), affiché à côté de l'évité, jamais soustrait. */
+  induitKg?: number;
   equivalences: { kmVoiture: number; repasBoeuf: number };
 }
-type Co2HeroCardProps = Co2HeroCardZdProps | Co2HeroCardAgProps;
 
 const GRAPHIE_CO2 = 'CO₂e évité'; // graphie CO₂ : Q6 tranché « CO₂e » (2026-10-06)
 
@@ -38,16 +27,10 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
   const ag = props.variant === 'ag';
   const evite = fmtMasse(props.eviteKg);
 
-  const tuiles = ag
-    ? [
-        { v: props.equivalences.kmVoiture, l: 'km en voiture' },
-        { v: props.equivalences.repasBoeuf, l: 'repas de bœuf' },
-      ]
-    : [
-        { v: props.equivalences.kmVoiture, l: 'km en voiture' },
-        { v: props.equivalences.repasBoeuf, l: 'repas de bœuf' },
-        { v: props.equivalences.foyers, l: 'foyers (an)' },
-      ];
+  const tuiles = [
+    { v: props.equivalences.kmVoiture, l: 'km en voiture' },
+    { v: props.equivalences.repasBoeuf, l: 'repas de bœuf' },
+  ];
 
   const hero = (
     <div>
@@ -90,22 +73,16 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
         style={{ color: CO2.labelSoft }}
       >
         {ag
-          ? 'Impact carbone · dons anti-gaspi'
-          : 'Impact carbone · méthode ADEME'}
+          ? 'Émissions évitées estimées · dons anti-gaspi'
+          : 'Impact carbone estimé · zéro déchet'}
       </div>
 
-      {/* Héros évité ; en ZD, rangée flex avec les lignes induit/net/énergie
-          (structure identique aux deux anciens composants : iso-rendu). */}
-      {ag ? (
+      {props.induitKg == null ? (
         hero
       ) : (
         <div className="flex flex-wrap items-end gap-x-10 gap-y-6">
           {hero}
-          <LignesAbc
-            induitKg={props.induitKg}
-            netKg={props.netKg}
-            energiePrimaireKwh={props.energiePrimaireKwh}
-          />
+          <LigneInduit induitKg={props.induitKg} />
         </div>
       )}
 
@@ -122,10 +99,7 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
         Équivalences pédagogiques
       </div>
 
-      {/* Grille de tuiles (3 en ZD, 2 en AG) */}
-      <div
-        className={ag ? 'grid grid-cols-2 gap-3.5' : 'grid grid-cols-3 gap-3.5'}
-      >
+      <div className="grid grid-cols-2 gap-3.5">
         {tuiles.map((t) => (
           <div
             key={t.l}
@@ -148,60 +122,31 @@ export function Co2HeroCard(props: Co2HeroCardProps): React.ReactElement {
 
       {/* Note bas */}
       <div className="mt-4 text-xs" style={{ color: CO2.labelFaint }}>
-        {ag
-          ? "Empreinte carbone d'un repas moyen (Base Carbone ADEME), évitée par chaque repas donné. Évité seul en V1 — aucun bilan net n'est annoncé. Incertitude ± 50 %."
-          : "Incertitude ADEME ± 50 %. L'évité et l'induit ne sont jamais soustraits pour annoncer une compensation."}
+        {MENTION_CO2_EVITE}{' '}
+        <a
+          href={ROUTES.methodeCo2}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2"
+        >
+          {LIEN_METHODE_CO2}
+        </a>
       </div>
     </div>
   );
 }
 
-/** Lignes ZD distinctes : induit, bilan net, énergie primaire (méthode ABC). */
-function LignesAbc({
-  induitKg,
-  netKg,
-  energiePrimaireKwh,
-}: Pick<
-  Co2HeroCardZdProps,
-  'induitKg' | 'netKg' | 'energiePrimaireKwh'
->): React.ReactElement {
+/** Ligne ZD distincte : CO₂ induit (transport + traitement). */
+function LigneInduit({ induitKg }: { induitKg: number }): React.ReactElement {
   const induit = fmtMasse(induitKg);
-  const net = fmtMasse(netKg);
-  // Bilan net favorable (évité net ≥ 0) → vert clair ; défavorable (induit >
-  // évité) → orange d'alerte, jamais du vert « tout va bien » (redondance §5).
-  const netColor = netKg >= 0 ? CO2.netInk : CO2.netWarn;
   return (
-    <div className="flex flex-col gap-2.5 pb-1">
-      <div className="flex items-baseline gap-2.5">
-        <span className="text-sm" style={{ width: 120, color: CO2.label }}>
-          CO₂ induit
-        </span>
-        <span className="text-lg font-extrabold tabular-nums">
-          {induit.value} {induit.unit}
-        </span>
-      </div>
-      <div
-        className="flex items-baseline gap-2.5"
-        style={{ paddingTop: 8, borderTop: `1px solid ${CO2.border}` }}
-      >
-        <span className="text-sm" style={{ width: 120, color: CO2.label }}>
-          Bilan net
-        </span>
-        <span
-          className="text-lg font-extrabold tabular-nums"
-          style={{ color: netColor }}
-        >
-          {net.value} {net.unit}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-2.5">
-        <span className="text-sm" style={{ width: 120, color: CO2.label }}>
-          Énergie primaire évitée
-        </span>
-        <span className="text-lg font-extrabold tabular-nums">
-          {fmtInt(energiePrimaireKwh)} kWh
-        </span>
-      </div>
+    <div className="flex items-baseline gap-2.5 pb-1">
+      <span className="text-sm" style={{ color: CO2.label }}>
+        CO₂ induit (transport, traitement)
+      </span>
+      <span className="text-lg font-extrabold tabular-nums">
+        {induit.value} {induit.unit}
+      </span>
     </div>
   );
 }

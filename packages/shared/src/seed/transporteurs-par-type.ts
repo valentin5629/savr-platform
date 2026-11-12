@@ -1,7 +1,7 @@
 /**
  * Quel transporteur du seed prend quel type de collecte (Val 2026-10-27).
  *
- * Strike ne fait que du Zéro Déchet ; Marathon, Transnormandie, A Toutes! et
+ * Strike ne fait que du Zéro Déchet ; Marathon, Transnormandie, A Toute! et
  * « Presta sans code » ne font que de l'Anti-Gaspi. La fiche collecte Admin ne
  * propose que les transporteurs qui prennent le type de la collecte, et l'algo
  * AG ne retient que les prestataires dont `type_prestation` contient `ag`. Sans

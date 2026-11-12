@@ -197,8 +197,8 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/10 - Design System.md",
       "artefact": null,
       "test": "M0.8-10 — PackAGIndicator affiche une jauge et un compteur",
-      "statut": "implemented",
-      "libelle": "M0.8-10 — PackAGIndicator affiche une jauge et un compteur"
+      "statut": "partial",
+      "libelle": "M0.8-10 — PackAGIndicator (DS §6 : une case par crédit ≤ 20, barre au-delà, rouge sous 10 %, « N collectes restantes sur M », « X % du pack restant ») : comportement porté par PackAgRing (cockpit, #771) ; le composant ui/pack-ag-indicator.tsx (monté par carte-collecte.tsx) reste l'ancienne barre 50/20 %, libellé « Collectes AG restantes », à aligner ou à renommer côté CDC"
     },
     {
       "id": "M0.8-11",

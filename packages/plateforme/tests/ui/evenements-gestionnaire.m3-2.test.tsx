@@ -725,6 +725,8 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       expect(screen.getByTestId('fiche-evenement-infos')).toHaveTextContent(
         /Paris Expo.*Kaspia.*800\s*pax/,
       );
+      // Pas de pastille de taille à côté du surtitre (décision Val 2026-11-12).
+      expect(screen.queryByText('L', { exact: true })).toBeNull();
       // Onglet ouvert d'emblée : Informations générales.
       const entete = screen.getByTestId('evenement-entete');
       expect(entete).toHaveTextContent('Salon Équip’Hôtel');

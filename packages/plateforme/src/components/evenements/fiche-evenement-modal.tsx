@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/icones';
 import Link from 'next/link';
 import { AlertBar } from '@/components/ui/alert-bar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -1898,14 +1897,7 @@ export function FicheEvenementModal({
             className="flex min-h-0 flex-1 flex-col"
           >
             <FicheGrandEnTete
-              surtitre={
-                <>
-                  <EnTetePuce>Événement</EnTetePuce>
-                  <Badge variant="neutral" dot={false}>
-                    {evt.taille_bracket}
-                  </Badge>
-                </>
-              }
+              surtitre={<EnTetePuce>Événement</EnTetePuce>}
               titre={evt.nom_evenement || 'Événement'}
               statut={
                 <StatutEvenement statuts={evt.fiches.map((f) => f.statut)} />

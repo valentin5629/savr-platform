@@ -538,7 +538,8 @@ export default function CollectesPage() {
     set(actif ? { chip: '' } : { chip, type: 'tous' });
   };
 
-  // Urgences (AG à attribuer < 48h) en tête de page (§06.09 §1) — uniquement
+  // Urgences (AG ou ZD non acceptées par le prestataire, < 48h) en tête de page
+  // (§06.09 §1, élargi par Val 2026-11-12) — uniquement
   // sur le tri par date : un tri explicite sur une autre colonne est respecté.
   const lignes = useMemo(
     () => (sorting[0]?.id === 'date' ? urgentesEnTete(collectes) : collectes),

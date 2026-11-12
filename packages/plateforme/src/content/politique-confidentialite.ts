@@ -2,9 +2,10 @@
 //
 // Exigée avant le go-live par le CDC (§15 Sécurité et conformité, 3.4) : page
 // lisible sans connexion, liée depuis l'application et les emails. Données et
-// bases légales : tableau §15 3.2. Durées : celles que la plateforme applique
-// réellement (aucune purge des contacts ni des comptes n'existe) ; les écarts
-// au §15 3.2 sont tracés dans `_Divergences/SECU-RGPD_20261105_politique-
+// bases légales : tableau §15 3.2. Durées : les plus longues que la loi ou les
+// référentiels CNIL justifient (Val 2026-11-06) ; aucune n'est atteinte avant
+// 2030, une purge doit exister avant (historique Bubble, journal d'audit). Les
+// écarts au §15 3.2 sont tracés dans `_Divergences/SECU-RGPD_20261105_politique-
 // confidentialite.md`. Même format que les CGU (`cgu-texte.ts`) : segments
 // {texte, gras}, jamais de HTML.
 //
@@ -12,7 +13,7 @@
 
 import type { BlocCgu, SectionCgu } from './cgu-texte';
 
-export const POLITIQUE_CONFIDENTIALITE_MISE_A_JOUR = '5 novembre 2026';
+export const POLITIQUE_CONFIDENTIALITE_MISE_A_JOUR = '6 novembre 2026';
 
 const p = (texte: string): BlocCgu => ({
   type: 'p',
@@ -45,31 +46,31 @@ export const POLITIQUE_CONFIDENTIALITE_SECTIONS: SectionCgu[] = [
     blocs: [
       li(
         'Compte utilisateur',
-        "nom, prénom, adresse email, téléphone, fonction et mot de passe (conservé sous une forme qui ne permet pas de le retrouver). Ces données servent à créer et sécuriser l'accès à la plateforme (exécution du contrat). Elles sont conservées pendant la durée du compte ; après sa fermeture, elles sont anonymisées sur simple demande.",
+        "nom, prénom, adresse email, téléphone, fonction et mot de passe (conservé sous une forme qui ne permet pas de le retrouver). Ces données servent à créer et sécuriser l'accès à la plateforme (exécution du contrat). Elles sont conservées pendant la durée du compte, puis 5 ans après sa fermeture ou la fin de la relation commerciale (délai de prescription), avant d'être supprimées ou anonymisées. Vous pouvez demander leur anonymisation plus tôt, après la fermeture du compte.",
       ),
       li(
         'Organisation et facturation',
-        'raison sociale, numéros SIRET et de TVA, adresse et contact de facturation, pour gérer la relation commerciale et établir les factures (exécution du contrat, obligation légale). Les pièces comptables sont conservées 10 ans.',
+        'raison sociale, numéros SIRET et de TVA, adresse et contact de facturation, pour gérer la relation commerciale et établir les factures (exécution du contrat, obligation légale). Elles sont conservées pendant la relation commerciale, puis 5 ans après sa fin ; les pièces comptables sont conservées 10 ans.',
       ),
       li(
         'Événements et collectes',
-        'dates, lieux, nombre de convives, pesées, photos de collecte et documents produits (bordereaux, rapports de don, registre des déchets), pour réaliser les collectes et fournir les justificatifs réglementaires (exécution du contrat, obligation légale). Ils sont conservés pendant les durées légales applicables, de 5 à 10 ans.',
+        'dates, lieux, nombre de convives, pesées, photos de collecte et documents produits (bordereaux, rapports de don, registre des déchets), pour réaliser les collectes et fournir les justificatifs réglementaires (exécution du contrat, obligation légale). Ils sont conservés 10 ans après la collecte, durée de conservation des pièces justificatives comptables et fiscales, qui couvre celle du registre des déchets.',
       ),
       li(
         'Contacts sur place',
-        "nom, téléphone, adresse email et fonction de la personne à joindre lors de la collecte, pour l'organiser avec le transporteur (exécution du contrat). Ils sont gardés dans le carnet de contacts de votre organisation, pour vous être proposés lors des prochaines programmations, et avec la fiche de l'événement. Vous pouvez en demander l'effacement à tout moment.",
+        "nom, téléphone, adresse email et fonction de la personne à joindre lors de la collecte, pour l'organiser avec le transporteur (exécution du contrat). Ils sont gardés dans le carnet de contacts de votre organisation, pour vous être proposés lors des prochaines programmations, pendant la relation commerciale puis 5 ans après sa fin. Sur la fiche de l'événement, ils sont conservés 5 ans après la collecte. Vous pouvez en demander l'effacement à tout moment.",
       ),
       li(
         'Chauffeurs',
-        "nom et téléphone du chauffeur et immatriculation du véhicule, reçus du transporteur ou saisis par l'équipe Savr, et communiqués au client pour l'accès au lieu de collecte (exécution du contrat). Ils sont conservés avec la fiche de la collecte.",
+        "nom et téléphone du chauffeur et immatriculation du véhicule, reçus du transporteur ou saisis par l'équipe Savr, et communiqués au client pour l'accès au lieu de collecte (exécution du contrat). Ils sont conservés 5 ans après la collecte.",
       ),
       li(
         'Associations bénéficiaires',
-        "nom et téléphone de la personne qui réceptionne les dons, transmis au transporteur pour la livraison (exécution du contrat). Ils sont conservés avec la fiche de l'association.",
+        "nom et téléphone de la personne qui réceptionne les dons, transmis au transporteur pour la livraison (exécution du contrat). Ils sont conservés pendant la relation avec l'association, puis 5 ans après sa fin.",
       ),
       li(
         'Journaux',
-        "les actions sensibles sont inscrites dans un journal conservé 5 ans, pour la sécurité et la preuve (intérêt légitime). Les échanges avec les transporteurs sont journalisés et conservés 2 à 3 ans. Les journaux techniques de nos hébergeurs (connexions, erreurs) sont conservés pour une durée limitée, fixée par chacun d'eux.",
+        "les actions sensibles sont inscrites dans un journal conservé 5 ans, pour la sécurité et la preuve (intérêt légitime). Les échanges avec les transporteurs sont journalisés et conservés 3 ans au plus. Les journaux techniques de nos hébergeurs (connexions, erreurs) sont conservés pour une durée limitée, fixée par chacun d'eux.",
       ),
       p(
         "Savr n'utilise pas ces données à des fins publicitaires et ne les vend pas.",

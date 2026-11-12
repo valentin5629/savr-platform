@@ -50,22 +50,41 @@ describe('/confidentialite : contenu exigé par le CDC §15 3.4', () => {
     );
   });
 
-  it('les durées publiées sont celles que la plateforme applique', () => {
+  it('publie une durée pour chaque catégorie de données (Val 2026-11-06)', () => {
+    // Durées les plus longues justifiées par la loi ou la CNIL. Aucune n'est
+    // atteinte avant 2030 : la purge doit être écrite avant cette date.
     const { container } = render(<ConfidentialitePage />);
     const texte = container.textContent ?? '';
-    expect(texte).toContain('conservées pendant la durée du compte');
-    expect(texte).toContain('anonymisées sur simple demande');
-    expect(texte).toContain('conservées 10 ans');
+    expect(texte).toContain(
+      'puis 5 ans après sa fermeture ou la fin de la relation commerciale',
+    );
+    expect(texte).toContain(
+      'Vous pouvez demander leur anonymisation plus tôt, après la fermeture du compte',
+    );
+    expect(texte).toContain(
+      'Elles sont conservées pendant la relation commerciale, puis 5 ans après sa fin',
+    );
+    expect(texte).toContain('les pièces comptables sont conservées 10 ans');
+    expect(texte).toContain(
+      'prochaines programmations, pendant la relation commerciale puis 5 ans après sa fin',
+    );
+    expect(texte).toContain('Ils sont conservés 10 ans après la collecte');
+    expect(texte).toContain(
+      "Sur la fiche de l'événement, ils sont conservés 5 ans après la collecte",
+    );
+    expect(texte).toContain('Ils sont conservés 5 ans après la collecte');
+    expect(texte).toContain(
+      "pendant la relation avec l'association, puis 5 ans",
+    );
     expect(texte).toContain('journal conservé 5 ans');
-    expect(texte).toContain('journalisés et conservés 2 à 3 ans');
+    expect(texte).toContain('journalisés et conservés 3 ans au plus');
   });
 
-  it("ne promet aucune purge qui n'existe pas (contacts, comptes)", () => {
-    // Aucun job ne supprime les contacts ni les comptes : les durées du
-    // §15 3.2 (« événement + 1 an », « compte + 3 ans ») seraient fausses.
+  it('ne garde plus aucune durée sans fin (« pendant la durée du compte » seule)', () => {
     const { container } = render(<ConfidentialitePage />);
     const texte = container.textContent ?? '';
-    expect(texte).not.toMatch(/un an après l.événement|puis 3 ans/);
+    expect(texte).not.toMatch(/durées légales applicables, de 5 à 10 ans/);
+    expect(texte).not.toMatch(/conservés avec la fiche de/);
   });
 });
 

@@ -744,8 +744,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
       // Exactement 3 lignes à action attendue : les 2 ZD non transmises
       // (programmée + validée) et l'AG à attribuer — pas la ZD transmise.
       expect(menusActionAttendue()).toHaveLength(3);
-      // Menu de chaque ligne (ordre d'affichage indifférent : les urgences
-      // remontent en tête).
+      // Menu de chaque ligne (ordre d'affichage indifférent).
       const menus: string[][] = [];
       for (const declencheur of tableau().getAllByRole('button', {
         name: /Actions sur la collecte/,
@@ -1237,7 +1236,7 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
   );
 
   it(
-    'M0.6 — carte urgente (non acceptée par le prestataire, < 48h) : badge Urgent affiché, pas sur la lointaine',
+    'M0.6 — carte urgente (non acceptée par le prestataire, < 48h) : badge Urgent affiché, pas sur la lointaine, ordre reçu conservé',
     async () => {
       // Demain 10:00 (Paris) : entre 10 h et 34 h d'ici, quelle que soit
       // l'heure du test. Un créneau déjà passé n'est plus urgent.
@@ -1275,9 +1274,11 @@ describe('M0.6 — liste collectes Admin en cartes (BL-P1-BOA-05)', () => {
 
       await screen.findAllByText('Traiteur Beta', undefined, ATTENTE_UI);
       expect(tableau().getAllByText('Urgent')).toHaveLength(1);
-      // Reçue en 2e position, l'urgente remonte en tête (§06.09 §1).
-      const premiere = tableau().getAllByRole('row')[1]!;
-      expect(within(premiere).getByText('Urgent')).toBeInTheDocument();
+      // Reçue en 2e position, l'urgente y reste : la chronologie prévaut sur
+      // le badge (Val 2026-11-12, plus de remontée en tête).
+      const [, premiere, seconde] = tableau().getAllByRole('row');
+      expect(within(premiere!).queryByText('Urgent')).toBeNull();
+      expect(within(seconde!).getByText('Urgent')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

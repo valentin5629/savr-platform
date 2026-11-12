@@ -378,6 +378,46 @@ describe('Relève MTS-1 — attribution lointaine (J+3 à J+30)', () => {
     expect(c.statut_tms).toBe('attribuee_en_attente_acceptation');
   });
 
+  it.each([
+    [
+      'confiée à un prestataire hors MTS-1',
+      { prestataire_logistique_id: PRESTA_MANUEL },
+    ],
+    ['au numéro de commande illisible', { external_ref_commande: 'CMD col/1' }],
+  ])(
+    'attribution_lointaine_tournee_ecartee — tournée %s : jamais lue chez MTS-1, rien de réécrit',
+    async (_cas, champs) => {
+      const c = collecte('col-1', '2027-03-26', {}, champs);
+      const base = baseSimulee([c]);
+      const avant = { ...c.tournee };
+      const mts1 = armer(
+        [commande(c.tournee.external_ref_commande, 'TOUR-X')],
+        { 'TOUR-X': tournee('TOUR-X', 'ACCEPTED', CODE_MTS1_BIS) },
+      );
+
+      await relever(base);
+
+      expect(mts1.findOrdersByIds).not.toHaveBeenCalled();
+      expect(mts1.getTour).not.toHaveBeenCalled();
+      expect(c.statut_tms).toBe('a_attribuer');
+      expect(c.tournee).toEqual(avant);
+    },
+  );
+
+  it('attribution_lointaine_tournee_illisible — tournée désignée par MTS-1 illisible : jamais lue, rien n’en est conclu', async () => {
+    const c = collecte('col-1', '2027-03-26', {
+      statut_tms: 'attribuee_en_attente_acceptation',
+    });
+    const base = baseSimulee([c]);
+    const mts1 = armer([commande('CMD-col-1', '../TOUR')], {});
+
+    await relever(base);
+
+    expect(mts1.findOrdersByIds).toHaveBeenCalledTimes(1);
+    expect(mts1.getTour).not.toHaveBeenCalled();
+    expect(c.statut_tms).toBe('attribuee_en_attente_acceptation');
+  });
+
   it('attribution_lointaine_commandes_par_lots — 60 collectes : commandes lues en 2 appels de 50 au plus', async () => {
     const collectes = Array.from({ length: 60 }, (_, i) =>
       collecte(`col-${String(i).padStart(2, '0')}`, '2027-03-26'),

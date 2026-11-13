@@ -243,7 +243,7 @@ describe('M1.6 / BatchPdfJ1 / Escalade R9', () => {
 });
 
 describe('M1.6 / BatchPdfJ1 / Idempotence', () => {
-  it('bordereau numéroté encore en brouillon (producteur sans SIRET) → aucun numéro BSAV tiré, rien recréé', async () => {
+  it('bordereau numéroté resté en brouillon (rendu en attente au passage sans PDF) → émis, aucun numéro BSAV tiré, rien recréé', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       {
@@ -266,6 +266,16 @@ describe('M1.6 / BatchPdfJ1 / Idempotence', () => {
     expect(result.errors).toHaveLength(0);
     expect(sb.rpc).not.toHaveBeenCalled();
     expect(sb._chain.insert).not.toHaveBeenCalled();
+    // Émis sans PDF (Val 2026-11-13), seulement s'il est encore en brouillon :
+    // la base garde en brouillon un producteur fantôme sans SIRET.
+    const updates = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(updates).toHaveLength(1);
+    expect(updates[0]![0]).toMatchObject({ statut: 'emis' });
+    const inCalls = (sb._chain.in as ReturnType<typeof vi.fn>).mock.calls;
+    expect(inCalls).toContainEqual(['id', ['bord-1']]);
+    const eqCalls = (sb._chain.eq as ReturnType<typeof vi.fn>).mock.calls;
+    expect(eqCalls).toContainEqual(['statut', 'brouillon']);
   });
 
   it('collecte déjà traitée (bordereau emis) → already_done incrémenté, rien enqueué', async () => {

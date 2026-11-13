@@ -22,6 +22,7 @@ import {
   logCollecteEnEchec,
 } from './batch-fatal.js';
 import {
+  TAILLE_LOT,
   TAILLE_PAGE,
   lireParPages,
   lireParLots,
@@ -226,6 +227,26 @@ export async function runBatchPdfJ1(
     } catch (err) {
       result.errors.push(`collecte ${collecte.id}: ${String(err)}`);
       logCollecteEnEchec(JOB_NAME, collecte.id, err);
+    }
+  }
+
+  // 2ter. Bordereau numéroté resté en brouillon (rendu PDF en attente au
+  //       passage au bordereau sans PDF, Val 2026-11-13) : émis ici. Un
+  //       producteur fantôme sans SIRET reste en brouillon (la base l'y garde,
+  //       trg_bordereau_gate_shadow_siret) jusqu'à l'arrivée du SIRET.
+  const brouillonsNumerotes = existingBordereaux
+    .filter((b) => b.numero != null && b.statut === 'brouillon')
+    .map((b) => b.id);
+  for (let i = 0; i < brouillonsNumerotes.length; i += TAILLE_LOT) {
+    const { error: emisErr } = await supabase
+      .from('bordereaux_savr')
+      .update({ statut: 'emis', genere_at: new Date().toISOString() })
+      .in('id', brouillonsNumerotes.slice(i, i + TAILLE_LOT))
+      .eq('statut', 'brouillon');
+    if (emisErr) {
+      result.errors.push(
+        `Émission des bordereaux numérotés : ${String(erreurInterne(emisErr, 'pdf.batch_zd.emission_brouillons'))}`,
+      );
     }
   }
 

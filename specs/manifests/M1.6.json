@@ -184,10 +184,11 @@
     {
       "id": "M1.6-08",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
-      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
-      "test": "Download bordereau Admin → URL pré-signée 15min",
-      "statut": "implemented",
-      "libelle": "Download bordereau Admin → URL pré-signée 15min"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "Download bordereau Admin → URL pré-signée 15min — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF ; route GET /api/v1/admin/bordereaux/[id]/download supprimée).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M1.6-09",
@@ -272,7 +273,7 @@
     {
       "id": "BL-P2-20",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
-      "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page) ; rapport-recyclage-zd.ts ne la rend plus",
+      "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le, attestation de don ; le bordereau n'a plus de PDF depuis le 2026-11-13) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page ; gabarit bordereau-zd plus utilisé) ; rapport-recyclage-zd.ts ne la rend plus",
       "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-20 : aucune mention de régénération sur le rapport », « BL-P2-20 : mention de régénération sur bordereau régénéré », « mention pied de page présente uniquement si régénérée » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — succès rapport porté par rapports_rse (« sans excédent » AG) : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version »",
       "statut": "implemented",
       "libelle": "Mention « Version mise à jour — générée le … » (§12 §1.4) : rendue par le bordereau unitaire et l'attestation de don régénérés ; le rapport de recyclage n'en porte plus (décision Val 2026-10-02), l'indicateur reste à l'écran."
@@ -352,7 +353,7 @@
     {
       "id": "M1.6-convives-de-la-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:28 + specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:59",
-      "artefact": "packages/plateforme/src/lib/pdf/convives-imprimes.ts + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts + packages/plateforme/src/lib/pdf/payload-rapport.ts + apps/pdf-renderer/src/templates/bordereau-zd.ts (type nb_pax : number | null)",
+      "artefact": "packages/plateforme/src/lib/pdf/convives-imprimes.ts + packages/plateforme/src/lib/pdf/payload-rapport.ts + apps/pdf-renderer/src/templates/bordereau-zd.ts (type nb_pax : number | null)",
       "test": "M1.6 / bordereau ZD §1.1 — convives de la collecte + packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « convives de LA collecte ; 0 convive (inconnu) → null, mention omise » + M1.6 / rapport recyclage §1.2 — convives de la collecte",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",

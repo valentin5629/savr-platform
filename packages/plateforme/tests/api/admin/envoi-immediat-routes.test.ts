@@ -1733,6 +1733,7 @@ const DECLENCHEUR = /envoyerOrdres(Evenement)?SansAttendre\(/;
 const EMETTEURS_SQL = [
   'fn_ajouter_collecte_evenement', // appelle fn_creer_collecte
   'fn_annuler_collecte_client', // appelle fn_modifier_collecte
+  'fn_changer_association_ag', // changement d'association AG (Val 2026-11-13)
   'fn_confirmer_programmation_brouillon',
   'fn_creer_collecte',
   'fn_creer_collecte_carte', // appelle fn_creer_collecte
@@ -1868,8 +1869,9 @@ describe('M1.5a / envoi immédiat — cliquets de durée et de complétude', () 
   }));
   const declencheuses = toutes.filter((r) => DECLENCHEUR.test(r.source));
 
-  it('M1.5a/envoi_immediat_routes_declencheuses — les dix-huit routes qui écrivent un ordre de collecte déclenchent l’envoi immédiat', () => {
+  it('M1.5a/envoi_immediat_routes_declencheuses — les dix-neuf routes qui écrivent un ordre de collecte déclenchent l’envoi immédiat', () => {
     expect(declencheuses.map((r) => r.chemin).sort()).toEqual([
+      'v1/admin/attributions-ag/[collecteId]/association/route.ts',
       'v1/admin/attributions-ag/[collecteId]/auto-accept/route.ts',
       'v1/admin/attributions-ag/[collecteId]/valider/route.ts',
       'v1/admin/collectes/[id]/dispatch/route.ts',

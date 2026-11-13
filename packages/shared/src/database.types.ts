@@ -5355,6 +5355,16 @@ export type Database = {
         Args: { p_collecte_id: string }
         Returns: Json
       }
+      fn_changer_association_ag: {
+        Args: {
+          p_association_id: string
+          p_collecte_id: string
+          p_modifie_par: string
+          p_motif_override?: string
+          p_motif_override_libre?: string
+        }
+        Returns: string
+      }
       fn_claim_outbox_attribution_batch: {
         Args: { p_lease_duration?: string; p_limit?: number }
         Returns: {

@@ -168,6 +168,14 @@ function proposableEnZd(t: Transporteur): boolean {
 // motif obligatoire » au renvoi / changement de prestataire). L'attribution
 // elle-même passe par le formulaire intégré (AttributionAgForm), qui charge sa
 // propre recommandation.
+// Association proposable au changement d'association (route des associations
+// actives triées par distance au lieu, comme l'écran d'attribution).
+interface AssociationChoix {
+  id: string;
+  nom: string;
+  distance_km: number | null;
+}
+
 interface RecoAlgo {
   associations: {
     id: string;
@@ -823,7 +831,12 @@ export function CollecteDetailPanel({
       changerPrestataireBtnRef.current?.focus();
     }
   }, [changerPrestataire]);
-  const [motifOverride, setMotifOverride] = useState('');
+  // Changement d'association d'une AG attribuée (décisions Val 2026-11-13) :
+  // '' = garder l'association actuelle.
+  const [associationSaisie, setAssociationSaisie] = useState('');
+  const [associationsChoix, setAssociationsChoix] = useState<
+    AssociationChoix[] | null
+  >(null);
   // Service du transporteur visé, quand la branche retenue n'en désigne aucun.
   const [serviceDispatch, setServiceDispatch] = useState('');
   const [reco, setReco] = useState<RecoAlgo | null>(null);
@@ -1152,6 +1165,32 @@ export function CollecteDetailPanel({
     attributionAbsente,
   ]);
 
+  // Changement d'association (décisions Val 2026-11-13) : la liste des
+  // associations actives n'est chargée qu'à l'ouverture de « Modifier
+  // l'attribution ».
+  const choixAssociationOuvert =
+    changerPrestataire &&
+    collecteType === 'anti_gaspi' &&
+    !attributionAbsente &&
+    (collecteStatut === 'programmee' || collecteStatut === 'validee');
+  useEffect(() => {
+    if (!choixAssociationOuvert || associationsChoix !== null) return;
+    let active = true;
+    fetch(
+      `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/associations`,
+    )
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j: { data?: AssociationChoix[] }) => {
+        if (active) setAssociationsChoix(Array.isArray(j.data) ? j.data : []);
+      })
+      .catch(() => {
+        if (active) setAssociationsChoix([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [choixAssociationOuvert, associationsChoix, collecteId]);
+
   // ZD à dispatcher avec UN seul transporteur proposable (cas courant : un
   // unique prestataire ZD au référentiel) : il est présélectionné, l'Admin n'a
   // plus qu'à envoyer. Plusieurs candidats : aucun n'est coché d'office.
@@ -1225,6 +1264,43 @@ export function CollecteDetailPanel({
   const handleDispatch = async () => {
     setDispatching(true);
     setDispatchError(null);
+    // Changement d'association : sa route renvoie la collecte au prestataire
+    // (MTS-1 : commande annulée puis recréée, décision Val 2026-11-13). Avec un
+    // changement de transporteur dans le même geste (Val 2026-11-13), l'envoi
+    // est différé : le dispatch qui suit pose le transporteur puis l'envoie.
+    const transporteurChange = !!selectedTransporteurId;
+    if (associationSaisie) {
+      const res = await fetch(
+        `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/association`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            association_id: associationSaisie,
+            ...(transporteurChange ? { envoi_differe: true } : {}),
+          }),
+        },
+      );
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setDispatchError(
+          errBody.error ?? 'Changement d’association impossible',
+        );
+        setDispatching(false);
+        return;
+      }
+      setAssociationSaisie('');
+      if (!transporteurChange) {
+        await refetch();
+        setRelecturesRestantes(RELECTURES_MAX);
+        retourFocusChangerRef.current = changerPrestataire;
+        setChangerPrestataire(false);
+        setDispatching(false);
+        return;
+      }
+    }
     // Prestataire choisi (AG ou ZD) → on envoie son prestataire_logistique_id
     // (pont R5). Sans changement (re-send) → body vide = réémission dispatch
     // idempotente.
@@ -1257,9 +1333,6 @@ export function CollecteDetailPanel({
     }
     if (selected?.prestataire_logistique_id) {
       body.prestataire_logistique_id = selected.prestataire_logistique_id;
-      if (motifOverride.trim()) {
-        body.motif_override_prestataire = motifOverride.trim();
-      }
     }
     const res = await fetch(
       `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/dispatch`,
@@ -1273,7 +1346,6 @@ export function CollecteDetailPanel({
       await refetch();
       setRelecturesRestantes(RELECTURES_MAX);
       setSelectedTransporteurId('');
-      setMotifOverride('');
       setServiceDispatch('');
       setTypeVehiculeSaisi(null);
       setNbVehiculesSaisi(null);
@@ -1828,25 +1900,10 @@ export function CollecteDetailPanel({
   );
   const forkTypeTms =
     selectedTransporteur?.type_tms ?? currentTransporteur?.type_tms;
-  // Transporteur recommandé par l'algo (top-1) — baseline de l'override (§06.06 §3 :
-  // motif obligatoire SI le choix ≠ top-1 algo). Pas de reco → pas de baseline → pas
-  // de motif requis (cohérent avec la garde serveur du dispatch).
+  // Transporteur recommandé par l'algo (top-1) : badge « Recommandé ». Plus de
+  // motif demandé pour un autre choix (décision Val 2026-11-13).
   const recommendedTransporteurId = reco?.transporteur?.id ?? null;
-  // ZD (décision Val 2026-10-07) : l'Admin choisit le prestataire sur la fiche,
-  // sans reco algo. Le premier choix est libre ; le motif n'est dû que pour
-  // CHANGER un prestataire déjà posé — même garde que la route de dispatch.
   const estZd = collecte.type === 'zero_dechet';
-  const changementPrestataireZd =
-    estZd &&
-    selectedTransporteur != null &&
-    collecte.prestataire_logistique_id != null &&
-    selectedTransporteur.prestataire_logistique_id !==
-      collecte.prestataire_logistique_id;
-  const overrideActif =
-    changementPrestataireZd ||
-    (selectedTransporteur != null &&
-      recommendedTransporteurId != null &&
-      selectedTransporteur.id !== recommendedTransporteurId);
   // ZD sans prestataire : rien à envoyer tant qu'aucune carte n'est cochée.
   const prestataireAChoisir =
     estZd &&
@@ -1862,8 +1919,12 @@ export function CollecteDetailPanel({
     (!['programmee', 'rejetee_par_prestataire'].includes(collecte.statut) ||
       (collecte.tms_reference != null &&
         collecte.statut_tms !== 'rejetee_par_prestataire'));
-  const overrideMotifManquant =
-    overrideActif && motifOverride.trim().length < 5;
+  // Plus de motif demandé pour changer d'association ou de transporteur
+  // (décision Val 2026-11-13). Association et transporteur se changent dans le
+  // même geste : association d'abord, envoi différé, puis le dispatch.
+  const associationRecommandeeId = reco?.associations[0]?.id ?? null;
+  const nomAssociationActuelle =
+    collecte.attributions_antgaspi?.associations?.nom ?? null;
   // AG envoyée à un transporteur qui distingue ses services (A Toute!) alors
   // que la branche retenue n'en désigne aucun (Marathon par exemple) : l'Admin
   // choisit le service avant l'envoi (décision Val 2026-11-03). Sans lui,
@@ -2424,7 +2485,6 @@ export function CollecteDetailPanel({
                     // d'aucune sélection : l'ordre vient de partir chez le
                     // transporteur choisi, pas chez le recommandé.
                     setSelectedTransporteurId('');
-                    setMotifOverride('');
                     void refetch();
                   }}
                 />
@@ -2586,6 +2646,64 @@ export function CollecteDetailPanel({
                       ref={dispatchChoixRef}
                       className="space-y-3 border-t border-savr-neutral-100 pt-4"
                     >
+                      {choixAssociationOuvert && (
+                        <div className="space-y-3">
+                          <FormField
+                            label="Association bénéficiaire"
+                            htmlFor="dispatch-association"
+                          >
+                            <Combobox
+                              id="dispatch-association"
+                              searchPlaceholder="Rechercher une association…"
+                              options={[
+                                {
+                                  value: '',
+                                  label: nomAssociationActuelle
+                                    ? `Garder ${nomAssociationActuelle}`
+                                    : 'Garder l’association actuelle',
+                                },
+                                ...(associationsChoix ?? [])
+                                  .filter(
+                                    (a) => a.nom !== nomAssociationActuelle,
+                                  )
+                                  .map((a) => ({
+                                    value: a.id,
+                                    label: [
+                                      a.distance_km != null
+                                        ? `${a.distance_km.toLocaleString('fr-FR')} km`
+                                        : 'Distance inconnue',
+                                      a.nom,
+                                      a.id === associationRecommandeeId
+                                        ? 'Recommandée'
+                                        : null,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · '),
+                                  })),
+                              ]}
+                              value={associationSaisie}
+                              onChange={(v) => {
+                                setAssociationSaisie(v);
+                                setDispatchError(null);
+                              }}
+                            />
+                          </FormField>
+                          {associationSaisie !== '' && (
+                            <Text variant="hint">
+                              {currentTransporteur?.type_tms === 'mts1'
+                                ? selectedTransporteur
+                                  ? 'La commande en cours chez MTS-1 sera annulée.'
+                                  : 'La commande en cours chez MTS-1 sera annulée puis recréée vers la nouvelle association : regroupez de nouveau sa tournée dans la console.'
+                                : 'La nouvelle adresse de livraison est renvoyée au transporteur.'}{' '}
+                              {selectedTransporteur
+                                ? `La collecte part ensuite chez ${selectedTransporteur.nom}. `
+                                : ''}
+                              La nouvelle association reçoit l’email
+                              d’attribution.
+                            </Text>
+                          )}
+                        </div>
+                      )}
                       <Text
                         tone="strong"
                         className="font-semibold"
@@ -2656,30 +2774,6 @@ export function CollecteDetailPanel({
                             );
                           })}
                         </div>
-                      )}
-                      {overrideActif && (
-                        <FormField
-                          label={
-                            changementPrestataireZd
-                              ? 'Motif du changement de transporteur (≥ 5 car.)'
-                              : 'Motif override (≥ 5 car. — transporteur ≠ reco algo)'
-                          }
-                          htmlFor="dispatch-motif"
-                          required
-                        >
-                          <Textarea
-                            id="dispatch-motif"
-                            rows={2}
-                            required
-                            value={motifOverride}
-                            onChange={(e) => setMotifOverride(e.target.value)}
-                            placeholder={
-                              changementPrestataireZd
-                                ? 'Raison du changement de transporteur…'
-                                : "Raison du choix d'un transporteur différent de la recommandation…"
-                            }
-                          />
-                        </FormField>
                       )}
                     </div>
                   )}
@@ -2766,7 +2860,7 @@ export function CollecteDetailPanel({
                               retourFocusChangerRef.current = true;
                               setChangerPrestataire(false);
                               setSelectedTransporteurId('');
-                              setMotifOverride('');
+                              setAssociationSaisie('');
                             }}
                           >
                             Garder le transporteur actuel
@@ -2777,7 +2871,6 @@ export function CollecteDetailPanel({
                         <Button
                           disabled={
                             isTerminal ||
-                            overrideMotifManquant ||
                             serviceDispatchManquant ||
                             prestataireAChoisir
                           }

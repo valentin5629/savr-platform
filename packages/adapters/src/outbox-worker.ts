@@ -82,6 +82,7 @@ import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
 import { composerCommentairesTransporteur } from './infos-acces.js';
 import type { EntreeCommentaire } from './infos-acces.js';
 import { applyLieuOverrides } from './lieu-overrides.js';
+import { annulerCommandesMts1 } from './mts1/adapter.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
 interface ClaimedEvent {
@@ -98,6 +99,7 @@ interface ClaimedEvent {
 interface CollecteRow {
   id: string;
   type: string;
+  statut: string;
   date_collecte: string;
   heure_collecte: string;
   nb_camions_demande: number;
@@ -379,6 +381,17 @@ async function processEvent(
     const provider = getLogistiqueProvider(transporteur, supabase);
 
     if (event_type === 'collecte.creee') {
+      // Changement d'association (décisions Val 2026-11-13) : les anciennes
+      // commandes MTS-1 sont annulées avant la (re)création
+      // (fn_changer_association_ag), quel que soit le transporteur en place :
+      // l'Admin peut avoir changé de transporteur dans le même geste.
+      const aAnnuler = event.payload['commandes_a_annuler'];
+      if (Array.isArray(aAnnuler) && aAnnuler.length > 0) {
+        await annulerCommandesMts1(
+          supabase,
+          aAnnuler.filter((id): id is string => typeof id === 'string'),
+        );
+      }
       // E1 : dispatch rang 1..N. Tous les rangs partagent le même consumer
       // (même transporteur) → on retient le dernier (BL-P2-34).
       let consumer: ConsumerTag = 'noop_no_remote';
@@ -687,7 +700,7 @@ async function fetchCollecte(
     .from('collectes')
     .select(
       `
-      id, type, date_collecte, heure_collecte, nb_camions_demande, pax,
+      id, type, statut, date_collecte, heure_collecte, nb_camions_demande, pax,
       statut_tms, controle_acces_requis, informations_supplementaires, notes_internes,
       prestataire_logistique_id, lieu_overrides,
       contacts:collecte_contacts(
@@ -781,6 +794,7 @@ async function fetchCollecte(
   return {
     id: raw.id,
     type: raw.type,
+    statut: raw.statut,
     date_collecte: raw.date_collecte,
     heure_collecte: raw.heure_collecte,
     nb_camions_demande: raw.nb_camions_demande,
@@ -961,6 +975,7 @@ function toCollecte(row: CollecteRow, transporteur: Transporteur): Collecte {
   return {
     id: row.id,
     type: row.type as 'zero_dechet' | 'anti_gaspi',
+    statut: row.statut,
     date_collecte: row.date_collecte,
     heure_collecte: row.heure_collecte,
     nb_camions_demande: row.nb_camions_demande,

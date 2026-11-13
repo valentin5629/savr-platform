@@ -609,12 +609,8 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole('radio', { name: /A Toute!/ }, ATTENTE_UI),
       );
-      fireEvent.change(
-        await screen.findByLabelText(/Motif override/, undefined, ATTENTE_UI),
-        {
-          target: { value: 'Marathon indisponible' },
-        },
-      );
+      // Plus de motif demandé (Val 2026-11-13) : seul le service bloque.
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       const envoyer = await screen.findByRole(
         'button',
         { name: /^Envoyer à A Toute!/ },
@@ -869,7 +865,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6 — choix ≠ top-1 algo → bouton A Toute! + motif override obligatoire (≥ 5)',
+    'M0.6 — choix ≠ top-1 algo → bouton A Toute!, aucun motif demandé (Val 2026-11-13)',
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -881,21 +877,14 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ATTENTE_UI,
       );
 
-      // Choisir A Toute! (≠ top-1 Strike) → override → motif obligatoire.
+      // Choisir A Toute! (≠ top-1 Strike) : envoi direct, sans motif.
       fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
 
       const bouton = screen.getByRole('button', {
         name: /Envoyer à A Toute!/,
       });
-      const motif = screen.getByLabelText(/Motif override/);
-      expect(motif).toBeInTheDocument();
-      expect(bouton).toBeDisabled();
-      fireEvent.change(motif, { target: { value: 'Zone vélo cargo IDF' } });
-      expect(bouton).not.toBeDisabled();
-
-      // Re-sélection du top-1 recommandé → plus de motif requis (validation reco)
-      fireEvent.click(screen.getByRole('radio', { name: /Strike/ }));
-      expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
+      expect(bouton).toBeEnabled();
     },
     ATTENTE_CAS_MS,
   );
@@ -1922,7 +1911,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme',
+    'AG en file d’envoi : envoyer chez un autre prestataire (sans motif) POST le dispatch, puis le mode « changer » se referme',
     async () => {
       const fetchMock = mockFetchPrestataire(collecteEnFileMts1);
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -1942,10 +1931,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       const bouton = screen.getByRole('button', {
         name: 'Envoyer à A Toute!',
       });
-      expect(bouton).toBeDisabled();
-      fireEvent.change(screen.getByLabelText(/Motif override/), {
-        target: { value: 'Zone vélo cargo IDF' },
-      });
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       expect(bouton).toBeEnabled();
       fireEvent.click(bouton);
 
@@ -1958,7 +1944,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(post).toBeTruthy();
         expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
           prestataire_logistique_id: 'presta-atoutes',
-          motif_override_prestataire: 'Zone vélo cargo IDF',
         });
       }, ATTENTE_UI);
       // Après le refetch, le bloc revient en lecture : plus de cartes, le
@@ -1971,6 +1956,198 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       expect(
         screen.getByRole('button', { name: 'Modifier l’attribution' }),
       ).toHaveFocus();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Changement d'association d'une AG attribuée (décisions Val 2026-11-13) :
+  // « Modifier l'attribution » propose aussi l'association ; son changement part
+  // par sa propre route, qui renvoie la collecte au prestataire.
+  function mockFetchAssociation(collecte: Record<string, unknown>) {
+    const fetchMock = mockFetchPrestataire(collecte);
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(
+      (url: string, opts?: { method?: string; body?: string }) => {
+        if (url.endsWith('/associations')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              data: [
+                { id: 'a1', nom: 'Les Restos du Cœur', distance_km: 2.4 },
+                { id: 'a2', nom: 'Le Chaînon Manquant', distance_km: 5.1 },
+              ],
+            }),
+          });
+        }
+        if (url.endsWith('/association') && opts?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ ok: true, event_type: 'collecte.creee' }),
+          });
+        }
+        return base(url, opts);
+      },
+    );
+    return fetchMock;
+  }
+
+  it(
+    'AG attribuée, « Modifier l’attribution » : une autre association (≠ reco), sans motif, part par sa route et non par le dispatch',
+    async () => {
+      const fetchMock = mockFetchAssociation({
+        ...collecteEnFileMts1,
+        statut: 'validee',
+        tms_reference: 'cmd-1',
+        statut_tms: 'a_attribuer',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      );
+      // Sans choix, l'association actuelle est gardée ; elle n'est pas
+      // reproposée dans la liste.
+      const choix = await screen.findByLabelText(
+        'Association bénéficiaire',
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.click(choix);
+      fireEvent.click(
+        await screen.findByRole(
+          'option',
+          { name: /Le Chaînon Manquant/ },
+          ATTENTE_UI,
+        ),
+      );
+      expect(
+        screen.getByText(
+          /La commande en cours chez MTS-1 sera annulée puis recréée/,
+        ),
+      ).toBeInTheDocument();
+      const bouton = screen.getByRole('button', { name: 'Renvoyer à MTS-1' });
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/attributions-ag/c1/association') &&
+            (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          association_id: 'a2',
+        });
+      }, ATTENTE_UI);
+      expect(
+        fetchMock.mock.calls.some(([u]) => String(u).includes('/dispatch')),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG attribuée : association et transporteur changés ensemble → association d’abord (envoi différé), puis dispatch vers le nouveau transporteur',
+    async () => {
+      const fetchMock = mockFetchAssociation({
+        ...collecteEnFileMts1,
+        statut: 'programmee',
+        tms_reference: 'cmd-1',
+        statut_tms: 'a_attribuer',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(
+        await screen.findByLabelText(
+          'Association bénéficiaire',
+          undefined,
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(
+        await screen.findByRole(
+          'option',
+          { name: /Le Chaînon Manquant/ },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
+      expect(
+        screen.getByText(/La commande en cours chez MTS-1 sera annulée\./),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/La collecte part ensuite chez A Toute!/),
+      ).toBeInTheDocument();
+      const bouton = screen.getByRole('button', {
+        name: /^(Envoyer|Renvoyer) à /,
+      });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const posts = fetchMock.mock.calls.filter(
+          (c) => (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        const iAsso = posts.findIndex((c) =>
+          String(c[0]).endsWith('/attributions-ag/c1/association'),
+        );
+        const iDispatch = posts.findIndex((c) =>
+          String(c[0]).includes('/dispatch'),
+        );
+        expect(iAsso).toBeGreaterThanOrEqual(0);
+        expect(iDispatch).toBeGreaterThan(iAsso);
+        expect(JSON.parse((posts[iAsso]![1] as { body: string }).body)).toEqual(
+          {
+            association_id: 'a2',
+            envoi_differe: true,
+          },
+        );
+        expect(
+          JSON.parse((posts[iDispatch]![1] as { body: string }).body),
+        ).toMatchObject({ prestataire_logistique_id: 'presta-atoutes' });
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG en cours de mission : « Modifier l’attribution » ne propose pas de changer l’association',
+    async () => {
+      mockFetchAssociation({
+        ...collecteEnFileMts1,
+        statut: 'en_cours',
+        tms_reference: 'cmd-1',
+        statut_tms: 'acceptee',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      );
+      await screen.findByRole('radiogroup', undefined, ATTENTE_UI);
+      expect(screen.queryByLabelText('Association bénéficiaire')).toBeNull();
     },
     ATTENTE_CAS_MS,
   );
@@ -2462,7 +2639,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/dispatch_zd_changement_motif — ZD : changer un transporteur déjà posé exige un motif (≥ 5 car.), transmis au dispatch',
+    'M0.6/dispatch_zd_changement_motif — ZD : changer un transporteur déjà posé, sans motif (Val 2026-11-13)',
     async () => {
       const fetchMock = mockFetchPrestataire(
         {
@@ -2486,11 +2663,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         await screen.findByRole('radio', { name: /Marathon/ }, ATTENTE_UI),
       );
       const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
-      expect(bouton).toBeDisabled();
-      fireEvent.change(
-        screen.getByLabelText(/Motif du changement de transporteur/),
-        { target: { value: 'Strike indisponible ce soir' } },
-      );
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       expect(bouton).toBeEnabled();
       fireEvent.click(bouton);
 
@@ -2499,7 +2672,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(post).toBeTruthy();
         expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
           prestataire_logistique_id: 'presta-marathon',
-          motif_override_prestataire: 'Strike indisponible ce soir',
         });
       }, ATTENTE_UI);
     },

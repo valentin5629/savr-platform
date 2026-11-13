@@ -212,6 +212,10 @@ const AGE_RAJEUNISSEMENT_MEMOIRE_MS = 3 * 24 * 60 * 60 * 1000;
 // compte de démonstration ce jour-là).
 const STATUTS_COMMANDE_TERMINEE = new Set(['OK', 'PARTIAL', 'ARCHIVED']);
 
+// Statuts de collecte où la mission n'a pas commencé : la modification d'une
+// commande y renvoie sa marchandise (décision Val 2026-11-13).
+const STATUTS_AVANT_MISSION = new Set(['programmee', 'validee']);
+
 // ─── Contact d'une commande ──────────────────────────────────────────────────
 
 // CustomerOrderContactInput : Savr n'a qu'un nom complet → 1er mot = firstname,
@@ -230,6 +234,36 @@ function contactMts1(
     ...(telephone ? { phone: telephone } : {}),
     ...(telephoneSecours ? { phoneAlternatives: [telephoneSecours] } : {}),
   };
+}
+
+// ─── Annulation des anciennes commandes (changement d'association) ───────────
+
+// Changement d'association d'une AG (décisions Val 2026-11-13) : les anciennes
+// commandes MTS-1 sont annulées avant la recréation. Leurs tournées ont déjà
+// été réinitialisées par fn_changer_association_ag, qui passe leurs
+// identifiants à l'ordre de création. Indépendant du transporteur en place :
+// l'Admin peut changer de transporteur dans le même geste, la commande
+// MTS-1 doit partir quand même. DELETE idempotent sur 404 : une reprise de
+// l'ordre ne bute pas sur une commande déjà supprimée.
+export async function annulerCommandesMts1(
+  supabase: SupabaseClient,
+  customerOrderIds: string[],
+): Promise<void> {
+  const client = new Mts1Client(supabase);
+  for (const id of customerOrderIds) {
+    try {
+      await client.deleteOrder(id, id);
+    } catch (err) {
+      if (
+        !(
+          err instanceof LogistiquePermanentError &&
+          err.message.includes('MTS-1 404')
+        )
+      ) {
+        throw err;
+      }
+    }
+  }
 }
 
 // ─── Numéro de commande (décision Val 2026-10-15, C59) ──────────────────────
@@ -492,9 +526,9 @@ export class AdapterMts1 implements LogistiqueProvider {
       // Le numéro est renvoyé à chaque modification : un nombre de pax, un lieu
       // ou un traiteur modifié renomme le point dans la console (renommage par
       // `PUT { orderNumber, stuffs }` mesuré sur le compte de démonstration le
-      // 2026-10-15 ; le corps envoyé ici ne porte pas `stuffs`, défaut préexistant
-      // traité ailleurs). La clé, en fin de numéro, tentative comprise, ne change
-      // pas.
+      // 2026-10-15). La marchandise part avec, tant que la mission n'a pas
+      // commencé (cf. buildUpdatePayload). La clé, en fin de numéro, tentative
+      // comprise, ne change pas.
       const numero = this.orderNumber(collecte, t.rang, t);
       await this.client.updateOrder(
         t.external_ref_commande!,
@@ -2853,13 +2887,13 @@ export class AdapterMts1 implements LogistiqueProvider {
     };
   }
 
-  private buildOrderPayload(
-    collecte: Collecte,
-    orderNumber: string,
-  ): CreateOrderPayload {
+  // Marchandise de la commande, chaque stuff portant le point B. Partagée par la
+  // création (E1) et la modification (E2) : un PUT sans `stuffs` les VIDE chez
+  // MTS-1 (mesuré sur le compte de démonstration le 2026-11-13 : après deux
+  // renvois, `stuffs = []`, commande `DRAFT`, validation de la tournée
+  // `CANCELED`), alors qu'une commande jamais modifiée garde son stuff.
+  private buildStuffs(collecte: Collecte): CreateOrderPayload['stuffs'] {
     const isZd = collecte.type === 'zero_dechet';
-
-    const contact = this.buildContact(collecte);
 
     // Point B (livraison) = où les stuffs sont déposés → `stuffs[].relatedAddress`
     // (CustomerOrderPlaceInput). ZD → entrepôt Savr (favoritePlace `MTS1_ENTREPOT_PLACE_ID`) ;
@@ -2901,7 +2935,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     // Marchandise transportée (pesée plus tard → quantity 0), chaque stuff portant le
     // point B (relatedAddress). ZD = 5 flux + volume du camion ; AG = le don
     // alimentaire (poids/photos remontés ensuite par le polling, comme les pesées ZD).
-    const stuffs = isZd
+    return isZd
       ? [
           ...FLUX_STUFFS_ZD.map((name) => ({
             name,
@@ -2924,6 +2958,15 @@ export class AdapterMts1 implements LogistiqueProvider {
             ...relatedAddress,
           },
         ];
+  }
+
+  private buildOrderPayload(
+    collecte: Collecte,
+    orderNumber: string,
+  ): CreateOrderPayload {
+    const isZd = collecte.type === 'zero_dechet';
+    const contact = this.buildContact(collecte);
+    const stuffs = this.buildStuffs(collecte);
 
     return {
       orderNumber,
@@ -2970,9 +3013,9 @@ export class AdapterMts1 implements LogistiqueProvider {
   // en étant typé `CreateOrderPayload` ; E2 était le seul payload sortant non typé, donc
   // le seul où une fuite interne passait typecheck ET tests (relevé reviewer-rls-securite).
   private buildUpdatePayload(collecte: Collecte): Partial<CreateOrderPayload> {
-    // R22c/BL-P2-10 : PUT /v3/customerOrders = merge partiel MTS-1 — seuls les champs
-    // de PREMIER NIVEAU listés ici sont touchés (`stuffs`, pesées, statut : absents du
-    // payload, donc préservés). ⚠ La profondeur du merge n'est PAS spécifiée : `place`
+    // R22c/BL-P2-10 : PUT /v3/customerOrders = merge partiel MTS-1 supposé — FAUX
+    // pour `stuffs` : absents du corps, ils sont VIDÉS (mesuré le 2026-11-13, cf.
+    // buildStuffs) ; ils partent donc avant la mission (fin du corps). ⚠ La profondeur du merge n'est PAS spécifiée : `place`
     // étant listé, rien ne garantit que MTS-1 fusionne À L'INTÉRIEUR de l'objet. Le
     // créneau est donc envoyé dans le MÊME `place` que l'adresse — correct dans les
     // deux hypothèses (merge profond : il est mis à jour ; remplacement de `place` :
@@ -2988,9 +3031,9 @@ export class AdapterMts1 implements LogistiqueProvider {
     // cinq n'atteignaient pas le fil : le créneau (`heure_collecte`) et le canal
     // libre (`informations_supplementaires`). `controle_acces_requis` reste le seul
     // exclu assumé : MTS-1 n'a aucun champ natif (concern V2 TMS via
-    // validate_tournee_controle_acces). Le « volume » que nomme la 3bis.8 n'est pas
-    // repoussé non plus : il vit dans `stuffs`, dont un re-push écraserait les
-    // quantités pesées (divergence tracée, type ambigu).
+    // validate_tournee_controle_acces). Le « volume » que nomme la 3bis.8 vit dans
+    // `stuffs` : repoussé avant la mission seulement, un re-push après écraserait
+    // les quantités pesées (divergence tracée, type ambigu).
     //
     // buildOrderPayload (E1) et buildUpdatePayload (E2) restent alignés par
     // CONSTRUCTION via buildPlace()/buildContact(), pas par recopie. pax : MTS-1 n'a
@@ -3007,6 +3050,14 @@ export class AdapterMts1 implements LogistiqueProvider {
       // la clé laisserait le chauffeur avec des instructions d'accès périmées — le
       // cas exact que ce correctif adresse, à l'envers.
       comment: collecte.informations_supplementaires ?? '',
+      // Marchandise et point B : un PUT sans `stuffs` les vide chez MTS-1, la
+      // commande repasse en brouillon et la validation de sa tournée est annulée
+      // (mesuré le 2026-11-13, cf. buildStuffs). Renvoyée tant que la mission
+      // n'a pas commencé (décision Val 2026-11-13) ; après, ses quantités à 0
+      // écraseraient les poids saisis par le chauffeur.
+      ...(collecte.statut && STATUTS_AVANT_MISSION.has(collecte.statut)
+        ? { stuffs: this.buildStuffs(collecte) }
+        : {}),
     };
   }
 }

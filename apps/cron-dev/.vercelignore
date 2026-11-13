@@ -1,2 +1,4 @@
-# Seule la fonction et sa configuration sont déployées.
-tests/
+# Seule la fonction et sa configuration sont déployées. Chemins relatifs à la
+# racine du dépôt (constaté au premier build : `tests/` retirait tous les
+# dossiers de tests du dépôt).
+/apps/cron-dev/tests/

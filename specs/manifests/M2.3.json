@@ -404,6 +404,15 @@
       "statut": "partial",
       "ref_divergence": "_Divergences/_traités/2026-11/BOA-LOGISTIQUE_20261110.md",
       "libelle": "Contrainte en base : lieux.type_vehicule_max et transporteurs.types_vehicules limités à velo_cargo, camionnette, fourgon, vul, poids_lourd (§04 l.866 et l.1421) ; les 6 valeurs ajoutées à l'enum type_vehicule le 2026-11-10 ne servent qu'au véhicule souhaité d'une collecte. Dette code notée par la fiche : sur main la garde n'existe que dans les routes (422, #769), une écriture directe (reprise Bubble, SQL) peut encore poser une autre valeur."
+    },
+    {
+      "id": "M2.3-email-association-48h",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:146",
+      "artefact": "supabase/migrations/20261113150000_plateforme_email_association_48h.sql (fn_claim_outbox_attribution_batch : event attribution.validee retenu tant que le créneau, heure de Paris, est à plus de 48 h) ; packages/plateforme/src/lib/attribution-ag/job.ts (STATUTS_SANS_EMAIL : aucun email pour une collecte annulée, réalisée ou clôturée)",
+      "test": "supabase/tests/outbox_attribution_48h.test.sql + packages/plateforme/tests/lib/attribution-ag-job.test.ts",
+      "statut": "implemented",
+      "ref_divergence": "_Divergences/M2.3_20261113_email-association-48h.md",
+      "libelle": "Email ag_attribution_association envoyé 48 h avant le créneau de collecte, pas avant (Val 2026-11-13) ; tout de suite si le créneau est à moins de 48 h ; date relue à chaque passage du cron ; aucun email pour une collecte annulée, réalisée ou clôturée au moment de l’envoi."
     }
   ],
   "cdc_source_hash": {

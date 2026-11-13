@@ -5,6 +5,15 @@ import { formatDateParis } from '@savr/shared/src/temps/index.js';
 import { heureCourte } from '@/lib/exports/shared';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 
+// `annulation_demandee` se lit annulée partout (Val 2026-11-01).
+const STATUTS_SANS_EMAIL = new Set([
+  'annulee',
+  'annulation_demandee',
+  'realisee',
+  'realisee_sans_collecte',
+  'cloturee',
+]);
+
 export interface AttributionValideePayload {
   collecte_id: string;
   attribution_id: string;
@@ -25,7 +34,7 @@ export async function processAttributionValidee(
     .select(
       `id, branche_attribution, mode_validation,
        collectes!collecte_id(
-         id, date_collecte, heure_collecte, volume_estime_repas,
+         id, statut, date_collecte, heure_collecte, volume_estime_repas,
          evenements!evenement_id(
            nom_evenement, pax,
            lieux!lieu_id(nom, adresse_acces, ville)
@@ -45,6 +54,17 @@ export async function processAttributionValidee(
   const evt = (collecte.evenements as Record<string, unknown>) ?? {};
   const asso =
     (attribution.associations as unknown as Record<string, unknown>) ?? {};
+
+  // L'email part 48 h avant le créneau (claim de la famille, Val 2026-11-13) :
+  // entre la validation et l'envoi, la collecte a pu être annulée ou être déjà
+  // passée. L'association n'est alors pas prévenue ; l'event est consommé.
+  if (STATUTS_SANS_EMAIL.has(collecte.statut as string)) {
+    logger.info('attribution_ag.email_association.ignore', {
+      collecte_id: payload.collecte_id,
+      statut: collecte.statut as string,
+    });
+    return;
+  }
 
   const evenementNom =
     ((evt.nom_evenement as string | null) ?? '').trim() || 'Événement traiteur';

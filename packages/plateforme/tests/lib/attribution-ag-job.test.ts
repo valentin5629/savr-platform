@@ -40,6 +40,7 @@ const ATTRIBUTION = {
   mode_validation: 'auto_accept',
   collectes: {
     id: 'col-1',
+    statut: 'programmee',
     date_collecte: '2026-05-28',
     heure_collecte: '22:00',
     volume_estime_repas: 120,
@@ -143,4 +144,42 @@ describe('job attribution AG — emails via sendEmail', () => {
     );
     expect(sendEmail).not.toHaveBeenCalled();
   });
+
+  // L'email part 48 h avant le créneau (Val 2026-11-13) : entre la validation et
+  // l'envoi, la collecte a pu être annulée ou être déjà passée.
+  it.each([
+    'annulee',
+    'annulation_demandee',
+    'realisee',
+    'realisee_sans_collecte',
+    'cloturee',
+  ])(
+    'collecte « %s » au moment de l’envoi → aucun email, le job aboutit',
+    async (statut) => {
+      single.mockResolvedValue({
+        data: {
+          ...ATTRIBUTION,
+          collectes: { ...ATTRIBUTION.collectes, statut },
+        },
+        error: null,
+      });
+      await expect(processAttributionValidee(PAYLOAD)).resolves.toBeUndefined();
+      expect(sendEmail).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['programmee', 'validee', 'en_cours', 'rejetee_par_prestataire'])(
+    'collecte « %s » au moment de l’envoi → l’email part',
+    async (statut) => {
+      single.mockResolvedValue({
+        data: {
+          ...ATTRIBUTION,
+          collectes: { ...ATTRIBUTION.collectes, statut },
+        },
+        error: null,
+      });
+      await processAttributionValidee(PAYLOAD);
+      expect(sendEmail).toHaveBeenCalledTimes(1);
+    },
+  );
 });

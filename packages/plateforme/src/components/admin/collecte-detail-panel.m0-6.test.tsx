@@ -1975,6 +1975,185 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
     ATTENTE_CAS_MS,
   );
 
+  // Changement d'association d'une AG attribuée (décisions Val 2026-11-13) :
+  // « Modifier l'attribution » propose aussi l'association ; son changement part
+  // par sa propre route, qui renvoie la collecte au prestataire.
+  function mockFetchAssociation(collecte: Record<string, unknown>) {
+    const fetchMock = mockFetchPrestataire(collecte);
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(
+      (url: string, opts?: { method?: string; body?: string }) => {
+        if (url.endsWith('/associations')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              data: [
+                { id: 'a1', nom: 'Les Restos du Cœur', distance_km: 2.4 },
+                { id: 'a2', nom: 'Le Chaînon Manquant', distance_km: 5.1 },
+              ],
+            }),
+          });
+        }
+        if (url.endsWith('/association') && opts?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ ok: true, event_type: 'collecte.creee' }),
+          });
+        }
+        return base(url, opts);
+      },
+    );
+    return fetchMock;
+  }
+
+  it(
+    'AG attribuée, « Modifier l’attribution » : une autre association (≠ reco) exige un motif, part par sa route et non par le dispatch',
+    async () => {
+      const fetchMock = mockFetchAssociation({
+        ...collecteEnFileMts1,
+        statut: 'validee',
+        tms_reference: 'cmd-1',
+        statut_tms: 'a_attribuer',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      );
+      // Sans choix, l'association actuelle est gardée ; elle n'est pas
+      // reproposée dans la liste.
+      const choix = await screen.findByLabelText(
+        'Association bénéficiaire',
+        undefined,
+        ATTENTE_UI,
+      );
+      fireEvent.click(choix);
+      fireEvent.click(
+        await screen.findByRole(
+          'option',
+          { name: /Le Chaînon Manquant/ },
+          ATTENTE_UI,
+        ),
+      );
+      expect(
+        screen.getByText(
+          /La commande en cours chez MTS-1 sera annulée puis recréée/,
+        ),
+      ).toBeInTheDocument();
+      const bouton = screen.getByRole('button', { name: 'Renvoyer à MTS-1' });
+      expect(bouton).toBeDisabled();
+      fireEvent.change(
+        screen.getByLabelText(/Motif \(≥ 5 car\. — association ≠ reco algo\)/),
+        { target: { value: 'Association plus proche' } },
+      );
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(
+          (c) =>
+            String(c[0]).endsWith('/attributions-ag/c1/association') &&
+            (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        expect(post).toBeTruthy();
+        expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
+          association_id: 'a2',
+          motif_override: 'Association plus proche',
+        });
+      }, ATTENTE_UI);
+      expect(
+        fetchMock.mock.calls.some(([u]) => String(u).includes('/dispatch')),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG attribuée : association et transporteur changés ensemble → envoi bloqué, à faire en deux fois',
+    async () => {
+      mockFetchAssociation({
+        ...collecteEnFileMts1,
+        statut: 'programmee',
+        tms_reference: 'cmd-1',
+        statut_tms: 'a_attribuer',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(
+        await screen.findByLabelText(
+          'Association bénéficiaire',
+          undefined,
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(
+        await screen.findByRole(
+          'option',
+          { name: /Le Chaînon Manquant/ },
+          ATTENTE_UI,
+        ),
+      );
+      fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
+      // Motifs remplis : seul le double changement bloque l'envoi.
+      fireEvent.change(screen.getByLabelText(/Motif override/), {
+        target: { value: 'Zone vélo cargo IDF' },
+      });
+      fireEvent.change(
+        screen.getByLabelText(/Motif \(≥ 5 car\. — association ≠ reco algo\)/),
+        { target: { value: 'Association plus proche' } },
+      );
+
+      expect(
+        screen.getByText(
+          /Changez l’association et le transporteur en deux fois/,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^(Envoyer|Renvoyer) à / }),
+      ).toBeDisabled();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'AG en cours de mission : « Modifier l’attribution » ne propose pas de changer l’association',
+    async () => {
+      mockFetchAssociation({
+        ...collecteEnFileMts1,
+        statut: 'en_cours',
+        tms_reference: 'cmd-1',
+        statut_tms: 'acceptee',
+        ordre_envoi: null,
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Modifier l’attribution' },
+          ATTENTE_UI,
+        ),
+      );
+      await screen.findByRole('radiogroup', undefined, ATTENTE_UI);
+      expect(screen.queryByLabelText('Association bénéficiaire')).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // ZD (décision Val 2026-10-07, C1) : l'Admin choisit le transporteur sur la
   // fiche, comme pour l'AG, puis envoie. Avant, la fiche n'offrait aucun choix
   // en ZD et « Envoyer » émettait un ordre sans prestataire, que personne ne

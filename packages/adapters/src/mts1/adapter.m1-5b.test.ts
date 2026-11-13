@@ -213,6 +213,13 @@ function makeSyncSupabase(opts: {
           }
           return Promise.resolve({ data: [{ id: 'inbox-001' }], error: null });
         }
+        // Recherche de doublon d'une photo (`limit(1)` sur la clé).
+        if (table === 'fichiers') {
+          return Promise.resolve({
+            data: opts.photoExistante ? [{ id: 'fichier-001' }] : [],
+            error: null,
+          });
+        }
         return Promise.resolve({ data: [], error: null });
       }),
       maybeSingle: vi.fn(() => {

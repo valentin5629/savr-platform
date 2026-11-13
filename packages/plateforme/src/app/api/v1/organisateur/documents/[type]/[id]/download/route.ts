@@ -1,6 +1,6 @@
 // GET /api/v1/organisateur/documents/:type/:id/download
 // Retourne une URL pré-signée R2 (15 min) pour un document du client organisateur.
-// type ∈ rapport | bordereau | attestation.
+// type ∈ rapport | attestation (le bordereau ZD n'a plus de PDF, Val 2026-11-13).
 // Sécurité : client user-scopé → la RLS (rr_select / bord_client_orga_select /
 // att_client_orga_select) est la frontière ; une ligne d'un autre organisateur → 404.
 // Embargo H+24 (R-PDF2) appliqué côté serveur sur les rapports RSE (disponible_a),
@@ -22,7 +22,6 @@ import {
   fabriquerRapport,
   marquerConsulte,
 } from '@/lib/collectes/rapport-a-la-demande.js';
-import { storageKeysDesFichiers } from '@/lib/pdf/fichier-storage-key.js';
 import {
   nomFichierAttestation,
   nomFichierDuRapportDeLaCollecte,
@@ -126,27 +125,6 @@ export async function GET(
       );
     storageKey = data.pdf_url as string | null;
     nomFichier = nomFichierAttestation(data.numero as string | null);
-  } else if (type === 'bordereau') {
-    const { data, error } = await supabase
-      .from('bordereaux_savr')
-      .select('id, genere_at, pdf_fichier_id')
-      .eq('id', id)
-      .maybeSingle();
-    if (error || !data)
-      return NextResponse.json(
-        { error: 'Bordereau introuvable' },
-        { status: 404 },
-      );
-    if (!data.genere_at)
-      return NextResponse.json(
-        { error: 'PDF non encore généré' },
-        { status: 202 },
-      );
-    // pdf_fichier_id → shared.fichiers (bucket/key) : pas d'embed cross-schema.
-    storageKey =
-      (await storageKeysDesFichiers(supabase, [data.pdf_fichier_id])).get(
-        data.pdf_fichier_id ?? '',
-      ) ?? null;
   } else {
     return NextResponse.json(
       { error: 'Type de document inconnu' },

@@ -295,9 +295,9 @@ describe('M3.4 / dashboard KPI', () => {
 
 // ── Documents ───────────────────────────────────────────────────────────────
 describe('M3.4 / documents', () => {
-  it('M3.4/documents_liste_rapports_bordereaux_attestations — 3 types fusionnés', async () => {
+  it('M3.4/documents_liste_rapports_attestations — 2 types fusionnés, plus de bordereau (Val 2026-11-13)', async () => {
     setupAuth('client_organisateur', 'org-a');
-    // ordre de résolution Promise.all : rapports, bordereaux, attestations
+    // ordre de résolution Promise.all : rapports, attestations
     rls.push({
       data: [
         {
@@ -307,20 +307,6 @@ describe('M3.4 / documents', () => {
           genere_at: '2020-01-02T00:00:00Z',
           collectes: { type: 'zero_dechet', statut: 'cloturee' },
           evenements: { nom_evenement: 'Gala', date_evenement: '2026-05-10' },
-        },
-      ],
-      error: null,
-    });
-    rls.push({
-      data: [
-        {
-          id: 'b1',
-          collecte_id: 'c1',
-          genere_at: '2020-01-02T00:00:00Z',
-          pdf_fichier_id: 'f1',
-          collectes: {
-            evenements: { nom_evenement: 'Gala', date_evenement: '2026-05-10' },
-          },
         },
       ],
       error: null,
@@ -350,7 +336,7 @@ describe('M3.4 / documents', () => {
     };
     expect(res.status).toBe(200);
     const types = json.data.map((d) => d.type).sort();
-    expect(types).toEqual(['attestation', 'bordereau', 'rapport']);
+    expect(types).toEqual(['attestation', 'rapport']);
     expect(json.data.every((d) => d.disponible)).toBe(true);
   });
 
@@ -387,7 +373,6 @@ describe('M3.4 / documents', () => {
       ],
       error: null,
     });
-    rls.push({ data: [], error: null }); // bordereaux
     rls.push({
       data: [
         {
@@ -412,7 +397,7 @@ describe('M3.4 / documents', () => {
     expect(json.data.map((d) => [d.id, d.type, d.nom]).sort()).toEqual([
       ['a-don', 'attestation', 'Rapport de don'],
       ['r-sans', 'rapport', 'Rapport de don'],
-      ['r-zd', 'rapport', 'Rapport RSE'],
+      ['r-zd', 'rapport', 'Rapport de recyclage'],
     ]);
     // Une seule ligne par collecte AG.
     const parCollecteAg = json.data.filter((d) => d.nom === 'Rapport de don');

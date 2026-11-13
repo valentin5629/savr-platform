@@ -20,10 +20,8 @@ import {
   FiltreCoches,
   type OptionFiltre,
 } from '@/components/ui/filtre-en-ligne';
-import { valeurUnique } from '@/lib/filtre-csv';
 import { compteurResultats } from '@/lib/compteur-resultats';
 import { PageHero } from '@/components/ui/page-hero';
-import { TextLink } from '@/components/ui/text-link';
 import { ListFooter } from '@/components/ui/list-footer';
 import {
   useFiltresUrl,
@@ -39,13 +37,13 @@ import { ROUTES } from '@/lib/routes';
 // ---------------------------------------------------------------------------
 // Registre réglementaire ZD (§06.03) — vue liste : tableau chronologique des
 // collectes cloturee ZD du périmètre, filtres, tri mono-colonne, pagination,
-// exports CSV / ZIP, notice méthodologique. Cloisonnement porté par l'API/vue.
+// export CSV, notice méthodologique (bordereaux sans PDF, Val 2026-11-13). Cloisonnement porté par l'API/vue.
 // ---------------------------------------------------------------------------
 
 const PAGE_SIZES = [25, 50, 100] as const;
 
-// Filtres du registre, miroir dans l'URL (R-UI-4a) : Lieu / Traiteur /
-// Bordereau à choix multiple, case « Tous » = sélection vide (§06.03
+// Filtres du registre, miroir dans l'URL (R-UI-4a) : Lieu / Traiteur à choix
+// multiple, case « Tous » = sélection vide (§06.03
 // « multi-select » ; décision Val 2026-09-30). Tri serveur `tri`/`ordre`
 // (convention unique), `limit` = lignes par page.
 const FILTRES = {
@@ -54,7 +52,6 @@ const FILTRES = {
   flux: liste(),
   lieu: liste(),
   traiteur: liste(),
-  bordereau: liste(),
   page: navigation(entier(1, 1)),
   limit: navigation(entier(25)),
   tri: navigation(texte('date_evenement')),
@@ -71,9 +68,6 @@ interface RegistreRow {
   exutoire_nom: string | null;
   poids_total_kg: number | null;
   flux_codes: string[] | null;
-  bordereau_id: string | null;
-  bordereau_numero: string | null;
-  bordereau_statut: string | null;
   historique_partiel: boolean | null;
 }
 
@@ -92,9 +86,6 @@ function dateFr(d: string | null): string {
   if (!d) return '—';
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : d;
-}
-function bordereauDispo(statut: string | null): boolean {
-  return statut === 'emis' || statut === 'corrige';
 }
 /** Options distinctes tirées des lignes affichées (repli des filtres). */
 function optionsDesLignes(
@@ -132,8 +123,6 @@ function RegistreContent() {
     if (f.flux.length) qs.set('flux', f.flux.join(','));
     if (f.lieu.length) qs.set('lieu', f.lieu.join(','));
     if (f.traiteur.length) qs.set('traiteur', f.traiteur.join(','));
-    const bordereau = valeurUnique(f.bordereau);
-    if (bordereau) qs.set('bordereau', bordereau);
     if (!forExport) {
       qs.set('tri', sortBy);
       qs.set('ordre', sortDir);
@@ -199,15 +188,6 @@ function RegistreContent() {
     if (sortBy === key) set({ ordre: sortDir === 'asc' ? 'desc' : 'asc' });
     else set({ tri: key, ordre: 'asc' });
   }
-  async function downloadBordereau(id: string) {
-    const res = await fetch(
-      `/api/v1/registre/bordereaux/${encodeURIComponent(id)}/download`,
-    );
-    if (!res.ok) return;
-    const j = (await res.json()) as { url?: string };
-    if (j.url) window.open(j.url, '_blank');
-  }
-
   // Liste PAGINÉE côté serveur (`fetchRegistre` : `.range()` + `.order(sortBy)`).
   // Le tri n'est donc jamais fait sur la seule page affichée : `manualSorting`,
   // chaque clic d'en-tête passe par `sort()` qui renvoie `tri`/`ordre` à
@@ -269,19 +249,6 @@ function RegistreContent() {
       accessorFn: (r) => r.exutoire_nom ?? '',
       cell: ({ row: { original: r } }) => r.exutoire_nom ?? '—',
     },
-    {
-      id: 'bordereau',
-      header: 'Bordereau',
-      meta: { interactive: true },
-      cell: ({ row: { original: r } }) =>
-        r.bordereau_id && bordereauDispo(r.bordereau_statut) ? (
-          <TextLink onClick={() => downloadBordereau(r.bordereau_id!)}>
-            {r.bordereau_numero ?? 'PDF'} ⬇
-          </TextLink>
-        ) : (
-          <span className="text-savr-neutral-400">Manquant</span>
-        ),
-    },
   ];
   return (
     <div className="space-y-4">
@@ -289,19 +256,9 @@ function RegistreContent() {
         icon={<BookOpenIcon className="h-6 w-6" />}
         title="Registre réglementaire"
         actions={
-          <>
-            <Button variant="secondary" asChild>
-              <a href={ROUTES.registreMethodologie}>Méthodologie</a>
-            </Button>
-            <Button
-              variant="accent"
-              onClick={() =>
-                window.open(`/api/v1/registre/export-zip?${queryString(true)}`)
-              }
-            >
-              Télécharger tous les bordereaux
-            </Button>
-          </>
+          <Button variant="secondary" asChild>
+            <a href={ROUTES.registreMethodologie}>Méthodologie</a>
+          </Button>
         }
       />
 
@@ -338,16 +295,6 @@ function RegistreContent() {
           options={optionsAffichees.traiteurs}
           selected={f.traiteur}
           onChange={(ids) => set({ traiteur: ids })}
-        />
-        <FiltreCoches
-          label="Bordereau"
-          testid="registre-bordereau"
-          options={[
-            { id: 'dispo', nom: 'Disponible' },
-            { id: 'manquant', nom: 'Manquant' },
-          ]}
-          selected={f.bordereau}
-          onChange={(ids) => set({ bordereau: ids })}
         />
         <FiltreCoches
           label="Flux"

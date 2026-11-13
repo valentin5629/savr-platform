@@ -1,8 +1,8 @@
 /**
  * Registre réglementaire (§06.03) — liste en Data Table. La liste est paginée
  * côté serveur : le tri d'en-tête doit repartir vers l'API (`tri`/`ordre`),
- * jamais trier la seule page affichée. Le lien de bordereau ne doit pas ouvrir
- * la fiche de la ligne.
+ * jamais trier la seule page affichée. Plus de colonne ni de lien de bordereau
+ * (bordereau sans PDF, Val 2026-11-13).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -40,18 +40,11 @@ const ROWS = [
   },
 ];
 
-const fetchParDefaut = (input: RequestInfo | URL): Promise<Response> => {
-  const url = String(input);
-  if (url.includes('/bordereaux/'))
-    return Promise.resolve({
-      ok: true,
-      json: async () => ({ url: 'https://exemple.invalid/b.pdf' }),
-    } as Response);
-  return Promise.resolve({
+const fetchParDefaut = (_input: RequestInfo | URL): Promise<Response> =>
+  Promise.resolve({
     ok: true,
     json: async () => ({ rows: ROWS, total: 1 }),
   } as Response);
-};
 const fetchMock = vi.fn(fetchParDefaut);
 
 const dernierAppelListe = () =>
@@ -109,24 +102,17 @@ describe('M0.8 — Registre : liste en Data Table (tri serveur)', () => {
   );
 
   it(
-    'le lien bordereau télécharge sans ouvrir la fiche ; la ligne ouvre la fiche',
+    'plus de colonne Bordereau (sans PDF, Val 2026-11-13) ; la ligne ouvre la fiche',
     async () => {
       render(<RegistrePage />);
       const table = within(
         await screen.findByRole('table', undefined, ATTENTE_UI),
       );
 
-      fireEvent.click(table.getByRole('button', { name: /BS-001/ }));
-      await waitFor(
-        () =>
-          expect(
-            fetchMock.mock.calls.some((c) =>
-              String(c[0]).includes('/api/v1/registre/bordereaux/b1/download'),
-            ),
-          ).toBe(true),
-        ATTENTE_UI,
-      );
-      expect(routerPush).not.toHaveBeenCalled();
+      expect(
+        table.queryByRole('columnheader', { name: /Bordereau/ }),
+      ).toBeNull();
+      expect(table.queryByRole('button', { name: /BS-001/ })).toBeNull();
 
       fireEvent.click(table.getByText('Kaspia'));
       expect(routerPush).toHaveBeenCalledWith('/registre/c1');

@@ -1,6 +1,7 @@
 // Régénération manuelle d'un PDF de collecte (Admin — §06.06 Bloc 3 « Documents »,
 // actions l.283-284). Le bouton « Régénérer » de la fiche collecte re-render un
-// document déjà généré (rapport RSE / bordereau ZD / attestation de don).
+// document déjà généré (rapport « sans excédent » / attestation de don). Le
+// bordereau ZD n'a plus de PDF (Val 2026-11-13).
 //
 // Mécanique (BL-P1-BOA-07) : jobs_pdf n'est jamais purgé → on RE-ENQUEUE une copie
 // du dernier payload figé de l'entité (jobs_pdf.payload), plutôt que de reconstruire
@@ -40,7 +41,7 @@ const CHAMP_LOGO: Partial<Record<PdfDocumentType, string>> = {
 
 interface DocEntity {
   /** Table plateforme.* portant la ligne document (clé collecte_id). */
-  table: 'bordereaux_savr' | 'rapports_rse' | 'attestations_don';
+  table: 'rapports_rse' | 'attestations_don';
   /** entity_type persisté dans jobs_pdf.entity_type. */
   entityType: string;
 }
@@ -52,7 +53,6 @@ interface DocEntity {
 // uniquement, correction motif chauffeur / plaque post-saisie ») est porté par
 // rapports_rse. Le rapport de recyclage ZD, fabriqué au clic, n'est pas ici.
 const DOC_ENTITY: Partial<Record<PdfDocumentType, DocEntity>> = {
-  'bordereau-zd': { table: 'bordereaux_savr', entityType: 'bordereaux_savr' },
   'attestation-don': {
     table: 'attestations_don',
     entityType: 'attestations_don',

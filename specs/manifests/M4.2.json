@@ -10,7 +10,6 @@
     "supabase/tests/m4_2_flux_referentiel_exutoires.test.sql",
     "packages/plateforme/src/lib/registre/registre.ts",
     "packages/plateforme/src/lib/registre/csv.ts",
-    "packages/plateforme/src/lib/registre/zip.ts",
     "packages/plateforme/src/lib/registre/trace.ts",
     "packages/plateforme/src/lib/registre/guard.ts",
     "packages/plateforme/src/lib/pdf/r2-client.ts",
@@ -18,8 +17,6 @@
     "packages/plateforme/src/app/api/v1/registre/route.ts",
     "packages/plateforme/src/app/api/v1/registre/[id]/route.ts",
     "packages/plateforme/src/app/api/v1/registre/export-csv/route.ts",
-    "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts",
-    "packages/plateforme/src/app/api/v1/registre/bordereaux/[id]/download/route.ts",
     "packages/plateforme/src/app/(registre)/layout.tsx",
     "packages/plateforme/src/app/(registre)/registre/page.tsx",
     "packages/plateforme/src/app/(registre)/registre/[id]/page.tsx",
@@ -32,13 +29,7 @@
     "registre_agence_denied",
     "liste_registre_200",
     "export_csv_registre_filtre_trace",
-    "export_csv_zero_ligne_entetes_seules",
-    "export_zip_bordereaux_periode",
-    "zip_exactement_50_bordereaux_ok",
-    "zip_51_bordereaux_refuse",
-    "zip_zero_bordereau_refuse_message",
-    "telechargement_pdf_bordereau_depuis_liste",
-    "url_directe_bordereau_hors_perimetre_deny"
+    "export_csv_zero_ligne_entetes_seules"
   ],
   "deliverables": [
     {
@@ -84,58 +75,64 @@
     {
       "id": "M4.2-06",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
-      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
-      "test": "export_zip_bordereaux_periode",
-      "statut": "implemented",
-      "libelle": "export_zip_bordereaux_periode"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "export_zip_bordereaux_periode — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M4.2-07",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
-      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
-      "test": "zip_exactement_50_bordereaux_ok",
-      "statut": "implemented",
-      "libelle": "zip_exactement_50_bordereaux_ok"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "zip_exactement_50_bordereaux_ok — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M4.2-08",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
-      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
-      "test": "zip_51_bordereaux_refuse",
-      "statut": "implemented",
-      "libelle": "zip_51_bordereaux_refuse"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "zip_51_bordereaux_refuse — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M4.2-09",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
-      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
-      "test": "zip_zero_bordereau_refuse_message",
-      "statut": "implemented",
-      "libelle": "zip_zero_bordereau_refuse_message"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "zip_zero_bordereau_refuse_message — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M4.2-10",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
-      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
-      "test": "telechargement_pdf_bordereau_depuis_liste",
-      "statut": "implemented",
-      "libelle": "telechargement_pdf_bordereau_depuis_liste"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "telechargement_pdf_bordereau_depuis_liste — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M4.2-11",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md",
-      "artefact": "supabase/migrations/20260619120000_plateforme_m4_2_registre.sql",
-      "test": "url_directe_bordereau_hors_perimetre_deny",
-      "statut": "implemented",
-      "libelle": "url_directe_bordereau_hors_perimetre_deny"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "url_directe_bordereau_hors_perimetre_deny — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M4.2-registre-filtres-choix-multiple",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:43",
-      "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (Lieu / Traiteur / Bordereau en FiltreCoches ; Période déjà en premier) + packages/plateforme/src/lib/registre/registre.ts (parseRegistreFilters : lieu / traiteur validés UUID, flux en liste blanche)",
-      "test": "M4.2 — Lieu : options du périmètre entier + M4.2 — Bordereau : Disponible + M4.2/registre_filtres_lieu_traiteur_csv + M4.2/registre_filtres_valeurs_toutes_invalides",
+      "artefact": "packages/plateforme/src/app/(registre)/registre/page.tsx (Lieu / Traiteur en FiltreCoches ; Période déjà en premier ; filtre Bordereau retiré le 2026-11-13) + packages/plateforme/src/lib/registre/registre.ts (parseRegistreFilters : lieu / traiteur validés UUID, flux en liste blanche)",
+      "test": "M4.2 — Lieu : options du périmètre entier + M4.2 — plus de filtre « Bordereau » + M4.2/registre_filtres_lieu_traiteur_csv + M4.2/registre_filtres_valeurs_toutes_invalides",
       "statut": "à-vérifier",
-      "libelle": "Registre — Lieu et Traiteur à choix multiple (§06.03 « multi-select », le code était en choix unique) et Bordereau (Disponible / Manquant ; les deux = aucun paramètre), case « Tous » en tête (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+      "libelle": "Registre — Lieu et Traiteur à choix multiple (§06.03 « multi-select », le code était en choix unique) et Bordereau (Disponible / Manquant ; les deux = aucun paramètre), case « Tous » en tête (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2). GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01). Filtre Bordereau (Disponible / Manquant) RETIRÉ avec le PDF du bordereau (décision Val 2026-11-13, _Divergences/M1.6_20261113_retrait-bordereau-zd.md)."
     },
     {
       "id": "M4.2-registre-options-perimetre",
@@ -180,18 +177,20 @@
     {
       "id": "M4.2-zip-bordereaux-par-lots",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
-      "artefact": "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts (bordereaux des collectes de la période lus par lireParLots)",
-      "test": "M4.2 / export ZIP des bordereaux au-delà du plafond d'identifiants",
-      "statut": "implemented",
-      "libelle": "Export ZIP des bordereaux quand la période filtrée porte plus de collectes qu'un filtre in.(…) n'en accepte (402 identifiants échouent, 390 passent : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) : les collectes partent par lots de 100. Le refus « Trop de bordereaux (N) » et le ZIP restent rendus ; un lot en échec rend une erreur, ni ZIP partiel ni trace."
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "Export ZIP des bordereaux quand la période filtrée porte plus de collectes qu'un filtre in.(…) n'en accepte (402 identifiants échouent, 390 passent : mesure en tête de packages/plateforme/src/lib/pdf/selection-par-pages.ts) : les collectes partent par lots de 100. Le refus « Trop de bordereaux (N) » et le ZIP restent rendus ; un lot en échec rend une erreur, ni ZIP partiel ni trace. — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M4.2-zip-bordereaux-statuts-retenus",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
-      "artefact": "packages/plateforme/src/app/api/v1/registre/export-zip/route.ts (bordereaux lus avec in('statut', ['emis', 'corrige']))",
-      "test": "M4.2 / export ZIP des bordereaux : statuts retenus",
-      "statut": "implemented",
-      "libelle": "Export ZIP des bordereaux : il porte les bordereaux émis et corrigés de la période, eux seuls, soit la règle « bordereau disponible » du registre (bordereauDisponible). Un brouillon ou un bordereau annulé n'y entre pas ; une période qui n'a que ceux-là répond « Aucun bordereau sur la période »."
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "Export ZIP des bordereaux : il porte les bordereaux émis et corrigés de la période, eux seuls, soit la règle « bordereau disponible » du registre (bordereauDisponible). Un brouillon ou un bordereau annulé n'y entre pas ; une période qui n'a que ceux-là répond « Aucun bordereau sur la période ». — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF, pour aucun rôle ; sa ligne bordereaux_savr, numéro BSAV et pesées figées, reste et alimente le rapport de recyclage, la colonne « Numéro de BSD » du CSV et l'email).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     }
   ],
   "cdc_source_hash": {

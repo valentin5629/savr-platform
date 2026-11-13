@@ -80,6 +80,22 @@ export async function runPdfWorker(
 
     result.processed++;
 
+    // Bordereau ZD sans PDF (Val 2026-11-13) : une demande encore mise en file
+    // (déblocage du SIRET d'un producteur fantôme, reste d'avant) est close sans
+    // rien fabriquer.
+    if (job.type_document === 'bordereau-zd') {
+      await supabase
+        .from('jobs_pdf')
+        .update({
+          statut: 'done',
+          attempts: job.attempts + 1,
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      continue;
+    }
+
     try {
       if (!isPdfDocumentType(job.type_document)) {
         throw new Error(`type_document inconnu : ${job.type_document}`);

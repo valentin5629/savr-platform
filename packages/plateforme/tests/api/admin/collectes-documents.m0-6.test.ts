@@ -84,7 +84,7 @@ describe('M0.6 — régénération PDF collecte (BL-P1-BOA-07)', () => {
     const res = await regenerateCollecteDocument(
       supabase,
       'c1',
-      'bordereau-zd',
+      'attestation-don',
       actor,
     );
     expect(res.ok).toBe(false);
@@ -92,15 +92,27 @@ describe('M0.6 — régénération PDF collecte (BL-P1-BOA-07)', () => {
     expect(inserts).toHaveLength(0);
   });
 
+  it('M0.6 — bordereau ZD sans PDF (Val 2026-11-13) → non régénérable (409)', async () => {
+    const { supabase, inserts } = makeSupabase({ docRow: { id: 'b1' } });
+    const res = await regenerateCollecteDocument(
+      supabase,
+      'c1',
+      'bordereau-zd',
+      actor,
+    );
+    expect(res).toMatchObject({ ok: false, code: 'NO_DOCUMENT' });
+    expect(inserts).toHaveLength(0);
+  });
+
   it('M0.6 — aucun rendu antérieur → NO_PRIOR_JOB (409)', async () => {
     const { supabase } = makeSupabase({
-      docRow: { id: 'b1' },
+      docRow: { id: 'a1' },
       lastJob: null,
     });
     const res = await regenerateCollecteDocument(
       supabase,
       'c1',
-      'bordereau-zd',
+      'attestation-don',
       actor,
     );
     expect(res.ok).toBe(false);

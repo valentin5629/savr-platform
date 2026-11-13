@@ -554,7 +554,7 @@ function BilanConsolide({
 
 /**
  * Rapports de l'événement : en tête, le rapport CUMULÉ du type (décision Val
- * 2026-10-26 : Rapport RSE en ZD, avec ou sans radar ; Rapport de don en AG,
+ * 2026-10-26 : Rapport de recyclage en ZD, avec ou sans radar ; Rapport de don en AG,
  * récapitulatif sans valeur fiscale), fabriqué au clic dès qu'une collecte du
  * type a ses résultats ; puis celui de chaque collecte non annulée (Rapport
  * RSE en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué).
@@ -656,7 +656,7 @@ function DocumentsEvenement({
             <div className="min-w-0 flex-1">
               <p className="text-md font-semibold text-savr-neutral-900">
                 {zd
-                  ? 'Rapport RSE de l’événement'
+                  ? 'Rapport de recyclage de l’événement'
                   : 'Rapport de don de l’événement'}
               </p>
               <Text>
@@ -717,7 +717,9 @@ function DocumentsEvenement({
             />
             <div className="min-w-0 flex-1">
               <p className="text-md font-semibold text-savr-neutral-900">
-                {f.type === 'anti_gaspi' ? 'Rapport de don' : 'Rapport RSE'}
+                {f.type === 'anti_gaspi'
+                  ? 'Rapport de don'
+                  : 'Rapport de recyclage'}
               </p>
               <Text>
                 {titreCollecte(f)} · {LIBELLE_ETAT_RAPPORT[f.rapport_etat]}

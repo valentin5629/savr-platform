@@ -105,60 +105,6 @@ beforeEach(() => {
   db = makeChain();
 });
 
-describe('G7 / bordereau PDF : pdf_fichier_id → shared.fichiers(bucket, key)', () => {
-  it('admin/bordereaux/:id/download', async () => {
-    setupAuth('admin_savr', null);
-    db.push({ data: { id: 'b1', statut: 'emis', pdf_fichier_id: 'f1' } });
-    db.push({ data: [{ id: 'f1', bucket: 'bordereaux', key: 'b1/v1.pdf' }] });
-    const { GET } =
-      await import('@/app/api/v1/admin/bordereaux/[id]/download/route.js');
-    const res = await GET(req('/api/v1/admin/bordereaux/b1/download'), {
-      params: Promise.resolve({ id: 'b1' }),
-    });
-    expect(res.status).toBe(200);
-    expect(selects()).toEqual([
-      'id, statut, pdf_fichier_id',
-      'id, bucket, key',
-    ]);
-    expect(db.__calls.schema).toEqual([['shared']]);
-    expect(db.__calls.in).toContainEqual(['id', ['f1']]);
-    expect(db.__calls.is).toContainEqual(['deleted_at', null]);
-    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
-    expect(getPresignedUrl).toHaveBeenCalledWith('bordereaux/b1/v1.pdf', 900);
-  });
-
-  it('organisateur/documents/bordereau/:id/download', async () => {
-    setupAuth('client_organisateur');
-    db.push({
-      data: {
-        id: 'b1',
-        genere_at: '2026-06-02T06:00:00Z',
-        pdf_fichier_id: 'f1',
-      },
-    });
-    db.push({ data: [{ id: 'f1', bucket: 'bordereaux', key: 'b1/v1.pdf' }] });
-    const { GET } =
-      await import('@/app/api/v1/organisateur/documents/[type]/[id]/download/route.js');
-    const res = await GET(
-      req('/api/v1/organisateur/documents/bordereau/b1/download'),
-      { params: Promise.resolve({ type: 'bordereau', id: 'b1' }) },
-    );
-    expect(res.status).toBe(200);
-    expect(selects()).toEqual([
-      'id, genere_at, pdf_fichier_id',
-      'id, bucket, key',
-    ]);
-    expect(db.__calls.schema).toEqual([['shared']]);
-    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
-    // Un bordereau garde le nom de son fichier stocké : aucun nom imposé.
-    expect(getPresignedUrl).toHaveBeenCalledWith(
-      'bordereaux/b1/v1.pdf',
-      900,
-      undefined,
-    );
-  });
-});
-
 describe('G7 / admin', () => {
   it('rapports-rse/:id/download : rapport de recyclage ZD → 409 (fabriqué au clic), colonnes lues existantes', async () => {
     setupAuth('admin_savr', null);

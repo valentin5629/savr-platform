@@ -1187,7 +1187,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       );
       // Sous-onglet Zéro Déchet : les deux rapports ZD, pas l'annulée.
       expect(lignes).toHaveLength(2);
-      expect(lignes[0]).toHaveTextContent('Rapport RSE');
+      expect(lignes[0]).toHaveTextContent('Rapport de recyclage');
       expect(lignes[1]).toHaveTextContent(
         'Document disponible dans les 48h après la collecte',
       );
@@ -2212,7 +2212,7 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
       await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
       expect(screen.queryByTestId('document-collecte')).toBeNull();
       expect(screen.queryByTestId('liens-bilans')).toBeNull();
-      // Rapport RSE cumulé proposé, rapport de don cumulé non (onglet AG).
+      // Rapport de recyclage cumulé proposé, rapport de don cumulé non (onglet AG).
       expect(
         screen.getByTestId('document-evenement-cumul'),
       ).toBeInTheDocument();

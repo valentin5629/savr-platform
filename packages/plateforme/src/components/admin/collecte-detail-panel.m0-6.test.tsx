@@ -3016,7 +3016,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       ).toBeInTheDocument();
       expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
       expect(screen.getByText('ATT-DON-2026-00001')).toBeInTheDocument();
-      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Rapport de recyclage'),
+      ).not.toBeInTheDocument();
       expect(screen.queryByText('Attestation de don')).not.toBeInTheDocument();
       expect(screen.queryByTitle(/Rapport régénéré/)).not.toBeInTheDocument();
 
@@ -3037,7 +3039,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 3 Documents : collecte ZD, Rapport RSE fabriqué au clic (plus de Régénérer) et Bordereau ZD régénérable',
+    'M0.6 — Bloc 3 Documents : collecte ZD, Rapport de recyclage fabriqué au clic (plus de Régénérer) et plus de ligne Bordereau ZD (Val 2026-11-13)',
     async () => {
       const fetchMock = installMock({
         collecte: baseZd,
@@ -3047,15 +3049,15 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Documents');
 
       expect(
-        await screen.findByText('Rapport RSE', undefined, ATTENTE_UI),
+        await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByText('Bordereau ZD')).toBeInTheDocument();
+      expect(screen.queryByText('Bordereau ZD')).not.toBeInTheDocument();
       expect(screen.queryByText('Rapport de don')).not.toBeInTheDocument();
 
-      // Un seul « Régénérer » : celui du bordereau.
-      expect(screen.getAllByRole('button', { name: /Régénérer/ })).toHaveLength(
-        1,
-      );
+      // Aucun « Régénérer » : le bordereau n'a plus de PDF (Val 2026-11-13).
+      expect(
+        screen.queryAllByRole('button', { name: /Régénérer/ }),
+      ).toHaveLength(0);
       fireEvent.click(telechargerRapport());
       await waitFor(
         () =>
@@ -3108,7 +3110,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   // « Télécharger » de la ligne « Rapport RSE » (fabrique le rapport ZD).
   const telechargerRapport = () =>
     within(
-      screen.getByText('Rapport RSE').closest('div')!.parentElement!,
+      screen.getByText('Rapport de recyclage').closest('div')!.parentElement!,
     ).getByRole('button', { name: /Télécharger/ });
 
   it(
@@ -3120,7 +3122,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI);
 
       expect(caseRadar().getAttribute('aria-checked')).toBe('false');
       fireEvent.click(telechargerRapport());
@@ -3150,16 +3152,6 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(JSON.stringify(corpsRapport(fetchMock))).not.toContain(
         'benchmark_filters',
       );
-
-      // Le bordereau, lui, se régénère sans corps.
-      fireEvent.click(screen.getByRole('button', { name: /Régénérer/ }));
-      await waitFor(
-        () =>
-          expect(corpsRegeneration(fetchMock, 'bordereau-zd')).toEqual([
-            undefined,
-          ]),
-        ATTENTE_UI,
-      );
     },
     ATTENTE_CAS_MS,
   );
@@ -3179,7 +3171,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI);
       expect(caseRadar().getAttribute('aria-checked')).toBe('false');
       // Premier téléchargement par un client : affiché à l'équipe Savr.
       expect(
@@ -3225,7 +3217,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       installMock({ collecte: baseZd, documents: documentsZd });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI);
       expect(screen.queryByTitle(/Rapport régénéré/)).not.toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
@@ -3252,17 +3244,13 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
   it.each([
     ['AG réalisée', baseAg, ['Rapport de don']],
-    ['ZD réalisée', baseZd, ['Rapport RSE', 'Bordereau ZD']],
+    ['ZD réalisée', baseZd, ['Rapport de recyclage']],
     [
       'AG pas encore réalisée',
       { ...baseAg, statut: 'validee' },
       ['Rapport de don'],
     ],
-    [
-      'ZD annulée',
-      { ...baseZd, statut: 'annulee' },
-      ['Rapport RSE', 'Bordereau ZD'],
-    ],
+    ['ZD annulée', { ...baseZd, statut: 'annulee' }, ['Rapport de recyclage']],
   ])(
     'M0.6 — Bloc 3 : document absent, collecte %s : texte unique sous chaque ligne, boutons grisés',
     async (_cas, collecte, libelles) => {
@@ -3278,7 +3266,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         const boutons = boutonsDeLaLigne(libelle);
         // Rapport ZD fabriqué au clic : pas de « Régénérer » (Val 2026-10-16).
         expect(boutons.map((b) => b.textContent)).toEqual(
-          libelle === 'Rapport RSE'
+          libelle === 'Rapport de recyclage'
             ? ['Télécharger']
             : ['Télécharger', 'Régénérer'],
         );
@@ -3288,8 +3276,10 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
         libelles.length,
       );
       expect(screen.queryByText(/Non encore généré/)).not.toBeInTheDocument();
-      if (!libelles.includes('Rapport RSE')) {
-        expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      if (!libelles.includes('Rapport de recyclage')) {
+        expect(
+          screen.queryByText('Rapport de recyclage'),
+        ).not.toBeInTheDocument();
       }
     },
     ATTENTE_CAS_MS,
@@ -3306,8 +3296,8 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
-      for (const bouton of boutonsDeLaLigne('Rapport RSE'))
+      await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI);
+      for (const bouton of boutonsDeLaLigne('Rapport de recyclage'))
         expect(bouton).toBeDisabled();
       expect(
         screen.queryByRole('checkbox', {
@@ -3339,7 +3329,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       await ouvrirOnglet('Documents');
       await screen.findByText('ATT-DON-2026-00001', undefined, ATTENTE_UI);
 
-      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Rapport de recyclage'),
+      ).not.toBeInTheDocument();
       expect(
         screen.queryByText('En attente de génération'),
       ).not.toBeInTheDocument();
@@ -3376,7 +3368,9 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
 
       // Une seule ligne, sous le même nom que pour une collecte avec excédents.
       expect(screen.getAllByText('Rapport de don')).toHaveLength(1);
-      expect(screen.queryByText('Rapport RSE')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Rapport de recyclage'),
+      ).not.toBeInTheDocument();
       expect(
         within(ligneDocument('Rapport de don')).getByText('Disponible'),
       ).toBeInTheDocument();
@@ -4013,16 +4007,17 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
   );
 
   it(
-    'M0.6 — Bloc 3 : bordereau ZD affiché pour une collecte ZD (numéro + statut) ; pas d’attestation AG',
+    'M0.6 — Bloc 3 : plus de ligne Bordereau ZD pour une collecte ZD (sans PDF, Val 2026-11-13) ; pas d’attestation AG',
     async () => {
       installMock({ collecte: baseZd, documents: documentsZd });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
       expect(
-        await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI),
+        await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI),
       ).toBeInTheDocument();
-      expect(screen.getByText('BSAV-2026-00001')).toBeInTheDocument();
-      expect(screen.getByText(/Statut : emis/)).toBeInTheDocument();
+      expect(screen.queryByText('Bordereau ZD')).not.toBeInTheDocument();
+      expect(screen.queryByText('BSAV-2026-00001')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Statut : emis/)).not.toBeInTheDocument();
       // Une collecte ZD n'a pas de rapport de don (ligne AG masquée).
       expect(screen.queryByText('Rapport de don')).not.toBeInTheDocument();
       // Ni de Bloc 4/5 AG.
@@ -4423,7 +4418,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       if (!urlsAppelees(fetchMock).some((u) => u.includes('/benchmark?')))
         throw new Error('radar non chargé');
     }, ATTENTE_UI);
-    await screen.findByText('Rapport RSE', undefined, ATTENTE_UI);
+    await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI);
   }
 
   it(
@@ -4470,7 +4465,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       expect(screen.queryByTestId('benchmark-comparaison-soi')).toBeNull();
       // Bilan AVANT la carte des documents.
       expect(
-        kpi.compareDocumentPosition(screen.getByText('Bordereau ZD')) &
+        kpi.compareDocumentPosition(screen.getByText('Rapport de recyclage')) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
 
@@ -4702,7 +4697,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
       });
       render(<CollecteDetailPanel collecteId="c1" />);
       await ouvrirOnglet('Documents');
-      await screen.findByText('Bordereau ZD', undefined, ATTENTE_UI);
+      await screen.findByText('Rapport de recyclage', undefined, ATTENTE_UI);
       expect(screen.queryByTestId('bandeau-bilan-attente')).toBeNull();
       expect(screen.queryByTestId('kpi-zd')).toBeNull();
     },

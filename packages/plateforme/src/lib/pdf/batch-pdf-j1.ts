@@ -1,8 +1,11 @@
 // Batch des bordereaux ZD — émet le bordereau d'une collecte dès que ses pesées
-// sont là (realisee ou cloturee, Val 2026-11-04), et le refait quand elles
+// sont là (realisee ou cloturee, Val 2026-11-04), et le met à jour quand elles
 // changent. Passe toutes les 15 min, et sur-le-champ après une saisie Admin
 // (documents-sans-attendre). L'email « rapport disponible » part à la clôture
 // (emails-documents-disponibles), plus d'ici.
+// Le bordereau n'a plus de PDF (décision Val 2026-11-13) : sa ligne
+// `bordereaux_savr` (numéro BSAV gapless, pesées figées) reste, émise ici sans
+// document ; elle alimente le rapport de recyclage, le registre et l'email.
 // Le rapport de recyclage n'est plus fabriqué ici (décision Val 2026-10-16) : le
 // batch pose seulement sa ligne `rapports_rse` (disponible_a = instant
 // d'émission) ; le PDF est fabriqué au clic, au choix de celui qui le
@@ -18,17 +21,12 @@ import {
   fatalSiAucuneProduite,
   logCollecteEnEchec,
 } from './batch-fatal.js';
-import { convivesImprimes } from './convives-imprimes.js';
 import {
   TAILLE_PAGE,
   lireParPages,
   lireParLots,
 } from './selection-par-pages.js';
-import {
-  anneeParis,
-  formatDateParis,
-  jourParis,
-} from '@savr/shared/src/temps/index.js';
+import { anneeParis, jourParis } from '@savr/shared/src/temps/index.js';
 import { ROUTES } from '@/lib/routes';
 import { erreurInterne } from '@/lib/api-helpers.js';
 
@@ -38,7 +36,7 @@ export interface BatchPdfJ1Result {
   escalated_r9: number;
   already_done: number;
   errors: string[];
-  /** Bordereaux refaits après un changement de pesées. */
+  /** Bordereaux mis à jour après un changement de pesées. */
   refaits: number;
   /** Échec global (sélection KO / 0 produit sur N tentés) → job.cron.failed. */
   fatal?: BatchFatal;
@@ -58,11 +56,8 @@ interface CollecteRow {
   realisee_at: string;
   // Date d'intervention du prestataire (§04 `collectes.date_collecte`, DATE
   // « YYYY-MM-DD »). Snapshotée sur le bordereau (§04 `bordereaux_savr.date_collecte`),
-  // affichée « Intervention le … » sur bordereau + rapport (§12 §1.1 / §1.2) et
-  // variable `date_collecte` de l'email rapport_disponible (§06.02 §6).
+  // affichée « Intervention le … » sur le rapport (§12 §1.2).
   date_collecte: string;
-  // Convives de LA collecte, imprimés sur le bordereau (Val Q5 du 2026-10-24).
-  pax: number | null;
   taux_recyclage: number | null;
   co2_evite_kg: number | null;
   nb_camions_demande: number;
@@ -86,12 +81,6 @@ interface CollecteRow {
       raison_sociale: string;
       siret: string | null;
       adresse: string | null;
-    } | null;
-    lieux: {
-      nom: string;
-      adresse_acces: string | null;
-      code_postal: string | null;
-      ville: string | null;
     } | null;
   } | null;
 }
@@ -117,14 +106,13 @@ export async function runBatchPdfJ1(
         .from('collectes')
         .select(
           `
-      id, statut, evenement_id, realisee_at, date_collecte, pax,
+      id, statut, evenement_id, realisee_at, date_collecte,
       taux_recyclage, co2_evite_kg, nb_camions_demande, prestataire_logistique_id,
       evenements (
         id, nom_evenement, date_evenement,
         organisation_id, traiteur_operationnel_organisation_id,
         organisations!organisation_id ( nom, raison_sociale, siret, adresse ),
-        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, raison_sociale, siret, adresse ),
-        lieux ( nom, adresse_acces, code_postal, ville )
+        traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, raison_sociale, siret, adresse )
       )
     `,
         )
@@ -282,14 +270,8 @@ export async function runBatchPdfJ1(
       );
 
       const ev = collecte.evenements!;
-      const lieu = ev.lieux;
       // Producteur = traiteur opérationnel si désigné, sinon l'organisation programmante
       const organisationProd = ev.traiteur_operationnel ?? ev.organisations;
-      const adresseLieu = lieu
-        ? [lieu.adresse_acces, lieu.code_postal, lieu.ville]
-            .filter(Boolean)
-            .join(' ')
-        : '';
 
       // Transporteur = prestataire logistique de la collecte (snapshot bordereau).
       // Source : shared.prestataires via collectes.prestataire_logistique_id (cf. v_registre_dechets).
@@ -308,39 +290,6 @@ export async function runBatchPdfJ1(
           transporteurSiret = p.siret ?? null;
         }
       }
-
-      // Date d'intervention = `collectes.date_collecte` (§12 §1.1 « intervention le
-      // {{date_collecte}} », §04 bordereaux_savr.date_collecte = snapshot). Jamais la
-      // date du jour : le batch tourne à J+1 au plus tôt, et peut rattraper des
-      // collectes bien plus anciennes (relevé savr-dev 2026-10-02 : collecte du
-      // 10/09 rendue « Intervention le 01/10 »). Valeur DATE « YYYY-MM-DD » →
-      // formatDateParis la rend telle quelle, sans passer par un instant.
-      const dateCollecteStr = formatDateParis(collecte.date_collecte);
-      const dateEvenementStr = new Date(ev.date_evenement).toLocaleDateString(
-        'fr-FR',
-        { timeZone: 'Europe/Paris' },
-      );
-      const dateEmissionStr = new Date().toLocaleDateString('fr-FR', {
-        timeZone: 'Europe/Paris',
-      });
-
-      const bordereauPayload = {
-        numero: '',
-        date_emission: dateEmissionStr,
-        date_collecte: dateCollecteStr,
-        date_evenement: dateEvenementStr,
-        nom_evenement: ev.nom_evenement,
-        lieu_nom: lieu?.nom ?? '',
-        lieu_adresse: adresseLieu,
-        producteur_raison_sociale: organisationProd?.raison_sociale ?? '',
-        producteur_siret: organisationProd?.siret ?? null,
-        producteur_adresse: organisationProd?.adresse ?? '',
-        transporteur_nom: transporteurNom,
-        exutoire_nom: 'Prestataire Savr',
-        nb_pax: convivesImprimes(collecte.pax),
-        flux: fluxDetails,
-        poids_total_kg: poidsTotalKg,
-      };
 
       // Disponible tout de suite (plus d'embargo, Val 2026-11-04).
       const disponibleA = new Date();
@@ -393,16 +342,18 @@ export async function runBatchPdfJ1(
         throw erreurInterne(numErr, 'pdf.batch_zd.numero');
       }
       const numero = numeroData as string;
+      // Émis avec son numéro, sans PDF (Val 2026-11-13). Producteur fantôme
+      // sans SIRET : la base le garde en brouillon (trg_bordereau_gate_shadow_siret)
+      // et l'émet à l'arrivée du SIRET (trg_cerfa_debloque_siret).
       const { data: numerote, error: numMajErr } = await supabase
         .from('bordereaux_savr')
-        .update({ numero })
+        .update({ numero, statut: 'emis', genere_at: new Date().toISOString() })
         .eq('id', bordereauId)
         .is('numero', null)
         .select('id');
       if (numMajErr) throw erreurInterne(numMajErr, 'pdf.batch_zd.numero_maj');
       // Numéroté entre-temps par une autre reprise : la suite est la sienne.
       if (!numerote?.length) continue;
-      bordereauPayload.numero = numero;
 
       // 7. Créer la ligne rapports_rse : le rapport devient téléchargeable (fabriqué
       //    au clic) tout de suite. Aucun PDF n'est fabriqué ici. Une reprise ne
@@ -433,16 +384,6 @@ export async function runBatchPdfJ1(
         }
       }
 
-      // 8. Enqueuer le job bordereau
-      await supabase.from('jobs_pdf').insert({
-        type_document: 'bordereau-zd',
-        entity_type: 'bordereaux_savr',
-        entity_id: bordereauId,
-        payload: bordereauPayload,
-        statut: 'pending',
-        attempts: 0,
-      });
-
       result.enqueued++;
     } catch (err) {
       result.errors.push(`collecte ${collecte.id}: ${String(err)}`);
@@ -450,7 +391,7 @@ export async function runBatchPdfJ1(
     }
   }
 
-  // Un passage qui n'a fait que refaire des bordereaux a produit quelque chose.
+  // Un passage qui n'a fait que mettre à jour des bordereaux a produit quelque chose.
   result.fatal = fatalSiAucuneProduite(
     result.enqueued + result.refaits,
     result.errors,
@@ -522,11 +463,9 @@ function empreinteFlux(flux: unknown): string {
 }
 
 /**
- * Refait le bordereau quand les pesées ont changé : même numéro, pesées et total
- * du moment ; version suivante s'il était déjà émis (le reste reprend le dernier
- * rendu, comme la régénération Admin). Un rendu en attente ou en échec prend les
- * nouvelles pesées ; un rendu en cours laisse le bordereau tel quel, repris au
- * passage suivant (l'écart reste visible). Rend `true` s'il est refait.
+ * Met le bordereau à jour quand les pesées ont changé : même numéro, pesées et
+ * total du moment ; version suivante s'il était déjà émis. Rend `true` s'il est
+ * mis à jour.
  */
 async function refaireSiPeseesChangees(
   supabase: SupabaseClient,
@@ -544,59 +483,7 @@ async function refaireSiPeseesChangees(
     return false;
   }
 
-  const { data: dernierJob, error: jobErr } = await supabase
-    .from('jobs_pdf')
-    .select('payload')
-    .eq('entity_type', 'bordereaux_savr')
-    .eq('entity_id', bordereau.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (jobErr) throw erreurInterne(jobErr, 'pdf.batch_zd.lecture_rendu');
-  // Pas encore de rendu (bordereau tout juste créé) : son premier rendu lira
-  // les pesées du moment.
-  if (!dernierJob) return false;
-
   const emis = bordereau.statut !== 'brouillon';
-  const payload = {
-    ...(dernierJob as { payload: Record<string, unknown> }).payload,
-    flux: fluxDetails,
-    poids_total_kg: poidsTotalKg,
-    ...(emis
-      ? {
-          regenere_le: new Date().toLocaleDateString('fr-FR', {
-            timeZone: 'Europe/Paris',
-          }),
-        }
-      : {}),
-  };
-
-  // Rendus pas encore faits (en attente, ou en échec qui sera retenté) : ils
-  // prennent les nouvelles pesées, aucun ancien rendu ne repassera après.
-  const { data: repris, error: repErr } = await supabase
-    .from('jobs_pdf')
-    .update({ payload })
-    .eq('entity_type', 'bordereaux_savr')
-    .eq('entity_id', bordereau.id)
-    .in('statut', ['pending', 'failed'])
-    .select('id');
-  if (repErr) throw erreurInterne(repErr, 'pdf.batch_zd.rendu_en_attente');
-
-  if (!repris?.length) {
-    const { error: insErr } = await supabase.from('jobs_pdf').insert({
-      type_document: 'bordereau-zd',
-      entity_type: 'bordereaux_savr',
-      entity_id: bordereau.id,
-      payload,
-      statut: 'pending',
-      attempts: 0,
-    });
-    // Rendu en cours (index anti-doublon) : rien n'est touché, le passage
-    // suivant recommence tant que l'écart demeure.
-    if (insErr?.code === '23505') return false;
-    if (insErr) throw erreurInterne(insErr, 'pdf.batch_zd.mise_en_file');
-  }
-
   const { error: majErr } = await supabase
     .from('bordereaux_savr')
     .update({

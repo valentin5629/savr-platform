@@ -1,6 +1,7 @@
 // GET /api/v1/admin/collectes/[id]/documents
 // Alimente le Bloc 3 « Documents » de la fiche collecte Admin (§06.06 l.246) :
-// Rapport RSE, Bordereau ZD, Attestation de don (AG), + galerie photos.
+// Rapport de recyclage, Attestation de don (AG), + galerie photos. Le
+// bordereau ZD n'a plus de PDF (Val 2026-11-13) : il n'y figure plus.
 // Accès : admin_savr + ops_savr (requireStaff).
 //
 // Requêtes explicites (pas d'embed PostgREST fragile) : le main GET /[id] reste
@@ -44,13 +45,6 @@ export async function GET(
     .eq('collecte_id', id)
     .order('version', { ascending: false })
     .limit(1)
-    .maybeSingle();
-
-  // Bordereau ZD (1 par collecte, ZD only).
-  const { data: bordereau } = await supabase
-    .from('bordereaux_savr')
-    .select('id, statut, numero, genere_at, pdf_fichier_id')
-    .eq('collecte_id', id)
     .maybeSingle();
 
   // Attestation de don (AG, dernière version — clé (collecte_id, version)).
@@ -121,7 +115,6 @@ export async function GET(
           disponible: finEmbargo && (fabriqueAuClic || r?.genere_at != null),
         }
       : null,
-    bordereau: bordereau ?? null,
     attestation: attestation ?? null,
     photos,
   });

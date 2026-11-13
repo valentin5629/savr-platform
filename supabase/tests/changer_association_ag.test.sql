@@ -135,8 +135,9 @@ SELECT is(
   'un email d''attribution encore en attente (relit l''association courante) : pas de doublon'
 );
 
--- Le premier email est parti : un nouveau changement en remet un en file.
-UPDATE plateforme.outbox_events SET statut = 'done'
+-- Le premier email est en cours d'envoi (il a pu lire l'ancienne
+-- association) ou parti : un nouveau changement en remet un en file.
+UPDATE plateforme.outbox_events SET statut = 'processing'
 WHERE aggregate_id = (SELECT id FROM t_c) AND event_type = 'attribution.validee';
 SELECT plateforme.fn_changer_association_ag(
   (SELECT id FROM t_c), 'a5c00001-0000-0000-0000-000000000002'::uuid, NULL);
@@ -145,7 +146,7 @@ SELECT is(
     WHERE aggregate_id = (SELECT id FROM t_c) AND event_type = 'attribution.validee'
       AND statut = 'pending'),
   1,
-  'email précédent parti : la nouvelle association reçoit le sien'
+  'email précédent en cours d''envoi : la nouvelle association reçoit le sien'
 );
 -- (retour à l'association 1 pour la suite)
 SELECT plateforme.fn_changer_association_ag(

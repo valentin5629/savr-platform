@@ -200,7 +200,9 @@ BEGIN
     WHERE o.aggregate_type = 'collecte'
       AND o.aggregate_id = p_collecte_id
       AND o.event_type = 'attribution.validee'
-      AND o.statut NOT IN ('done', 'dead')
+      -- Pas encore pris en charge seulement : un email en cours d'envoi a pu
+      -- lire l'ancienne association, la nouvelle doit recevoir le sien.
+      AND o.statut IN ('pending', 'failed')
   ) THEN
   INSERT INTO plateforme.outbox_events (
     aggregate_type, aggregate_id, event_type, payload, consumer

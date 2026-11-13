@@ -96,39 +96,21 @@ describe('Changement d’association AG — route Admin', () => {
     expect(mockEnvoi).toHaveBeenCalledWith(COLLECTE);
   });
 
-  it('autre que le n°1, sans motif : 422, rien n’est écrit', async () => {
+  it('autre que le n°1, sans motif : accepté (aucun motif demandé, Val 2026-11-13)', async () => {
     setupAuth('admin_savr');
-    const res = await post({ association_id: AUTRE, motif_override: 'abc' });
-
-    expect(res.status).toBe(422);
-    expect(mockRpc).not.toHaveBeenCalled();
-    expect(mockEnvoi).not.toHaveBeenCalled();
-  });
-
-  it('autre que le n°1, avec motif : motif rangé sous le code « autre »', async () => {
-    setupAuth('admin_savr');
-    const res = await post({
-      association_id: AUTRE,
-      motif_override: '  Association plus proche  ',
-    });
+    const res = await post({ association_id: AUTRE });
 
     expect(res.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith(
       'fn_changer_association_ag',
-      expect.objectContaining({
-        p_association_id: AUTRE,
-        p_motif_override: 'autre',
-        p_motif_override_libre: 'Association plus proche',
-      }),
+      expect.objectContaining({ p_association_id: AUTRE }),
     );
+    expect(mockEnvoi).toHaveBeenCalledWith(COLLECTE);
   });
 
   it('autre que le n°1 par ops_savr : 403 (réservé aux admin Savr)', async () => {
     setupAuth('ops_savr');
-    const res = await post({
-      association_id: AUTRE,
-      motif_override: 'Association plus proche',
-    });
+    const res = await post({ association_id: AUTRE });
 
     expect(res.status).toBe(403);
     expect(mockRpc).not.toHaveBeenCalled();

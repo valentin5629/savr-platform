@@ -33,8 +33,8 @@ const REFUS: Record<string, { status: number; error: string }> = {
 // POST /api/v1/admin/attributions-ag/[collecteId]/association
 // Change l'association d'une collecte AG déjà attribuée (décisions Val
 // 2026-11-13) : collecte programmée ou validée ; association différente du n°1
-// de l'algo = motif obligatoire (≥ 5 car.) et admin Savr seul, comme le choix
-// du transporteur (route de dispatch). La fonction SQL renvoie le changement au
+// de l'algo = admin Savr seul, comme le choix du transporteur (route de
+// dispatch). Aucun motif demandé (décision Val 2026-11-13). La fonction SQL renvoie le changement au
 // prestataire (MTS-1 : commande annulée puis recréée) et prévient la nouvelle
 // association par l'email d'attribution.
 async function postHandler(
@@ -53,7 +53,6 @@ async function postHandler(
   }
   const body = (await req.json().catch(() => null)) as {
     association_id?: unknown;
-    motif_override?: unknown;
     envoi_differe?: unknown;
   } | null;
   const associationId = body?.association_id;
@@ -63,9 +62,6 @@ async function postHandler(
       { status: 422 },
     );
   }
-  const motif =
-    typeof body?.motif_override === 'string' ? body.motif_override.trim() : '';
-
   // N°1 de l'algo calculé côté serveur, jamais fourni par le client. Algo
   // indisponible ou sans association : pas de référence, pas de motif requis
   // (même règle que le choix du transporteur).
@@ -77,25 +73,14 @@ async function postHandler(
     top1 = null;
   }
   const override = top1 != null && associationId !== top1;
-  if (override) {
-    if (auth.ctx.role === 'ops_savr') {
-      return NextResponse.json(
-        {
-          error:
-            'Le choix d’une association différente de la recommandation est réservé aux admin Savr',
-        },
-        { status: 403 },
-      );
-    }
-    if (motif.length < 5) {
-      return NextResponse.json(
-        {
-          error:
-            'Motif obligatoire (≥ 5 caractères) pour une association différente de la recommandation',
-        },
-        { status: 422 },
-      );
-    }
+  if (override && auth.ctx.role === 'ops_savr') {
+    return NextResponse.json(
+      {
+        error:
+          'Le choix d’une association différente de la recommandation est réservé aux admin Savr',
+      },
+      { status: 403 },
+    );
   }
 
   const supabase = createAdminSupabaseClient();
@@ -103,9 +88,6 @@ async function postHandler(
     p_collecte_id: collecteId,
     p_association_id: associationId,
     p_modifie_par: auth.ctx.userId,
-    // Motif saisi librement : code « autre » du référentiel des motifs (§06.09).
-    p_motif_override: override ? 'autre' : undefined,
-    p_motif_override_libre: override ? motif : undefined,
   });
   if (error) {
     const refus = error.code ? REFUS[error.code] : undefined;

@@ -609,12 +609,8 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       fireEvent.click(
         await screen.findByRole('radio', { name: /A Toute!/ }, ATTENTE_UI),
       );
-      fireEvent.change(
-        await screen.findByLabelText(/Motif override/, undefined, ATTENTE_UI),
-        {
-          target: { value: 'Marathon indisponible' },
-        },
-      );
+      // Plus de motif demandé (Val 2026-11-13) : seul le service bloque.
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       const envoyer = await screen.findByRole(
         'button',
         { name: /^Envoyer à A Toute!/ },
@@ -869,7 +865,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6 — choix ≠ top-1 algo → bouton A Toute! + motif override obligatoire (≥ 5)',
+    'M0.6 — choix ≠ top-1 algo → bouton A Toute!, aucun motif demandé (Val 2026-11-13)',
     async () => {
       mockFetch();
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -881,21 +877,14 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ATTENTE_UI,
       );
 
-      // Choisir A Toute! (≠ top-1 Strike) → override → motif obligatoire.
+      // Choisir A Toute! (≠ top-1 Strike) : envoi direct, sans motif.
       fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
 
       const bouton = screen.getByRole('button', {
         name: /Envoyer à A Toute!/,
       });
-      const motif = screen.getByLabelText(/Motif override/);
-      expect(motif).toBeInTheDocument();
-      expect(bouton).toBeDisabled();
-      fireEvent.change(motif, { target: { value: 'Zone vélo cargo IDF' } });
-      expect(bouton).not.toBeDisabled();
-
-      // Re-sélection du top-1 recommandé → plus de motif requis (validation reco)
-      fireEvent.click(screen.getByRole('radio', { name: /Strike/ }));
-      expect(screen.queryByLabelText(/Motif override/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
+      expect(bouton).toBeEnabled();
     },
     ATTENTE_CAS_MS,
   );
@@ -1922,7 +1911,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'AG en file d’envoi : envoyer chez un autre prestataire (motif override) POST le dispatch, puis le mode « changer » se referme',
+    'AG en file d’envoi : envoyer chez un autre prestataire (sans motif) POST le dispatch, puis le mode « changer » se referme',
     async () => {
       const fetchMock = mockFetchPrestataire(collecteEnFileMts1);
       render(<CollecteDetailPanel collecteId="c1" />);
@@ -1942,10 +1931,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
       const bouton = screen.getByRole('button', {
         name: 'Envoyer à A Toute!',
       });
-      expect(bouton).toBeDisabled();
-      fireEvent.change(screen.getByLabelText(/Motif override/), {
-        target: { value: 'Zone vélo cargo IDF' },
-      });
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       expect(bouton).toBeEnabled();
       fireEvent.click(bouton);
 
@@ -1958,7 +1944,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(post).toBeTruthy();
         expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
           prestataire_logistique_id: 'presta-atoutes',
-          motif_override_prestataire: 'Zone vélo cargo IDF',
         });
       }, ATTENTE_UI);
       // Après le refetch, le bloc revient en lecture : plus de cartes, le
@@ -2007,7 +1992,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   }
 
   it(
-    'AG attribuée, « Modifier l’attribution » : une autre association (≠ reco) exige un motif, part par sa route et non par le dispatch',
+    'AG attribuée, « Modifier l’attribution » : une autre association (≠ reco), sans motif, part par sa route et non par le dispatch',
     async () => {
       const fetchMock = mockFetchAssociation({
         ...collecteEnFileMts1,
@@ -2047,11 +2032,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ),
       ).toBeInTheDocument();
       const bouton = screen.getByRole('button', { name: 'Renvoyer à MTS-1' });
-      expect(bouton).toBeDisabled();
-      fireEvent.change(
-        screen.getByLabelText(/Motif \(≥ 5 car\. — association ≠ reco algo\)/),
-        { target: { value: 'Association plus proche' } },
-      );
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       expect(bouton).toBeEnabled();
       fireEvent.click(bouton);
 
@@ -2064,7 +2045,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(post).toBeTruthy();
         expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
           association_id: 'a2',
-          motif_override: 'Association plus proche',
         });
       }, ATTENTE_UI);
       expect(
@@ -2108,13 +2088,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ),
       );
       fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
-      fireEvent.change(screen.getByLabelText(/Motif override/), {
-        target: { value: 'Zone vélo cargo IDF' },
-      });
-      fireEvent.change(
-        screen.getByLabelText(/Motif \(≥ 5 car\. — association ≠ reco algo\)/),
-        { target: { value: 'Association plus proche' } },
-      );
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       expect(
         screen.getByText(/La commande en cours chez MTS-1 sera annulée\./),
       ).toBeInTheDocument();
@@ -2142,7 +2116,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(JSON.parse((posts[iAsso]![1] as { body: string }).body)).toEqual(
           {
             association_id: 'a2',
-            motif_override: 'Association plus proche',
             envoi_differe: true,
           },
         );
@@ -2666,7 +2639,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'M0.6/dispatch_zd_changement_motif — ZD : changer un transporteur déjà posé exige un motif (≥ 5 car.), transmis au dispatch',
+    'M0.6/dispatch_zd_changement_motif — ZD : changer un transporteur déjà posé, sans motif (Val 2026-11-13)',
     async () => {
       const fetchMock = mockFetchPrestataire(
         {
@@ -2690,11 +2663,7 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         await screen.findByRole('radio', { name: /Marathon/ }, ATTENTE_UI),
       );
       const bouton = screen.getByRole('button', { name: 'Envoyer à MTS-1' });
-      expect(bouton).toBeDisabled();
-      fireEvent.change(
-        screen.getByLabelText(/Motif du changement de transporteur/),
-        { target: { value: 'Strike indisponible ce soir' } },
-      );
+      expect(screen.queryByLabelText(/Motif/)).toBeNull();
       expect(bouton).toBeEnabled();
       fireEvent.click(bouton);
 
@@ -2703,7 +2672,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         expect(post).toBeTruthy();
         expect(JSON.parse((post![1] as { body: string }).body)).toEqual({
           prestataire_logistique_id: 'presta-marathon',
-          motif_override_prestataire: 'Strike indisponible ce soir',
         });
       }, ATTENTE_UI);
     },

@@ -557,7 +557,7 @@ function BilanConsolide({
  * 2026-10-26 : Rapport de recyclage en ZD, avec ou sans radar ; Rapport de don en AG,
  * récapitulatif sans valeur fiscale), fabriqué au clic dès qu'une collecte du
  * type a ses résultats ; puis celui de chaque collecte non annulée (Rapport
- * RSE en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué).
+ * de recyclage en ZD, fabriqué au clic ; Rapport de don en AG, fichier déjà fabriqué).
  */
 function DocumentsEvenement({
   espace,

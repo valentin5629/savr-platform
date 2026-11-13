@@ -564,4 +564,11 @@ describe('M3.4 / download', () => {
     const res = await callDownload('facture', 'f1');
     expect(res.status).toBe(400);
   });
+
+  it('M3.4/document_bordereau_400 — plus de PDF du bordereau (Val 2026-11-13) : type refusé, aucune URL signée', async () => {
+    setupAuth('client_organisateur', 'org-a');
+    const res = await callDownload('bordereau', 'b1');
+    expect(res.status).toBe(400);
+    expect(mockPresign).not.toHaveBeenCalled();
+  });
 });

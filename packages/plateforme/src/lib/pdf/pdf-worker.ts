@@ -84,7 +84,7 @@ export async function runPdfWorker(
     // (déblocage du SIRET d'un producteur fantôme, reste d'avant) est close sans
     // rien fabriquer.
     if (job.type_document === 'bordereau-zd') {
-      await supabase
+      const { error: closErr } = await supabase
         .from('jobs_pdf')
         .update({
           statut: 'done',
@@ -93,6 +93,9 @@ export async function runPdfWorker(
           updated_at: new Date().toISOString(),
         })
         .eq('id', job.id);
+      if (closErr) {
+        result.errors.push(`job ${job.id}: clôture du bordereau sans PDF`);
+      }
       continue;
     }
 
@@ -227,17 +230,7 @@ async function linkFichierToEntity(
 ): Promise<void> {
   if (!fichierId) return;
 
-  if (entityType === 'bordereaux_savr') {
-    await supabase
-      .from('bordereaux_savr')
-      .update({
-        pdf_fichier_id: fichierId,
-        template_version: templateVersion,
-        statut: 'emis',
-        genere_at: new Date().toISOString(),
-      })
-      .eq('id', entityId);
-  } else if (entityType === 'rapports_rse') {
+  if (entityType === 'rapports_rse') {
     await supabase
       .from('rapports_rse')
       .update({

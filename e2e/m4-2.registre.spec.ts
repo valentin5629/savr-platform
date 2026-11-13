@@ -13,12 +13,7 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001';
 type NavResponse = { role: string; items: { label: string; href: string }[] };
 
 test.describe('M4.2 / Registre / protection des routes', () => {
-  const routes = [
-    '/api/v1/registre',
-    '/api/v1/registre/export-csv',
-    '/api/v1/registre/export-zip',
-    '/api/v1/registre/bordereaux/00000000-0000-0000-0000-000000000000/download',
-  ];
+  const routes = ['/api/v1/registre', '/api/v1/registre/export-csv'];
   for (const route of routes) {
     test(`M4.2/e2e — ${route} sans auth → 401`, async ({ request }) => {
       const res = await request.get(`${BASE_URL}${route}`);

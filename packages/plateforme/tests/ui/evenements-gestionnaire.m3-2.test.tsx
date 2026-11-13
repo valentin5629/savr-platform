@@ -958,7 +958,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
   );
 
   it(
-    'EVT/telechargement_zd_et_echecs — Rapport RSE fabriqué au clic sans radar ; échec nommé par collecte ; demande urgente refusée : message',
+    'EVT/telechargement_zd_et_echecs — Rapport de recyclage fabriqué au clic sans radar ; échec nommé par collecte ; demande urgente refusée : message',
     async () => {
       const fetchMock = stubFetch((url) =>
         url.endsWith('/c1/rapport-rse')

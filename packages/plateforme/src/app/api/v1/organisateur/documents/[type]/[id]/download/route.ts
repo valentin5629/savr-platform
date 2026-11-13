@@ -1,8 +1,7 @@
 // GET /api/v1/organisateur/documents/:type/:id/download
 // Retourne une URL pré-signée R2 (15 min) pour un document du client organisateur.
 // type ∈ rapport | attestation (le bordereau ZD n'a plus de PDF, Val 2026-11-13).
-// Sécurité : client user-scopé → la RLS (rr_select / bord_client_orga_select /
-// att_client_orga_select) est la frontière ; une ligne d'un autre organisateur → 404.
+// Sécurité : client user-scopé → la RLS (rr_select / att_client_orga_select) est la frontière ; une ligne d'un autre organisateur → 404.
 // Embargo H+24 (R-PDF2) appliqué côté serveur sur les rapports RSE (disponible_a),
 // jamais contournable.
 // Les deux documents d'une collecte AG (attestation, rapport sans excédent) sont

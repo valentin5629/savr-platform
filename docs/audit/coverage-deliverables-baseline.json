@@ -237,12 +237,10 @@
       "M1.6-05": "Worker job pending → Railway → R2 → done, fichier_id lié",
       "M1.6-06": "Worker échec Railway → failed, next_retry_at +15min",
       "M1.6-07": "Worker attempts ≥ 16 → dead + alerte Admin (pdf_job_dead)",
-      "M1.6-08": "Download bordereau Admin → URL pré-signée 15min",
       "M1.6-09": "Download rapport Admin sous embargo → 425, disponible_a retourné",
       "M1.6-10": "Download rapport Admin après embargo → URL pré-signée 15min",
       "M1.6-11": "f_next_numero_bordereau gapless BSAV-YYYY-NNNNN",
-      "M1.6-12": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)",
-      "BL-P2-16": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs"
+      "M1.6-12": "f_upsert_alerte_admin dédup : 1 seule alerte ouverte par (code, entity)"
     },
     "M1.7": {
       "M1.7-01": "Collecte ZD cloturee SIRET verifie → batch J+1 → brouillon FZD créé",

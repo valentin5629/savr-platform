@@ -36,7 +36,7 @@ export async function GET(
   const { id } = await params;
   const supabase = createAdminSupabaseClient();
 
-  // Rapport RSE (dernière version). regenere_at / version → picto ⟳ (§06.06 l.170).
+  // Rapport de recyclage (dernière version). regenere_at / version → picto ⟳ (§06.06 l.170).
   const { data: rapport } = await supabase
     .from('rapports_rse')
     .select(

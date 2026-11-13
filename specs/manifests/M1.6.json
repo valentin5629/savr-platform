@@ -81,7 +81,7 @@
   ],
   "_comment_scenarios": "scenarios[] = sous-ensemble VITEST-matchable (substring d'un titre de test vitest réel). La couverture exhaustive au grain livrable (y compris pgTAP f_next_numero_bordereau/f_upsert_alerte_admin et téléchargements M3.4) vit dans deliverables[]. R2 a réaligné ces chaînes sur les titres réels (l'ancienne formulation legacy ne matchait aucun test → check:coverage M1.6 rouge depuis l'origine).",
   "scenarios": [
-    "bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic",
+    "bordereau émis sans PDF (Val 2026-11-13) ; le rapport naît sans PDF, fabriqué au clic",
     "0 ligne collecte_flux → skip, aucun job créé",
     "collecte skippée depuis > 48h → alerte Admin créée",
     "collecte déjà traitée (bordereau emis)",
@@ -266,7 +266,7 @@
       "id": "BL-P2-16",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:31",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll, figés dans bordereaux_savr.detail_flux) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls ; gabarit plus utilisé depuis le 2026-11-13)",
-      "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal (pesées figées du bordereau avec l'équivalent bacs)",
+      "test": "apps/pdf-renderer/src/render.test.ts « colonne « Bacs / Rolls » : bacs si renseigné, sinon rolls » + packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts « R-PDF1 : collecte ZD cloturee avec flux → bordereau émis sans PDF (Val 2026-11-13) ; le rapport naît sans PDF, fabriqué au clic (décision Val 2026-10-16) »",
       "statut": "implemented",
       "libelle": "Bordereau ZD : nb_bacs / equivalent_roll lus depuis collecte_flux et transmis au payload ; colonne « Bacs / Rolls » du template statue bacs sinon rolls. Depuis le 2026-11-13 (décision Val, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) : plus de PDF du bordereau ; l'équivalent bacs reste figé dans la ligne bordereaux_savr (detail_flux)."
     },

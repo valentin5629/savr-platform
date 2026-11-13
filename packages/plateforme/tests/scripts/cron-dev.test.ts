@@ -105,12 +105,22 @@ describe('cron:dev:installer — secrets', () => {
     expect(debut).toBeGreaterThan(sql.indexOf('REVOKE EXECUTE'));
     // Avant les secrets et les tâches, dans la même transaction.
     expect(fin).toBeLessThan(sql.indexOf("set_config('savr.secret_cron'"));
-    expect(sql.indexOf('BEGIN;')).toBeLessThan(debut);
+    // Annulation de tout sur exception : psql s'arrête (ON_ERROR_STOP) dans
+    // une transaction ouverte avant le contrôle et validée après les tâches.
+    const arret = sql.indexOf('\\set ON_ERROR_STOP on');
+    const begin = sql.indexOf('BEGIN;');
+    const commit = sql.indexOf('COMMIT;');
+    expect(arret).toBeGreaterThan(-1);
+    expect(begin).toBeGreaterThan(arret);
+    expect(begin).toBeLessThan(debut);
+    expect(commit).toBeGreaterThan(sql.lastIndexOf('cron.schedule('));
+    expect(sql.split('BEGIN;')).toHaveLength(2);
+    expect(sql.split('COMMIT;')).toHaveLength(2);
     const bloc = sql.slice(debut, fin);
     expect(bloc).toContain("ARRAY['anon', 'authenticated', 'public']");
     for (const controle of [
       "has_function_privilege(r, p.oid, 'EXECUTE')",
-      "has_table_privilege(r, 'net.http_request_queue', 'SELECT')",
+      "has_table_privilege(r, 'net.http_request_queue', 'SELECT,INSERT,UPDATE,DELETE')",
       "has_table_privilege(r, 'net._http_response', 'SELECT')",
       "has_table_privilege(r, 'vault.decrypted_secrets', 'SELECT')",
       "has_schema_privilege(r, 'cron', 'USAGE')",

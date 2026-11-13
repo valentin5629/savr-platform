@@ -121,7 +121,7 @@ BEGIN
       SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
        WHERE n.nspname = 'net' AND has_function_privilege(r, p.oid, 'EXECUTE')
     ) THEN ouvert := ouvert || (r || ' : fonctions net'); END IF;
-    IF has_table_privilege(r, 'net.http_request_queue', 'SELECT') THEN
+    IF has_table_privilege(r, 'net.http_request_queue', 'SELECT,INSERT,UPDATE,DELETE') THEN
       ouvert := ouvert || (r || ' : net.http_request_queue'); END IF;
     IF has_table_privilege(r, 'net._http_response', 'SELECT') THEN
       ouvert := ouvert || (r || ' : net._http_response'); END IF;

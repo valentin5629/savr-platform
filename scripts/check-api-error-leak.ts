@@ -693,7 +693,9 @@ const RACINES_FETCH: Record<string, number> = {
   'packages/adapters/src': 2,
   'packages/shared/src': 3,
   [SRC]: 6,
-  apps: 0,
+  // apps/cron-dev/api/[route].ts (2026-11-13) : appelle les routes cron de dev ;
+  // son `catch` ne lie pas l'erreur, la règle F n'y trouve rien à rendre.
+  apps: 1,
 };
 
 /** Les deux seules fonctions à qui l'on confie l'erreur d'un `fetch`. */

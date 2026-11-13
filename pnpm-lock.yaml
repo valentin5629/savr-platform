@@ -79,6 +79,8 @@ importers:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@25.9.3)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.51.2)
 
+  apps/cron-dev: {}
+
   apps/pdf-renderer:
     dependencies:
       '@sparticuz/chromium':

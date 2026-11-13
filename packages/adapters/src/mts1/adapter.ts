@@ -118,9 +118,11 @@ const FLUX_STUFFS_ZD = [
 // Mapping libellés MTS-1 → codes flux_dechets (entrant)
 // '_ignore' = pas un flux de déchets, jamais une pesée :
 //   - le stuff « camion » ;
-//   - le don d'une collecte AG, que buildOrderPayload crée lui-même : son poids
-//     n'est pas relevé chez le prestataire en V1, l'équipe Savr le saisit d'après
-//     les photos (§06.09, décision Val 2026-06-07).
+//   - le don d'une collecte AG, que buildOrderPayload crée lui-même : ce n'est
+//     pas un flux de déchets, son poids est lu à part (`poidsDuDon`,
+//     `releverPoidsDon`, décision Val 2026-11-13).
+const STUFF_DON = 'Don alimentaire';
+
 const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
   'Bio-déchets (en kg)': 'biodechet',
   'Carton (en kg)': 'carton',
@@ -128,8 +130,12 @@ const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
   'Film plastique (en kg)': 'emballage',
   'Verre (en kg)': 'verre',
   '<volume_du_camion>': '_ignore',
-  'Don alimentaire': '_ignore',
+  [STUFF_DON]: '_ignore',
 };
+
+// Statuts de collecte où le poids du don lu chez MTS-1 est écrit. Ni clôturée
+// (même règle que les pesées ZD, R7), ni annulée, ni « sans excédent ».
+const STATUTS_POIDS_DON = new Set(['validee', 'en_cours', 'realisee']);
 
 // Mapping customerOrderStatus MTS-1 → statut_tms (§08 §3bis.6).
 // A7 : les libellés sont les ENUMS OFFICIELS de l'as-built §7 (QUOTE, DRAFT,
@@ -308,6 +314,17 @@ function arretEnlevement(
     (s) =>
       s?.stopType === 'CUSTOMER_ORDER' && sertLaCommande(s, customerOrderId),
   );
+}
+
+// Poids du don d'une collecte AG saisi par le chauffeur sur l'arrêt d'enlèvement :
+// `quantityAfterDelivery` du stuff « Don alimentaire », en kg, comme les flux ZD
+// (mesuré le 2026-11-13 sur le compte de démonstration : `quantityAfterPickup` à
+// 1, `quantityAfterDelivery` à 56 pour 56 kg saisis). `null` : rien de saisi
+// (absent, 0 ou non numérique), comme un flux ZD non pesé.
+function poidsDuDon(stop: Mts1TourStop): number | null {
+  const don = (stop.stuffs ?? []).find((s) => s?.name === STUFF_DON);
+  const poids = don?.quantityAfterDelivery;
+  return typeof poids === 'number' && poids > 0 ? poids : null;
 }
 
 // Identifiant d'une photo : le dernier segment de son adresse, seul endroit où il
@@ -1136,6 +1153,18 @@ export class AdapterMts1 implements LogistiqueProvider {
         await this.agregerCollecte(collecteId);
       }
 
+      // 5bis. Poids du don d'une collecte AG, saisi par le chauffeur (décision
+      // Val 2026-11-13). Après la fin de mission : la collecte peut y être
+      // passée « réalisée », statut où le poids s'écrit aussi.
+      if (lecture?.poidsDon != null) {
+        await this.releverPoidsDon(
+          collecteId,
+          tourneeId,
+          collecteStatut,
+          lecture.poidsDon,
+        );
+      }
+
       // 6. Photos, en dernier, à chaque passage, après le traitement de la fin de
       // mission : une photo lente ou en échec ne retarde ni les pesées ni la fin
       // de mission (non bloquant, retentée au passage suivant).
@@ -1266,6 +1295,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     tour: Mts1Tour;
     missionTerminee: boolean;
     peseesModifiees: boolean;
+    poidsDon: number | null;
   }> {
     const tour = await this.client.getTour(tourId);
 
@@ -1295,6 +1325,7 @@ export class AdapterMts1 implements LogistiqueProvider {
           c.customerOrderProgressionStatus === 'FINISHED',
       ),
       peseesModifiees,
+      poidsDon: enlevement ? poidsDuDon(enlevement) : null,
     };
   }
 
@@ -1433,6 +1464,130 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
     }
     return modifiees;
+  }
+
+  /**
+   * Poids du don d'une collecte AG lu chez MTS-1 → `attributions_antgaspi.
+   * poids_repas_kg` (décision Val 2026-11-13). La base en déduit les repas
+   * (`trg_calc_volume_repas_realise`) puis refait le rapport de don
+   * (`trg_regenerer_attestation`), comme après une saisie Admin.
+   *
+   * - Plusieurs camions : le poids est la SOMME, écrite seulement quand chaque
+   *   camion non annulé a un poids saisi ; tant qu'il en manque un, rien.
+   * - L'Admin a le dernier mot : le poids n'est écrit que quand la somme lue
+   *   chez MTS-1 change. Une correction Admin reste tant que le chauffeur ne
+   *   modifie pas sa saisie.
+   *
+   * Mémoire dans integrations_inbox (même usage que l'attribution) : le dernier
+   * poids lu par camion (`poids_don_camion`) et la dernière somme écrite par
+   * collecte (`poids_don_collecte`). Purgée à 7 jours, plus que la clôture à
+   * 48 h, après laquelle plus rien n'est écrit.
+   */
+  private async releverPoidsDon(
+    collecteId: string,
+    tourneeId: string,
+    collecteStatut: string,
+    poids: number,
+  ): Promise<void> {
+    await this.noterMemoire(
+      'poids_don_camion',
+      `poids_don:${tourneeId}`,
+      poids,
+    );
+    if (!STATUTS_POIDS_DON.has(collecteStatut)) return;
+
+    const camions = (await this.findTournees(collecteId)).filter(
+      (t) => t.statut !== 'annulee',
+    );
+    if (camions.length === 0) return;
+    const lus = await this.lireMemoires(
+      'poids_don_camion',
+      camions.map((t) => `poids_don:${t.id}`),
+    );
+    if (lus.size < camions.length) return;
+    const somme = [...lus.values()].reduce((s, p) => s + p, 0);
+
+    const cle = `poids_don:${collecteId}`;
+    const ecrite = (await this.lireMemoires('poids_don_collecte', [cle])).get(
+      cle,
+    );
+    if (ecrite !== undefined && Math.abs(ecrite - somme) <= 0.001) return;
+
+    const { data, error } = await this.supabase
+      .from('attributions_antgaspi')
+      .update({ poids_repas_kg: somme })
+      .eq('collecte_id', collecteId)
+      .select('id')
+      .maybeSingle();
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Poids du don non écrit (collecte ${collecteId}) — ${error.message}`,
+      );
+    }
+    // Sans attribution, rien n'est noté : le poids s'écrira au passage qui
+    // suivra l'attribution.
+    if (data) await this.noterMemoire('poids_don_collecte', cle, somme);
+  }
+
+  // Dernière valeur notée pour chaque clé (absente : jamais notée).
+  private async lireMemoires(
+    eventType: string,
+    cles: string[],
+  ): Promise<Map<string, number>> {
+    // borne-par-nature: une clé par camion d'une collecte (quelques unités).
+    const { data, error } = await this.supabase
+      .from('integrations_inbox')
+      .select('event_id_externe, payload')
+      .eq('source', 'mts1')
+      .eq('event_type', eventType)
+      .in('event_id_externe', cles);
+    if (error) {
+      throw new LogistiqueTransientError(
+        `Mémoire ${eventType} illisible — ${error.message}`,
+      );
+    }
+    const lues = new Map<string, number>();
+    for (const ligne of (data ?? []) as Array<{
+      event_id_externe: string;
+      payload: { valeur?: unknown } | null;
+    }>) {
+      const valeur = ligne.payload?.valeur;
+      if (typeof valeur === 'number') lues.set(ligne.event_id_externe, valeur);
+    }
+    return lues;
+  }
+
+  // Note la valeur d'une clé : INSERT nu (index unique PARTIEL, pas d'upsert, cf.
+  // reserverStatut), puis, si la clé existe déjà (23505), mise à jour.
+  private async noterMemoire(
+    eventType: string,
+    cle: string,
+    valeur: number,
+  ): Promise<void> {
+    const maintenant = new Date().toISOString();
+    const { error } = await this.supabase.from('integrations_inbox').insert({
+      source: 'mts1',
+      event_type: eventType,
+      event_id_externe: cle,
+      payload: { valeur },
+      traite: true,
+      traite_at: maintenant,
+    });
+    if (!error) return;
+    const { error: erreurMaj } =
+      error.code === '23505'
+        ? await this.supabase
+            .from('integrations_inbox')
+            .update({ payload: { valeur }, traite_at: maintenant })
+            .eq('source', 'mts1')
+            .eq('event_type', eventType)
+            .eq('event_id_externe', cle)
+        : { error };
+    if (erreurMaj) {
+      throw new LogistiqueTransientError(
+        `Mémoire ${eventType} non notée — ${erreurMaj.message}`,
+      );
+    }
   }
 
   // `true` la première fois qu'un signal de cette clé est posé, `false` ensuite.
@@ -1896,12 +2051,16 @@ export class AdapterMts1 implements LogistiqueProvider {
 
         // Dédup : photo déjà uploadée ? Une recherche en échec ne vaut pas
         // « absente » : elle re-téléverserait la photo et doublerait sa ligne.
-        const { data: existante, error: erreurDedup } = await this.supabase
+        // Lignes supprimées comprises (une photo retirée par l'Admin ne revient
+        // pas) ; `limit(1)` et non `maybeSingle` : les doublons d'avant l'index
+        // uniq_fichiers_objet_vivant, marqués supprimés, restent sous la même clé.
+        const { data: trouvees, error: erreurDedup } = await this.supabase
           .schema('shared')
           .from('fichiers')
           .select('id')
           .eq('key', storageKey)
-          .maybeSingle();
+          .limit(1);
+        const existante = (trouvees ?? []).length > 0;
 
         if (erreurDedup) {
           await this.logEntrantError(
@@ -1969,7 +2128,10 @@ export class AdapterMts1 implements LogistiqueProvider {
             entity_type: 'plateforme.collectes',
             entity_id: collecteId,
           });
-        if (erreurEnregistrement) {
+        // 23505 : une relève simultanée (notifications MTS-1 en rafale) l'a
+        // enregistrée à l'instant — index uniq_fichiers_objet_vivant, constat
+        // du 2026-11-13. Elle est là une seule fois : rien à signaler.
+        if (erreurEnregistrement && erreurEnregistrement.code !== '23505') {
           await this.logEntrantError(
             'PHOTO_ENREGISTREMENT_FAILED',
             `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,

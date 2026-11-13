@@ -111,6 +111,12 @@ function baseSimulee(init: {
   erreurEnregistrementFichier?: { message: string };
   /** Erreur rendue par la mise à jour d'une tournée. */
   erreurTournee?: { message: string };
+  /** Collecte AG : poids du don déjà en base (`null` : rien). */
+  poidsDon?: number | null;
+  /** Collecte AG sans attribution (aucune ligne à mettre à jour). */
+  sansAttribution?: boolean;
+  /** L'enregistrement d'un fichier rend 23505 (enregistré à l'instant ailleurs). */
+  fichierDejaEnregistre?: boolean;
 }) {
   const DOUBLON = { code: '23505', message: 'duplicate key value' };
   const appels: Appel[] = [];
@@ -122,8 +128,12 @@ function baseSimulee(init: {
     },
     tournees: init.tournees.map((t) => ({ ...t })),
     pesees: new Map(Object.entries(init.pesees ?? {})),
-    inbox: new Map<string, { id: string; traite: boolean }>(),
+    inbox: new Map<
+      string,
+      { id: string; traite: boolean; payload?: Ligne | null }
+    >(),
     fichiers: new Set<string>(),
+    poidsDon: init.poidsDon ?? null,
   };
 
   function executer(table: string, op: string, data: Ligne, filtres: Ligne) {
@@ -151,18 +161,32 @@ function baseSimulee(init: {
         const ligne = {
           id: `inbox-${etat.inbox.size + 1}`,
           traite: data['traite'] === true,
+          payload: (data['payload'] as Ligne | undefined) ?? null,
         };
         etat.inbox.set(cle, ligne);
         return { data: [{ id: ligne.id }], error: null };
       }
       if (op === 'select') {
-        const ligne = etat.inbox.get(filtres['event_id_externe'] as string);
+        const cles = filtres['event_id_externe'];
+        if (Array.isArray(cles)) {
+          return {
+            data: cles.flatMap((c: string) => {
+              const l = etat.inbox.get(c);
+              return l ? [{ event_id_externe: c, payload: l.payload }] : [];
+            }),
+            error: null,
+          };
+        }
+        const ligne = etat.inbox.get(cles as string);
         return { data: ligne ? [ligne] : [], error: null };
       }
       if (op === 'update') {
-        for (const ligne of etat.inbox.values()) {
+        for (const [cle, ligne] of etat.inbox.entries()) {
           if (ligne.id === filtres['id'] && data['traite'] === true) {
             ligne.traite = true;
+          }
+          if (cle === filtres['event_id_externe'] && data['payload']) {
+            ligne.payload = data['payload'] as Ligne;
           }
         }
       }
@@ -199,6 +223,27 @@ function baseSimulee(init: {
         if (t && typeof data['statut'] === 'string') t.statut = data['statut'];
       }
       return { data: [], error: null };
+    }
+    if (table === 'collecte_tournees' && op === 'select') {
+      return {
+        data: etat.tournees.map((t, i) => ({
+          rang: i + 1,
+          tournees: {
+            id: t.id,
+            reference_interne: null,
+            external_ref_commande: t.commande,
+            tms_reference: t.tmsReference,
+            statut: t.statut,
+            prestataire_logistique_id: PRESTA_MTS1,
+          },
+        })),
+        error: null,
+      };
+    }
+    if (table === 'attributions_antgaspi' && op === 'update') {
+      if (init.sansAttribution) return { data: [], error: null };
+      etat.poidsDon = data['poids_repas_kg'] as number;
+      return { data: [{ id: 'attribution-1' }], error: null };
     }
     if (table === 'collectes' && op === 'update') {
       const admis = filtres['statut'] as string[] | undefined;
@@ -256,6 +301,7 @@ function baseSimulee(init: {
         if (init.erreurEnregistrementFichier) {
           return { data: null, error: init.erreurEnregistrementFichier };
         }
+        if (init.fichierDejaEnregistre) return { data: null, error: DOUBLON };
         etat.fichiers.add(data['key'] as string);
       }
     }
@@ -689,7 +735,7 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
         json: tourA({
           stuffs: [
             // Libellé que l'adapter envoie lui-même pour une collecte AG : son
-            // poids est saisi par l'équipe Savr (§06.09).
+            // poids part dans le poids du don (Val 2026-11-13), pas en pesée.
             stuffSimule('Don alimentaire', 40),
             // Témoin : un libellé vraiment inconnu reste tracé.
             stuffSimule('Gravats (en kg)', 320),
@@ -704,6 +750,145 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     expect(base.journal('STUFF_INCONNU').map((a) => a.data!['erreur'])).toEqual(
       ['STUFF_INCONNU: tournee=tournee-1 stop=arret-a stuff="Gravats (en kg)"'],
     );
+    expect(base.etat.poidsDon).toBe(40);
+    expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
+  });
+
+  // ── Poids du don d'une collecte AG (décision Val 2026-11-13) ────────────────
+
+  const TOURNEE_2: TourneeSimulee = {
+    id: 'tournee-2',
+    commande: 'CMD-B',
+    tmsReference: 'TOUR-2',
+    statut: 'planifiee',
+  };
+
+  function tourDon(
+    tourId: string,
+    commandeId: string,
+    stopId: string,
+    poids: number | null,
+  ): Mts1Tour {
+    return tourSimule({
+      tourId,
+      customerOrderId: commandeId,
+      stopId,
+      stuffs: [stuffSimule('Don alimentaire', poids)],
+    });
+  }
+
+  function filDon(
+    poidsA: number | null,
+    poidsB?: number | null,
+  ): ReturnType<typeof filSimule> {
+    const commandes = [commande('CMD-A', 'VALIDATED', 'TOUR-1')];
+    const reponses: Record<string, Reponse> = {
+      '/v3/tours/TOUR-1': {
+        json: tourDon('TOUR-1', 'CMD-A', 'arret-a', poidsA),
+      },
+    };
+    if (poidsB !== undefined) {
+      commandes.push(commande('CMD-B', 'VALIDATED', 'TOUR-2'));
+      reponses['/v3/tours/TOUR-2'] = {
+        json: tourDon('TOUR-2', 'CMD-B', 'arret-b', poidsB),
+      };
+    }
+    reponses[RECHERCHE] = { json: commandes };
+    return filSimule(reponses);
+  }
+
+  it('M1.5b/releve_poids_don_un_camion — le poids saisi par le chauffeur devient le poids du don, écrit une fois', async () => {
+    const base = baseSimulee({
+      collecteStatut: 'realisee',
+      tournees: [TOURNEE_1],
+    });
+    filDon(56);
+
+    await releve(base);
+    await releve(base);
+
+    expect(base.etat.poidsDon).toBe(56);
+    expect(
+      base.de('attributions_antgaspi', 'update').map((a) => a.data),
+    ).toEqual([{ poids_repas_kg: 56 }]);
+    expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
+  });
+
+  it('M1.5b/releve_poids_don_admin_garde — une correction Admin reste tant que le chauffeur ne change pas son chiffre', async () => {
+    const base = baseSimulee({
+      collecteStatut: 'realisee',
+      tournees: [TOURNEE_1],
+    });
+    const fil = filDon(56);
+    await releve(base);
+    base.etat.poidsDon = 50; // correction Admin dans la fiche
+
+    await releve(base);
+    expect(base.etat.poidsDon).toBe(50);
+
+    fil.poser('/v3/tours/TOUR-1', {
+      json: tourDon('TOUR-1', 'CMD-A', 'arret-a', 61),
+    });
+    await releve(base);
+    expect(base.etat.poidsDon).toBe(61);
+  });
+
+  it('M1.5b/releve_poids_don_tous_les_camions — plusieurs camions : la somme, écrite quand chaque camion non annulé est pesé', async () => {
+    const base = baseSimulee({
+      collecteStatut: 'realisee',
+      tournees: [
+        TOURNEE_1,
+        TOURNEE_2,
+        {
+          id: 'tournee-3',
+          commande: 'CMD-C',
+          tmsReference: null,
+          statut: 'annulee',
+        },
+      ],
+    });
+    // Camion 2 à 0 : rien de saisi, comme un flux ZD non pesé.
+    const fil = filDon(56, 0);
+
+    await releve(base);
+    expect(base.etat.poidsDon).toBeNull();
+    expect(base.de('attributions_antgaspi', 'update')).toEqual([]);
+
+    fil.poser('/v3/tours/TOUR-2', {
+      json: tourDon('TOUR-2', 'CMD-B', 'arret-b', 30.5),
+    });
+    await releve(base);
+    expect(base.etat.poidsDon).toBe(86.5);
+  });
+
+  it('M1.5b/releve_poids_don_hors_statut — clôturée, sans excédent ou annulée : rien n’est écrit', async () => {
+    for (const collecteStatut of [
+      'cloturee',
+      'realisee_sans_collecte',
+      'annulee',
+    ]) {
+      const base = baseSimulee({ collecteStatut, tournees: [TOURNEE_1] });
+      filDon(56);
+
+      await releve(base);
+
+      expect(base.de('attributions_antgaspi', 'update')).toEqual([]);
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('M1.5b/releve_poids_don_sans_attribution — sans attribution, rien n’est noté : le poids s’écrira au passage suivant', async () => {
+    const base = baseSimulee({
+      collecteStatut: 'realisee',
+      tournees: [TOURNEE_1],
+      sansAttribution: true,
+    });
+    filDon(56);
+
+    await releve(base);
+
+    expect(base.etat.poidsDon).toBeNull();
+    expect(base.etat.inbox.has('poids_don:col-001')).toBe(false);
     expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
   });
 
@@ -996,6 +1181,7 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     base.etat.inbox.set('mts1:CMD-A:CANCELED', {
       id: 'inbox-refus',
       traite: true,
+      payload: null,
     });
     filSimule({
       [RECHERCHE]: { json: [commande('CMD-A', 'CANCELED', 'TOUR-1')] },
@@ -1266,6 +1452,30 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     ).toEqual([
       'PHOTO_ENREGISTREMENT_FAILED: tourId=TOUR-1 stopId=arret-a photoId=photo-enlevement',
     ]);
+    expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
+  });
+
+  it('M1.5b/releve_fil_photo_enregistree_ailleurs — une photo enregistrée à l’instant par une relève simultanée (23505) n’est pas une erreur', async () => {
+    const base = baseSimulee({
+      collecteStatut: 'en_cours',
+      tournees: [TOURNEE_1],
+      fichierDejaEnregistre: true,
+    });
+    filSimule({
+      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
+      '/v3/tours/TOUR-1': {
+        json: tourA({ photosEnlevement: ['photo-enlevement'] }),
+      },
+      [adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-enlevement').replace(
+        BASE,
+        '',
+      )]: { corps: JPEG_DE_TEST.toString('base64') },
+    });
+
+    await releve(base);
+
+    expect(base.de('fichiers', 'insert')).toHaveLength(1);
+    expect(base.journal('PHOTO_ENREGISTREMENT_FAILED')).toEqual([]);
     expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
   });
 

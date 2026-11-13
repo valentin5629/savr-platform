@@ -321,6 +321,12 @@ export async function importerPhotosTransporteur(
           created_by: userId,
           rang_client: null,
         });
+      // 23505 : un import simultané l'a enregistrée à l'instant (index
+      // uniq_fichiers_objet_vivant) ; elle est là, une seule fois.
+      if (error?.code === '23505') {
+        resultat.deja_importees++;
+        continue;
+      }
       if (error) throw new Error(error.message);
       resultat.importees++;
     } catch (err) {

@@ -37,26 +37,30 @@ describe('cron:dev:installer — couverture de vercel.json', () => {
     );
   });
 
-  it.each(vercel.crons.map((c) => [c.path, c.schedule] as const))(
-    '%s garde la fréquence de la prod (sauf exception voulue)',
-    (path, schedule) => {
-      const route = path.replace('/api/cron/', '');
-      const plan = plans.find((p) => p.route === route)!;
-      expect(plan.planification).toBe(
-        ROUTES_A_CINQ_MINUTES.includes(route) ? '*/5 * * * *' : schedule,
-      );
-    },
-  );
+  // Exceptions écrites en dur (décisions Val #552 et 2026-11-12) : le test ne
+  // relit pas la liste de la source, sinon la retirer ne rougirait rien.
+  const EXCEPTIONS_ATTENDUES = ['outbox-worker', 'polling-mts1'];
 
-  it('les deux exceptions à 5 min existent dans vercel.json', () => {
+  it('les exceptions à 5 min sont exactement outbox-worker et polling-mts1', () => {
+    expect([...ROUTES_A_CINQ_MINUTES].sort()).toEqual(EXCEPTIONS_ATTENDUES);
     const routes = plans.map((p) => p.route);
-    for (const r of ROUTES_A_CINQ_MINUTES) expect(routes).toContain(r);
+    for (const r of EXCEPTIONS_ATTENDUES) expect(routes).toContain(r);
   });
 
-  it.each(plans.map((p) => p.route))(
-    'la tâche %s est planifiée et appelle sa route sur dev',
-    (route) => {
-      expect(sql).toContain(`cron.schedule('${PREFIXE_TACHE}${route}', '`);
+  it.each(vercel.crons.map((c) => [c.path, c.schedule] as const))(
+    '%s est planifiée dans le SQL à la fréquence attendue',
+    (path, schedule) => {
+      const route = path.replace('/api/cron/', '');
+      const attendue = EXCEPTIONS_ATTENDUES.includes(route)
+        ? '*/5 * * * *'
+        : schedule;
+      expect(plans.find((p) => p.route === route)!.planification).toBe(
+        attendue,
+      );
+      // La chaîne réellement écrite dans le script installé.
+      expect(sql).toContain(
+        `cron.schedule('${PREFIXE_TACHE}${route}', '${attendue}', `,
+      );
       expect(sql).toContain(`url := '${BASE_URL_DEV}/api/cron/${route}'`);
     },
   );

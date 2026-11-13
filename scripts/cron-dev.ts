@@ -79,7 +79,10 @@ export function planificationsDev(
 
 /**
  * Script psql d'installation. Il ne contient aucun secret : les valeurs sont
- * lues par `\getenv` dans l'environnement du processus psql.
+ * lues par `\getenv` dans l'environnement du processus psql. Limite : psql les
+ * substitue dans le texte de l'instruction `set_config`, qu'il ré-afficherait
+ * en partie si cette instruction échouait (et que le journal du serveur peut
+ * garder) ; sa sortie normale est coupée par `\o /dev/null`.
  */
 export function sqlInstallation(plans: Planification[]): string {
   const taches = plans.map((p) => {

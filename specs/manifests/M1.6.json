@@ -1,7 +1,7 @@
 {
   "module": "M1.6",
   "titre": "Génération PDF ZD — bordereau de pesée + rapport de recyclage",
-  "description": "Moteur PDF Railway/Puppeteer (transverse A+B) + batch des collectes ZD réalisées ou clôturées, dès que les pesées sont là (toutes les 15 min, ou juste après une saisie Admin ; plus d'embargo depuis le 2026-11-04) : bordereau de pesée (BSAV-YYYY-NNNNN), refait si les pesées changent, + rapport de recyclage multi-pages. Worker jobs_pdf (retry 15min/4h, dead → alerte Admin in-app). Escalade R9 si pesées manquantes > 48h. Endpoints Admin URL pré-signée R2 (15 min) avec contrôle embargo applicatif. Pas d'attestation AG (M2.4).",
+  "description": "Moteur PDF Railway/Puppeteer (transverse A+B) + batch des collectes ZD réalisées ou clôturées, dès que les pesées sont là (toutes les 15 min, ou juste après une saisie Admin ; plus d'embargo depuis le 2026-11-04) : bordereau de pesée (BSAV-YYYY-NNNNN), mis à jour si les pesées changent — sans PDF depuis le 2026-11-13 (décision Val), + rapport de recyclage multi-pages. Worker jobs_pdf (retry 15min/4h, dead → alerte Admin in-app). Escalade R9 si pesées manquantes > 48h. Plus d'endpoint de téléchargement du bordereau depuis le 2026-11-13. Pas d'attestation AG (M2.4).",
   "garde_fous_tms_ready": {
     "G1": "Colonnes bordereaux_savr et rapports_rse alignées sur DDL cible V2 (numero, producteur_*, detail_flux, genere_par). jobs_pdf colonnes renommées : tentatives→attempts, prochaine_tentative_at→next_retry_at, resultat_fichier_id→fichier_id, erreur_detail→last_error.",
     "G3": "0 référence mts1/everest hors packages/adapters/ — non concerné par M1.6",
@@ -265,10 +265,10 @@
     {
       "id": "BL-P2-16",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:31",
-      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls)",
-      "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll, figés dans bordereaux_savr.detail_flux) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls ; gabarit plus utilisé depuis le 2026-11-13)",
+      "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal (pesées figées du bordereau avec l'équivalent bacs)",
       "statut": "implemented",
-      "libelle": "Bordereau ZD : nb_bacs / equivalent_roll lus depuis collecte_flux et transmis au payload ; colonne « Bacs / Rolls » du template statue bacs sinon rolls."
+      "libelle": "Bordereau ZD : nb_bacs / equivalent_roll lus depuis collecte_flux et transmis au payload ; colonne « Bacs / Rolls » du template statue bacs sinon rolls. Depuis le 2026-11-13 (décision Val, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) : plus de PDF du bordereau ; l'équivalent bacs reste figé dans la ligne bordereaux_savr (detail_flux)."
     },
     {
       "id": "BL-P2-20",
@@ -276,7 +276,7 @@
       "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le, attestation de don ; le bordereau n'a plus de PDF depuis le 2026-11-13) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page ; gabarit bordereau-zd plus utilisé) ; rapport-recyclage-zd.ts ne la rend plus",
       "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-20 : aucune mention de régénération sur le rapport », « BL-P2-20 : mention de régénération sur bordereau régénéré », « mention pied de page présente uniquement si régénérée » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — succès rapport porté par rapports_rse (« sans excédent » AG) : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version »",
       "statut": "implemented",
-      "libelle": "Mention « Version mise à jour — générée le … » (§12 §1.4) : rendue par le bordereau unitaire et l'attestation de don régénérés ; le rapport de recyclage n'en porte plus (décision Val 2026-10-02), l'indicateur reste à l'écran."
+      "libelle": "Mention « Version mise à jour — générée le … » (§12 §1.4) : rendue par l'attestation de don régénérée (le bordereau n'a plus de PDF depuis le 2026-11-13, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) ; le rapport de recyclage n'en porte plus (décision Val 2026-10-02), l'indicateur reste à l'écran."
     },
     {
       "id": "BL-P1-RPT-04",

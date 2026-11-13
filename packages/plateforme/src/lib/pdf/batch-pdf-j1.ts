@@ -240,7 +240,9 @@ export async function runBatchPdfJ1(
   for (let i = 0; i < brouillonsNumerotes.length; i += TAILLE_LOT) {
     const { error: emisErr } = await supabase
       .from('bordereaux_savr')
-      .update({ statut: 'emis', genere_at: new Date().toISOString() })
+      // Sans genere_at : la base garde en brouillon un fantôme sans SIRET, qui
+      // ne doit pas porter de date de génération.
+      .update({ statut: 'emis' })
       .in('id', brouillonsNumerotes.slice(i, i + TAILLE_LOT))
       .eq('statut', 'brouillon');
     if (emisErr) {

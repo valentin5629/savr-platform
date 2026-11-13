@@ -408,11 +408,11 @@
     {
       "id": "M2.3-email-association-48h",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:146",
-      "artefact": "supabase/migrations/20261113150000_plateforme_email_association_48h.sql (fn_claim_outbox_attribution_batch : event attribution.validee retenu tant que le créneau, heure de Paris, est à plus de 48 h) ; packages/plateforme/src/lib/attribution-ag/job.ts (STATUTS_SANS_EMAIL : aucun email pour une collecte annulée, réalisée ou clôturée)",
+      "artefact": "supabase/migrations/20261113150000_plateforme_email_association_48h.sql (fn_claim_outbox_attribution_batch : event attribution.validee retenu tant que le créneau, heure de Paris, est à plus de 48 h, ou que la collecte est rejetee_par_prestataire) ; packages/plateforme/src/lib/attribution-ag/job.ts (STATUTS_SANS_EMAIL : aucun email pour une collecte annulée, réalisée ou clôturée)",
       "test": "supabase/tests/outbox_attribution_48h.test.sql + packages/plateforme/tests/lib/attribution-ag-job.test.ts",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M2.3_20261113_email-association-48h.md",
-      "libelle": "Email ag_attribution_association envoyé 48 h avant le créneau de collecte, pas avant (Val 2026-11-13) ; tout de suite si le créneau est à moins de 48 h ; date relue à chaque passage du cron ; aucun email pour une collecte annulée, réalisée ou clôturée au moment de l’envoi."
+      "libelle": "Email ag_attribution_association envoyé 48 h avant le créneau de collecte, pas avant (Val 2026-11-13) ; tout de suite si le créneau est à moins de 48 h ; date relue à chaque passage du cron ; collecte refusée par le prestataire : l’email attend le renvoi ; aucun email pour une collecte annulée, réalisée ou clôturée au moment de l’envoi."
     }
   ],
   "cdc_source_hash": {

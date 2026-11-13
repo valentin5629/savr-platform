@@ -7,13 +7,14 @@
 --
 -- Créneaux posés à 47 h 30 et 48 h 30 en heure de Paris : lus en UTC par erreur,
 -- les deux tomberaient du même côté de la borne (décalage Paris ≥ 1 h).
+-- Collecte refusée par le prestataire : retenu jusqu'au renvoi.
 -- Events claimables : txid=1 (committé). UUID stricts hex.
 -- =============================================================================
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(7);
+SELECT plan(10);
 
 -- ─── Fixture minimale ────────────────────────────────────────────────────────
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
@@ -97,6 +98,32 @@ SELECT is((SELECT count(*)::int FROM passage2 WHERE id = 'e4800000-0000-0000-000
   'Créneau avancé à demain : email envoyé au passage suivant');
 SELECT is((SELECT count(*)::int FROM passage2 WHERE id = 'e4800000-0000-0000-0000-0000000000a1'), 0,
   'Créneau toujours dans 10 jours : email toujours retenu');
+
+-- ─── Collecte refusée par le prestataire : retenu jusqu'au renvoi ─────────────
+-- Créneau dans 24 h (sous la borne des 48 h) : seul le refus retient l'event.
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte)
+VALUES ('c4800000-0000-0000-0000-0000000000f1'::uuid, 'a4800000-0000-0000-0000-000000000006'::uuid,
+        'anti_gaspi', 'programmee', 'non_envoye',
+        ((now() AT TIME ZONE 'Europe/Paris') + interval '24 hours')::date,
+        ((now() AT TIME ZONE 'Europe/Paris') + interval '24 hours')::time);
+UPDATE plateforme.collectes SET statut = 'rejetee_par_prestataire'
+WHERE id = 'c4800000-0000-0000-0000-0000000000f1';
+SELECT is((SELECT statut::text FROM plateforme.collectes WHERE id = 'c4800000-0000-0000-0000-0000000000f1'),
+  'rejetee_par_prestataire', 'Fixture : collecte F refusée par le prestataire');
+
+INSERT INTO plateforme.outbox_events (id, txid, aggregate_type, aggregate_id, event_type, payload, statut, consumer)
+VALUES ('e4800000-0000-0000-0000-0000000000f1', 1, 'collecte', 'c4800000-0000-0000-0000-0000000000f1', 'attribution.validee', '{}'::jsonb, 'pending', 'attribution_job');
+
+SELECT is((SELECT count(*)::int FROM plateforme.fn_claim_outbox_attribution_batch(50)
+           WHERE id = 'e4800000-0000-0000-0000-0000000000f1'), 0,
+  'Collecte refusée par le prestataire, créneau dans 24 h : email retenu');
+
+UPDATE plateforme.collectes SET statut = 'programmee'
+WHERE id = 'c4800000-0000-0000-0000-0000000000f1';
+
+SELECT is((SELECT count(*)::int FROM plateforme.fn_claim_outbox_attribution_batch(50)
+           WHERE id = 'e4800000-0000-0000-0000-0000000000f1'), 1,
+  'Collecte renvoyée (programmee), créneau dans 24 h : email envoyé');
 
 SELECT * FROM finish();
 ROLLBACK;

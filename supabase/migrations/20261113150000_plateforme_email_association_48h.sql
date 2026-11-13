@@ -12,6 +12,10 @@
 -- est suivi sans rien réécrire. Une collecte à moins de 48 h part au passage
 -- suivant (5 min). Un event sans collecte correspondante n'est pas retenu.
 --
+-- Collecte refusée par le prestataire (`rejetee_par_prestataire`) : l'event est
+-- retenu jusqu'au renvoi (retour en `programmee`), puis suit la règle des 48 h.
+-- Annulée entre-temps : l'event est libéré et le job n'envoie rien (job.ts).
+--
 -- La garde est posée sur l'event retenu seulement : le head-of-line par collecte
 -- dans la famille reste inchangé (une seule attribution par collecte, UNIQUE).
 -- Fonction réservée à service_role (inchangé) : aucun accès ouvert.
@@ -53,12 +57,16 @@ BEGIN
           AND e2.consumer = 'attribution_job'
       )
       AND NOT EXISTS (
-        -- Retenu tant que le créneau est à plus de 48 h (Val 2026-11-13).
+        -- Retenu tant que le créneau est à plus de 48 h, ou tant que la
+        -- collecte est refusée par le prestataire (Val 2026-11-13).
         SELECT 1
         FROM plateforme.collectes c
         WHERE c.id = e.aggregate_id
-          AND ((c.date_collecte + c.heure_collecte) AT TIME ZONE 'Europe/Paris')
-              - interval '48 hours' > now()
+          AND (
+            c.statut = 'rejetee_par_prestataire'
+            OR ((c.date_collecte + c.heure_collecte) AT TIME ZONE 'Europe/Paris')
+               - interval '48 hours' > now()
+          )
       )
     ORDER BY e.seq
     LIMIT p_limit

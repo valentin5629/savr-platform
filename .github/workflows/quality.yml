@@ -36,9 +36,9 @@ jobs:
   statique:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm -w format:check
@@ -64,9 +64,9 @@ jobs:
       matrix:
         part: [1, 2]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm -w test:unit --shard=${{ matrix.part }}/2
@@ -79,15 +79,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 2 } # commit de fusion + sa base : fichiers de la PR
       - id: perimetre
         name: Périmètre de la PR (scripts/ci-perimetre.sh)
         run: bash scripts/ci-perimetre.sh
       - if: steps.perimetre.outputs.build != 'false'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
       - if: steps.perimetre.outputs.build != 'false'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with: { node-version: 20, cache: pnpm }
       - if: steps.perimetre.outputs.build != 'false'
         run: pnpm install --frozen-lockfile
@@ -126,14 +126,14 @@ jobs:
   anti-coupling:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: bash scripts/check-coupling.sh
       - name: G8 — primitives orphelines
         run: bash scripts/check-primitive-orpheline.sh
       - name: Contrats outbox V2
         run: bash scripts/check-outbox-contracts.sh
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Contrat worker ↔ renderer PDF
@@ -149,7 +149,7 @@ jobs:
   migration-timestamp:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Recuperer toutes les branches distantes
         run: git fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
@@ -230,7 +230,7 @@ jobs:
   pdf-renderer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - id: changed
         name: Renderer modifié ?
@@ -294,13 +294,13 @@ jobs:
     # registre (scripts/ci-supabase-start.sh), 1 à 4 min chacun quand il échoue.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 2 } # commit de fusion + sa base : fichiers de la PR
       - id: perimetre
         name: Périmètre de la PR (scripts/ci-perimetre.sh)
         run: bash scripts/ci-perimetre.sh
       - if: steps.perimetre.outputs.base != 'false'
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v3
         with: { version: 2.105.0 }
       - if: steps.perimetre.outputs.base != 'false'
         run: bash scripts/ci-supabase-start.sh
@@ -377,15 +377,15 @@ jobs:
   e2e:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 2 } # commit de fusion + sa base : fichiers de la PR
       - id: perimetre
         name: Périmètre de la PR (scripts/ci-perimetre.sh)
         run: bash scripts/ci-perimetre.sh
       - if: steps.perimetre.outputs.build != 'false'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
       - if: steps.perimetre.outputs.build != 'false'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with: { node-version: 20, cache: pnpm }
       - if: steps.perimetre.outputs.build != 'false'
         run: pnpm install --frozen-lockfile
@@ -417,7 +417,7 @@ jobs:
       # Captures du gabarit, de la maquette et carte des pixels qui diffèrent
       # (données fictives de la maquette), pour comprendre un écart.
       - if: failure() && steps.perimetre.outputs.build != 'false'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rapport-visuel
           path: ${{ runner.temp }}/rapport-visuel
@@ -439,7 +439,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Install gitleaks
         run: |
@@ -449,7 +449,7 @@ jobs:
           gitleaks version
       - name: Run gitleaks
         run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact --verbose --exit-code 1
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       # Bloquant : une faille CRITIQUE dans ce qui part en production (engagement
       # « correctif critique sous 24 h » du questionnaire sécurité VIPARIS).
       # Check requis : un nouvel avis critique, ou une panne du service d'audit
@@ -469,7 +469,7 @@ jobs:
   migrations:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Garde anti-destructif
         run: |
@@ -501,10 +501,10 @@ jobs:
   gate-ratchet:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with: { node-version: 20, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - name: Régénère .cdc-metadata.json (cohérence G11 dans le cliquet)

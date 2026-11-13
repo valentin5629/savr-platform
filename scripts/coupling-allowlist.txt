@@ -306,3 +306,10 @@ supabase/migrations/20261103170000_plateforme_algo_ag_region_depuis_code_postal.
 # 'everest' = nom de la RPC, de la table `everest_missions`, du segment d'URL de la route
 # déjà allowlistée et du transporteur dans les messages. Aucun appel HTTP. 'customerOrders' banni.
 supabase/migrations/20261110120000_plateforme_renommage_a_toute.sql
+
+# scripts/cron-dev.ts + son test (2026-11-13, décision Val option A) — 'mts1' =
+# segment du chemin de la route cron `/api/cron/polling-mts1`, nom repris de
+# vercel.json pour planifier sur savr-dev l'appel HTTP de cette route (pg_cron).
+# Aucune logique transporteur : la route elle-même passe par logistique_provider.
+scripts/cron-dev.ts
+packages/plateforme/tests/scripts/cron-dev.test.ts

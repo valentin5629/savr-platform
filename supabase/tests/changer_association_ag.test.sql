@@ -11,7 +11,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(20);
+SELECT plan(21);
 
 -- Collecte AG commandée chez MTS-1 (tournée rang 1 avec commande, cf. helper).
 CREATE TEMP TABLE t_c ON COMMIT DROP AS
@@ -131,9 +131,25 @@ SELECT is(
 SELECT is(
   (SELECT count(*)::int FROM plateforme.outbox_events
     WHERE aggregate_id = (SELECT id FROM t_c) AND event_type = 'attribution.validee'),
-  2,
-  'l''email d''attribution part quand même vers l''association choisie'
+  1,
+  'un email d''attribution encore en attente (relit l''association courante) : pas de doublon'
 );
+
+-- Le premier email est parti : un nouveau changement en remet un en file.
+UPDATE plateforme.outbox_events SET statut = 'done'
+WHERE aggregate_id = (SELECT id FROM t_c) AND event_type = 'attribution.validee';
+SELECT plateforme.fn_changer_association_ag(
+  (SELECT id FROM t_c), 'a5c00001-0000-0000-0000-000000000002'::uuid, NULL);
+SELECT is(
+  (SELECT count(*)::int FROM plateforme.outbox_events
+    WHERE aggregate_id = (SELECT id FROM t_c) AND event_type = 'attribution.validee'
+      AND statut = 'pending'),
+  1,
+  'email précédent parti : la nouvelle association reçoit le sien'
+);
+-- (retour à l'association 1 pour la suite)
+SELECT plateforme.fn_changer_association_ag(
+  (SELECT id FROM t_c), 'a5c00001-0000-0000-0000-000000000001'::uuid, NULL);
 
 -- ─── 12. A Toute! commandé : modification de la mission ─────────────────────
 -- (type_tms immuable : un second prestataire, A Toute!, porte la collecte)

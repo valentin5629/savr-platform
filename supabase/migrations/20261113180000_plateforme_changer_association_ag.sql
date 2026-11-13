@@ -14,7 +14,8 @@
 --   - Rien de commandé (ordre de création encore en file, prestataire manuel) :
 --     aucun ordre logistique, la création en file lira la nouvelle association.
 -- Toujours : la nouvelle association reçoit l'email d'attribution habituel
--- (`attribution.validee`, famille `attribution_job`) ; rien à l'ancienne.
+-- (`attribution.validee`, famille `attribution_job`, 48 h avant le créneau) ;
+-- rien à l'ancienne. Un email encore en attente n'est pas doublé.
 -- Collecte programmée ou validée seulement (jamais une fois la mission
 -- commencée). Le motif (choix ≠ n°1 de l'algo) et le rôle sont vérifiés par la
 -- route ; la fonction est réservée à service_role.
@@ -191,6 +192,16 @@ BEGIN
   END IF;
 
   -- Email d'attribution à la nouvelle association (même job qu'à la validation).
+  -- L'email part 48 h avant le créneau (20261113150000) et relit l'association
+  -- courante : un email d'attribution encore en attente partira déjà vers la
+  -- nouvelle. N'en ajouter un que s'il n'y en a plus (sinon deux emails).
+  IF NOT EXISTS (
+    SELECT 1 FROM plateforme.outbox_events o
+    WHERE o.aggregate_type = 'collecte'
+      AND o.aggregate_id = p_collecte_id
+      AND o.event_type = 'attribution.validee'
+      AND o.statut NOT IN ('done', 'dead')
+  ) THEN
   INSERT INTO plateforme.outbox_events (
     aggregate_type, aggregate_id, event_type, payload, consumer
   ) VALUES (
@@ -206,6 +217,7 @@ BEGIN
     ),
     'attribution_job'
   );
+  END IF;
 
   RETURN v_event_type;
 END;

@@ -78,6 +78,9 @@ describe('savr-dev-cron — garde', () => {
     ['mauvais secret', 'Bearer autre'],
     ['secret sans « Bearer »', 'secret-du-projet'],
     ['secret en préfixe', 'Bearer secret-du-projet-et-plus'],
+    ['« bearer » en minuscules', 'bearer secret-du-projet'],
+    ['secret en majuscules', 'Bearer SECRET-DU-PROJET'],
+    ['deux espaces', 'Bearer  secret-du-projet'],
   ])('refuse un appelant %s (401, aucun appel)', async (_nom, auth) => {
     const f = fetchQuiRend(200);
     const r = await appeler(requete('pdf-worker', auth), ENV, f);
@@ -106,6 +109,26 @@ describe('savr-dev-cron — garde', () => {
       expect(f).not.toHaveBeenCalled();
     },
   );
+
+  it.each([
+    '/api/cron%2Fpdf-worker',
+    '//api/pdf-worker',
+    '/api//pdf-worker',
+    '/api/pdf-worker/',
+    '/api/PDF-WORKER',
+    '/x/api/pdf-worker',
+  ])('refuse le chemin « %s » (404, aucun appel)', async (chemin) => {
+    const f = fetchQuiRend(200);
+    const r = await appeler(
+      new Request(`https://savr-dev-cron.vercel.app${chemin}`, {
+        headers: { authorization: 'Bearer secret-du-projet' },
+      }),
+      ENV,
+      f,
+    );
+    expect(r.status).toBe(404);
+    expect(f).not.toHaveBeenCalled();
+  });
 
   it.each(['CRON_SECRET_DEV', 'VERCEL_BYPASS_DEV'])(
     "n'appelle pas dev sans %s (500)",
@@ -140,8 +163,21 @@ describe('savr-dev-cron — appel de dev', () => {
         Authorization: 'Bearer secret-dev',
         'x-vercel-protection-bypass': 'contournement-dev',
       });
+      // Une redirection n'est jamais suivie : les secrets ne partent vers
+      // aucun autre hôte que l'alias dev.
+      expect(init.redirect).toBe('manual');
     },
   );
+
+  it('ne suit pas une redirection de dev (502)', async () => {
+    const f = fetchQuiRend(307);
+    const r = await appeler(
+      requete('pdf-worker', 'Bearer secret-du-projet'),
+      ENV,
+      f,
+    );
+    expect(r.status).toBe(502);
+  });
 
   it('répond 502 quand la route de dev échoue, sans recopier son corps ni un secret', async () => {
     const f = fetchQuiRend(401, 'Bearer secret-dev contournement-dev');
@@ -156,7 +192,7 @@ describe('savr-dev-cron — appel de dev', () => {
     for (const s of Object.values(ENV)) expect(texte).not.toContain(s);
   });
 
-  it('répond 502 quand dev ne répond pas', async () => {
+  it('répond 502 quand dev ne répond pas, sans journaliser l’erreur', async () => {
     const f = vi.fn(async () => {
       throw new Error('réseau');
     });
@@ -167,4 +203,83 @@ describe('savr-dev-cron — appel de dev', () => {
     );
     expect(r.status).toBe(502);
   });
+});
+
+describe('savr-dev-cron — aucun secret ne sort', () => {
+  const SECRETS = Object.values(ENV);
+  const AUTORISE = 'Bearer secret-du-projet';
+  const cas: Array<[string, () => Promise<Response>]> = [
+    [
+      '200',
+      () => appeler(requete('pdf-worker', AUTORISE), ENV, fetchQuiRend(200)),
+    ],
+    [
+      '401',
+      () => appeler(requete('pdf-worker', 'Bearer x'), ENV, fetchQuiRend(200)),
+    ],
+    [
+      '404',
+      () => appeler(requete('inconnue', AUTORISE), ENV, fetchQuiRend(200)),
+    ],
+    [
+      '500 (CRON_SECRET_DEV absent)',
+      () =>
+        appeler(
+          requete('pdf-worker', AUTORISE),
+          { ...ENV, CRON_SECRET_DEV: undefined },
+          fetchQuiRend(200),
+        ),
+    ],
+    [
+      '500 (VERCEL_BYPASS_DEV absent)',
+      () =>
+        appeler(
+          requete('pdf-worker', AUTORISE),
+          { ...ENV, VERCEL_BYPASS_DEV: undefined },
+          fetchQuiRend(200),
+        ),
+    ],
+    [
+      '502 (échec de dev)',
+      () =>
+        appeler(
+          requete('pdf-worker', AUTORISE),
+          ENV,
+          fetchQuiRend(500, SECRETS.join(' ')),
+        ),
+    ],
+    [
+      '502 (appel impossible)',
+      () =>
+        appeler(
+          requete('pdf-worker', AUTORISE),
+          ENV,
+          vi.fn(async () => {
+            throw new Error(SECRETS.join(' '));
+          }),
+        ),
+    ],
+  ];
+
+  it.each(cas)(
+    'réponse %s : ni le corps ni les journaux ne contiennent un secret',
+    async (_nom, lancer) => {
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        const corps = await (await lancer()).text();
+        const journaux = [...log.mock.calls, ...err.mock.calls]
+          .flat()
+          .map(String)
+          .join('\n');
+        for (const s of SECRETS) {
+          expect(corps).not.toContain(s);
+          expect(journaux).not.toContain(s);
+        }
+      } finally {
+        log.mockRestore();
+        err.mockRestore();
+      }
+    },
+  );
 });

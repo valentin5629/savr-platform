@@ -1,0 +1,67 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["cdg1"],
+  "functions": {
+    "api/[route].ts": {
+      "maxDuration": 300
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cloture-embargo",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/outbox-worker",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/polling-mts1",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/batch-pdf-j1",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/pdf-worker",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/batch-brouillons-j1",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/pennylane-retry",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/email-retry",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/process-attributions-ag",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/revalidation-siret",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/polling-pennylane",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/refresh-benchmark",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/notify-pack-etat",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/purge-logs",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

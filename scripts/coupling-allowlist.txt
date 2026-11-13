@@ -306,3 +306,10 @@ supabase/migrations/20261103170000_plateforme_algo_ag_region_depuis_code_postal.
 # 'everest' = nom de la RPC, de la table `everest_missions`, du segment d'URL de la route
 # déjà allowlistée et du transporteur dans les messages. Aucun appel HTTP. 'customerOrders' banni.
 supabase/migrations/20261110120000_plateforme_renommage_a_toute.sql
+
+# apps/cron-dev (2026-11-13, décision Val C1) — mini-projet Vercel qui lance sur
+# dev les crons de la prod. mts1 = segment du nom de route `polling-mts1`,
+# repris de packages/plateforme/vercel.json pour appeler cette route par HTTP.
+# Aucune logique transporteur : la route appelée passe par logistique_provider.
+apps/cron-dev/api/*
+apps/cron-dev/tests/*

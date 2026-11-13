@@ -1,0 +1,7 @@
+{
+  "name": "@savr/cron-dev",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Projet Vercel savr-dev-cron : lance sur dev les crons de la prod",
+  "type": "module"
+}

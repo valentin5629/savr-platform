@@ -17,7 +17,7 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["packages/**/*.ts", "packages/**/*.tsx"],
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "apps/cron-dev/**/*.ts"],
   "exclude": [
     "packages/plateforme/next.config.ts",
     "packages/plateforme/sentry.client.config.ts",

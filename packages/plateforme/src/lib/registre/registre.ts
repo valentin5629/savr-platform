@@ -99,7 +99,6 @@ export interface RegistreFilters {
   lieuIds: string[];
   traiteurIds: string[];
   fluxCodes: string[];
-  bordereauStatut?: 'dispo' | 'manquant';
   sortBy: SortColumn;
   sortDir: 'asc' | 'desc';
   page: number;
@@ -129,7 +128,6 @@ export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
     : 25;
   const page = parsePage(sp);
 
-  const bs = sp.get('bordereau');
   return {
     from: sp.get('from') ?? undefined,
     to: sp.get('to') ?? undefined,
@@ -137,7 +135,6 @@ export function parseRegistreFilters(sp: URLSearchParams): RegistreFilters {
     lieuIds: listeCsv(sp.get('lieu'), estUuid),
     traiteurIds: listeCsv(sp.get('traiteur'), estUuid),
     fluxCodes: listeCsv(sp.get('flux'), parmi(FLUX_ORDER)),
-    bordereauStatut: bs === 'dispo' || bs === 'manquant' ? bs : undefined,
     sortBy,
     sortDir,
     page,
@@ -169,10 +166,6 @@ export async function fetchRegistre(
   if (f.traiteurIds.length)
     q = q.in('traiteur_operationnel_organisation_id', f.traiteurIds);
   if (f.fluxCodes.length) q = q.overlaps('flux_codes', f.fluxCodes);
-  if (f.bordereauStatut === 'dispo')
-    q = q.in('bordereau_statut', ['emis', 'corrige']);
-  if (f.bordereauStatut === 'manquant')
-    q = q.or('bordereau_statut.is.null,bordereau_statut.eq.brouillon');
 
   // Tri mono-colonne (sobriété B1) ; départage stable par collecte_id.
   q = q
@@ -251,7 +244,7 @@ export async function fetchRegistreOptions(
   return { lieux: trier(lieux), traiteurs: trier(traiteurs) };
 }
 
-/** Libellé du statut bordereau pour l'affichage (dispo / manquant / —). */
+/** Bordereau émis (numéro rendu dans l'export CSV du registre). */
 export function bordereauDisponible(statut: string | null): boolean {
   return statut === 'emis' || statut === 'corrige';
 }

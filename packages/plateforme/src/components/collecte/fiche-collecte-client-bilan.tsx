@@ -560,7 +560,7 @@ export function BilanCollecte({
 }
 
 /**
- * Téléchargement du rapport de la collecte (« Rapport RSE » ZD fabriqué au
+ * Téléchargement du rapport de la collecte (« Rapport de recyclage » ZD fabriqué au
  * clic, « Rapport de don » AG déjà fabriqué). Porté par le panneau : le bouton
  * « Télécharger le rapport » est dans le pied de la fiche, visible sans
  * défiler (décision Val 2026-10-27) ; le bouton « Intégrer la comparaison au
@@ -677,10 +677,10 @@ export function OngletBilan({
 
   const reserve = c.rapport_reserve_donneur_ordre;
 
-  // Rapport RSE fabriqué avec ou sans le radar, au choix de celui qui le
+  // Rapport de recyclage fabriqué avec ou sans le radar, au choix de celui qui le
   // télécharge (Val 2026-10-16). Variante B (Val 2026-10-27) : le choix est un
   // bouton à côté du radar ; le rapport se télécharge depuis le pied de la
-  // fiche (plus d'encadré « Rapport RSE » dans l'onglet).
+  // fiche (plus d'encadré « Rapport de recyclage » dans l'onglet).
   const actionRadar =
     !isAg && !c.rapport_reserve_donneur_ordre && choixRadarPossible ? (
       // Visible dès que le radar l'est ; grisé, comme « Télécharger le
@@ -743,7 +743,7 @@ export function OngletBilan({
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-savr-neutral-900">
-                  {isAg ? 'Rapport de don' : 'Rapport RSE'}
+                  {isAg ? 'Rapport de don' : 'Rapport de recyclage'}
                 </p>
                 <Text>{LIBELLE_ETAT_RAPPORT.reserve}</Text>
               </div>

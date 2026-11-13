@@ -219,7 +219,6 @@ describe('M1.8 / E2E / scenario-nominal', () => {
       { data: [{ id: 'bord-new' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // aucun rapports_rse existant (maybeSingle)
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse (single)
-      { data: null, error: null }, // insert job bordereau (then)
     ]);
 
     const pdfResult = await runBatchPdfJ1(sbPdf as never);
@@ -231,9 +230,15 @@ describe('M1.8 / E2E / scenario-nominal', () => {
     const types = insertCalls
       .map((c) => c[0].type_document)
       .filter(Boolean) as string[];
-    // Le bordereau part au rendu ; le rapport de recyclage n'est plus fabriqué
-    // par le batch : il le sera au clic de celui qui le télécharge (Val 2026-10-16).
-    expect(types).toEqual(['bordereau-zd']);
+    // Aucun PDF mis en file : le bordereau est émis sans document (Val
+    // 2026-11-13) et le rapport de recyclage est fabriqué au clic (Val 2026-10-16).
+    expect(types).toEqual([]);
+    const updateCalls = (sbPdf._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(updateCalls[0]![0]).toMatchObject({
+      numero: 'BSAV-2026-00001',
+      statut: 'emis',
+    });
     expect(insertCalls.some((c) => c[0].genere_par === 'automatique')).toBe(
       true,
     );

@@ -125,18 +125,6 @@ async function callDetail(id: string) {
     params: Promise.resolve({ id }),
   });
 }
-async function callZip(query = '') {
-  const { GET } = await import('@/app/api/v1/registre/export-zip/route.js');
-  return GET(makeReq(`/api/v1/registre/export-zip${query}`));
-}
-async function callDownload(id: string) {
-  const { GET } =
-    await import('@/app/api/v1/registre/bordereaux/[id]/download/route.js');
-  return GET(makeReq(`/api/v1/registre/bordereaux/${id}/download`), {
-    params: Promise.resolve({ id }),
-  });
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
   rls = makeChain();
@@ -609,125 +597,6 @@ describe('M4.2 / détail registre — convives et type de la collecte (lot C1)',
   });
 });
 
-// ── Export ZIP (P1 export_zip_bordereaux_periode + cas limites) ──────────────
-describe('M4.2 / export_zip_bordereaux_periode', () => {
-  function pushRows() {
-    rls.push({
-      data: [{ collecte_id: 'c1', date_evenement: '2026-04-10' }],
-      count: 1,
-      error: null,
-    });
-  }
-  // Forme réelle : bordereaux_savr.pdf_fichier_id → shared.fichiers (bucket/key).
-  // Pas de colonne `url` ni d'embed cross-schema (G7 column-db).
-  function bords(n: number) {
-    return Array.from({ length: n }, (_, i) => ({
-      numero: `BSAV-2026-${String(i).padStart(5, '0')}`,
-      pdf_fichier_id: `f${i}`,
-    }));
-  }
-  function fichiers(n: number) {
-    return Array.from({ length: n }, (_, i) => ({
-      id: `f${i}`,
-      bucket: 'bordereaux',
-      key: `b${i}.pdf`,
-    }));
-  }
-
-  it('zip_exactement_50_bordereaux_ok + trace bordereaux_batch', async () => {
-    setupAuth('traiteur_manager', 'org-a');
-    pushRows();
-    rls.push({ data: bords(50), error: null });
-    rls.push({ data: fichiers(50), error: null }); // shared.fichiers
-    rls.push({ error: null }); // trace
-    const res = await callZip('?from=2026-04-01&to=2026-05-31');
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toBe('application/zip');
-    // Colonnes sélectionnées (G7) : jamais `fichiers:pdf_fichier_id(url)`.
-    const selects = (rls.__calls.select ?? []).map((c) => c[0]);
-    expect(selects).toContain('numero, pdf_fichier_id');
-    expect(selects).toContain('id, bucket, key');
-    expect(selects.join('|')).not.toContain('url');
-    expect(rls.__calls.schema).toEqual([['shared']]);
-    const { getObjectBytes } = await import('@/lib/pdf/r2-client.js');
-    expect(getObjectBytes).toHaveBeenCalledTimes(50);
-    expect(getObjectBytes).toHaveBeenCalledWith('bordereaux/b0.pdf');
-    const insertArgs = (rls.__calls.insert ?? [])[0]?.[0] as
-      | Record<string, unknown>
-      | undefined;
-    expect(insertArgs?.type_export).toBe('bordereaux_batch');
-    expect(insertArgs?.format).toBe('zip');
-    expect(insertArgs?.nb_lignes).toBe(50);
-  });
-
-  it('M4.2/zip_51_bordereaux_refuse — 422 + aucune trace', async () => {
-    setupAuth('traiteur_manager', 'org-a');
-    pushRows();
-    rls.push({ data: bords(51), error: null });
-    const res = await callZip('?from=2026-04-01&to=2026-05-31');
-    expect(res.status).toBe(422);
-    expect(rls.__calls.insert).toBeUndefined();
-  });
-
-  it('M4.2/zip_zero_bordereau_refuse_message — 422', async () => {
-    setupAuth('traiteur_manager', 'org-a');
-    pushRows();
-    rls.push({ data: [], error: null });
-    const res = await callZip('?from=2026-04-01&to=2026-05-31');
-    expect(res.status).toBe(422);
-    const body = (await res.json()) as { error: string };
-    expect(body.error).toContain('Aucun bordereau');
-  });
-});
-
-// ── Téléchargement bordereau ─────────────────────────────────────────────────
-describe('M4.2 / telechargement_pdf_bordereau_depuis_liste', () => {
-  it('200 + URL pré-signée', async () => {
-    setupAuth('traiteur_manager', 'org-a');
-    rls.push({
-      data: { id: 'b1', statut: 'emis', pdf_fichier_id: 'f1' },
-      error: null,
-    });
-    rls.push({
-      data: [{ id: 'f1', bucket: 'bordereaux', key: 'b1.pdf' }],
-      error: null,
-    }); // shared.fichiers
-    const res = await callDownload('b1');
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { url: string; expires_in: number };
-    expect(body.url).toBe('https://r2.example/signed-url');
-    expect(body.expires_in).toBe(900);
-    // Colonnes sélectionnées (G7) + clé R2 reconstruite depuis bucket/key.
-    expect((rls.__calls.select ?? []).map((c) => c[0])).toEqual([
-      'id, statut, pdf_fichier_id',
-      'id, bucket, key',
-    ]);
-    expect(rls.__calls.schema).toEqual([['shared']]);
-    expect(rls.__calls.from).toEqual([['bordereaux_savr'], ['fichiers']]);
-    const { getPresignedUrl } = await import('@/lib/pdf/r2-client.js');
-    expect(getPresignedUrl).toHaveBeenCalledWith('bordereaux/b1.pdf', 900);
-  });
-
-  it('fichier PDF absent de shared.fichiers (hors périmètre / supprimé) — 404', async () => {
-    setupAuth('traiteur_manager', 'org-a');
-    rls.push({
-      data: { id: 'b1', statut: 'emis', pdf_fichier_id: 'f1' },
-      error: null,
-    });
-    rls.push({ data: [], error: null }); // fichiers_select filtre la ligne
-    const res = await callDownload('b1');
-    expect(res.status).toBe(404);
-  });
-
-  it('M4.2/url_directe_bordereau_hors_perimetre_deny — 404 (RLS → null)', async () => {
-    setupAuth('traiteur_manager', 'org-a');
-    rls.push({ data: null, error: null });
-    const res = await callDownload('b-autre-org');
-    expect(res.status).toBe(404);
-  });
-});
-
-// ── Filtres à choix multiple (§06.03 « multi-select », décision Val 2026-09-30) ─
 describe('M4.2 / filtres à choix multiple', () => {
   const UUID_A = '11111111-1111-4111-8111-111111111111';
   const UUID_B = '22222222-2222-4222-8222-222222222222';
@@ -737,6 +606,7 @@ describe('M4.2 / filtres à choix multiple', () => {
     rls.push({ data: [], count: 0, error: null });
     const res = await callList(
       `?lieu=${UUID_A},${UUID_B},pas-un-uuid&traiteur=${UUID_A},x)&flux=biodechet,inconnu&bordereau=dispo`,
+      // `bordereau` n'est plus un filtre (bordereau sans PDF, Val 2026-11-13) : ignoré.
     );
     expect(res.status).toBe(200);
     const inCalls = rls.__calls.in ?? [];
@@ -745,7 +615,7 @@ describe('M4.2 / filtres à choix multiple', () => {
       'traiteur_operationnel_organisation_id',
       [UUID_A],
     ]);
-    expect(inCalls).toContainEqual(['bordereau_statut', ['emis', 'corrige']]);
+    expect(inCalls.some(([c]) => c === 'bordereau_statut')).toBe(false);
     expect(rls.__calls.overlaps).toContainEqual(['flux_codes', ['biodechet']]);
   });
 

@@ -388,13 +388,6 @@ interface RapportDoc {
   /** Téléchargeable maintenant (fin d'embargo ; rapport ZD fabriqué au clic). */
   disponible: boolean;
 }
-interface BordereauDoc {
-  id: string;
-  statut: string;
-  numero: string | null;
-  genere_at: string | null;
-  pdf_fichier_id: string | null;
-}
 interface AttestationDoc {
   id: string;
   statut: string;
@@ -413,12 +406,11 @@ interface PhotoItem {
 }
 interface DocumentsData {
   rapport: RapportDoc | null;
-  bordereau: BordereauDoc | null;
   attestation: AttestationDoc | null;
   photos: PhotoItem[];
 }
 
-// Ligne d'un document (rapport, bordereau, rapport de don) qui n'existe pas encore :
+// Ligne d'un document (rapport, rapport de don) qui n'existe pas encore :
 // un seul texte, quel que soit le statut de la collecte (décision Val 2026-10-09).
 const DOCUMENT_A_VENIR = 'Généré sous 48h après la collecte';
 
@@ -438,7 +430,6 @@ interface AuditEntry {
 type PdfType =
   | 'rapport-recyclage-zd'
   | 'rapport-evenement-sans-excedent'
-  | 'bordereau-zd'
   | 'attestation-don';
 
 function Vide({ children = '—' }: { children?: React.ReactNode }) {
@@ -919,7 +910,7 @@ export function CollecteDetailPanel({
   //   - avec excédents : l'attestation de don (attestations_don) ;
   //   - sans excédents (`realisee_sans_collecte`) : le rapport « Événement sans
   //     excédent alimentaire », porté par rapports_rse comme le rapport ZD.
-  // La ligne du rapport sert donc la collecte ZD (« Rapport RSE ») et la collecte
+  // La ligne du rapport sert donc la collecte ZD (« Rapport de recyclage ») et la collecte
   // AG sans excédents (« Rapport de don ») ; jamais une collecte AG avec don.
   const agSansExcedent =
     collecte?.type === 'anti_gaspi' &&
@@ -944,7 +935,7 @@ export function CollecteDetailPanel({
     if (updated.ok) setCollecte((await updated.json()) as CollecteDetail);
   }, [collecteId]);
 
-  // Bloc 3 — Documents (rapport / bordereau / attestation / photos).
+  // Bloc 3 — Documents (rapport / attestation / photos).
   const refetchDocuments = useCallback(async () => {
     const r = await fetch(
       `/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/documents`,
@@ -994,7 +985,7 @@ export function CollecteDetailPanel({
   };
 
   // Régénération d'un PDF stocké (§06.06 l.283-284) — ré-enqueue jobs_pdf côté
-  // serveur : bordereau, attestation, rapport « sans excédent ».
+  // serveur : attestation, rapport « sans excédent ».
   const handleRegenerate = async (type: PdfType) => {
     setRegenerating(type);
     setDocError(null);
@@ -3193,7 +3184,7 @@ export function CollecteDetailPanel({
               action={
                 !editPesees && (
                   // Modifiable à tout moment, même après la clôture (Val
-                  // 2026-11-04) : le bordereau est refait juste après.
+                  // 2026-11-04) : le bordereau est mis à jour juste après.
                   <Button
                     size="sm"
                     variant="secondary"
@@ -3318,7 +3309,7 @@ export function CollecteDetailPanel({
               avertissementComparaisonSoi: false,
             }}
           />
-          {/* Bloc 3 (CDC) — Documents : rapport RSE / bordereau ZD / attestation AG + photos */}
+          {/* Bloc 3 (CDC) — Documents : rapport de recyclage / attestation AG + photos (bordereau ZD sans PDF, Val 2026-11-13) */}
           <FicheSection titre="Documents">
             <div className="min-w-0 space-y-4">
               {docError && <AlertBar variant="err">{docError}</AlertBar>}
@@ -3332,12 +3323,14 @@ export function CollecteDetailPanel({
                     endpoint={`/api/v1/admin/collectes/${encodeURIComponent(collecteId)}/logo-client`}
                   />
                 )}
-                {/* Rapport : « Rapport RSE » (ZD) ou « Rapport de don » (AG sans excédents) */}
+                {/* Rapport : « Rapport de recyclage » (ZD) ou « Rapport de don » (AG sans excédents) */}
                 {afficherRapport && (
                   <div className="flex flex-wrap items-center gap-3 py-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium flex items-center gap-2">
-                        {agSansExcedent ? 'Rapport de don' : 'Rapport RSE'}
+                        {agSansExcedent
+                          ? 'Rapport de don'
+                          : 'Rapport de recyclage'}
                         {agSansExcedent &&
                           documents?.rapport &&
                           (documents.rapport.version > 1 ||
@@ -3450,56 +3443,6 @@ export function CollecteDetailPanel({
                           </Text>
                         </div>
                       )}
-                  </div>
-                )}
-
-                {/* Bordereau ZD (ZD only) */}
-                {collecte.type === 'zero_dechet' && (
-                  <div className="flex items-center gap-3 py-3">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">
-                        Bordereau ZD
-                        {documents?.bordereau?.numero && (
-                          <Text
-                            as="span"
-                            variant="hint"
-                            className="ml-2 font-mono"
-                          >
-                            {documents.bordereau.numero}
-                          </Text>
-                        )}
-                      </p>
-                      <Text variant="hint">
-                        {documents?.bordereau
-                          ? `Statut : ${documents.bordereau.statut}`
-                          : DOCUMENT_A_VENIR}
-                      </Text>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={!documents?.bordereau?.genere_at}
-                      onClick={() =>
-                        documents?.bordereau &&
-                        void handleDownload(
-                          `/api/v1/admin/bordereaux/${encodeURIComponent(documents.bordereau.id)}/download`,
-                        )
-                      }
-                    >
-                      <DownloadSimpleIcon />
-                      Télécharger
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!documents?.bordereau}
-                      loading={regenerating === 'bordereau-zd'}
-                      loadingText="Régénérer"
-                      onClick={() => void handleRegenerate('bordereau-zd')}
-                    >
-                      <ArrowClockwiseIcon />
-                      Régénérer
-                    </Button>
                   </div>
                 )}
 

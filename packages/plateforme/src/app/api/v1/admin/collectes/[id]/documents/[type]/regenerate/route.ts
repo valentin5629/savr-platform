@@ -4,10 +4,11 @@
 // Ré-enqueue jobs_pdf (type_document + TEMPLATE_VERSIONS courant appliqué par le
 // worker) + audit_log. Accès : admin_savr + ops_savr (requireStaff).
 //
-// [type] ∈ bordereau-zd | attestation-don | rapport-evenement-sans-excedent (§12
+// [type] ∈ attestation-don | rapport-evenement-sans-excedent (§12
 // §1.3-bis l.198 : régénération Admin uniquement, correction motif chauffeur /
 // plaque post-saisie). Le rapport de recyclage ZD n'est plus stocké : il se
 // fabrique au clic (POST /api/v1/admin/collectes/[id]/rapport-rse) → 409 ici (type non régénérable).
+// Le bordereau ZD n'a plus de PDF (Val 2026-11-13) : type non régénérable.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';

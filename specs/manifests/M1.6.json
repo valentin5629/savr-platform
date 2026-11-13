@@ -1,7 +1,7 @@
 {
   "module": "M1.6",
   "titre": "Génération PDF ZD — bordereau de pesée + rapport de recyclage",
-  "description": "Moteur PDF Railway/Puppeteer (transverse A+B) + batch des collectes ZD réalisées ou clôturées, dès que les pesées sont là (toutes les 15 min, ou juste après une saisie Admin ; plus d'embargo depuis le 2026-11-04) : bordereau de pesée (BSAV-YYYY-NNNNN), refait si les pesées changent, + rapport de recyclage multi-pages. Worker jobs_pdf (retry 15min/4h, dead → alerte Admin in-app). Escalade R9 si pesées manquantes > 48h. Endpoints Admin URL pré-signée R2 (15 min) avec contrôle embargo applicatif. Pas d'attestation AG (M2.4).",
+  "description": "Moteur PDF Railway/Puppeteer (transverse A+B) + batch des collectes ZD réalisées ou clôturées, dès que les pesées sont là (toutes les 15 min, ou juste après une saisie Admin ; plus d'embargo depuis le 2026-11-04) : bordereau de pesée (BSAV-YYYY-NNNNN), mis à jour si les pesées changent — sans PDF depuis le 2026-11-13 (décision Val), + rapport de recyclage multi-pages. Worker jobs_pdf (retry 15min/4h, dead → alerte Admin in-app). Escalade R9 si pesées manquantes > 48h. Plus d'endpoint de téléchargement du bordereau depuis le 2026-11-13. Pas d'attestation AG (M2.4).",
   "garde_fous_tms_ready": {
     "G1": "Colonnes bordereaux_savr et rapports_rse alignées sur DDL cible V2 (numero, producteur_*, detail_flux, genere_par). jobs_pdf colonnes renommées : tentatives→attempts, prochaine_tentative_at→next_retry_at, resultat_fichier_id→fichier_id, erreur_detail→last_error.",
     "G3": "0 référence mts1/everest hors packages/adapters/ — non concerné par M1.6",
@@ -23,7 +23,6 @@
     "packages/plateforme/src/lib/pdf/selection-par-pages.ts",
     "packages/plateforme/src/app/api/cron/pdf-worker/route.ts",
     "packages/plateforme/src/app/api/cron/batch-pdf-j1/route.ts",
-    "packages/plateforme/src/app/api/v1/admin/bordereaux/[id]/download/route.ts",
     "packages/plateforme/src/app/api/v1/admin/rapports-rse/[id]/download/route.ts",
     "packages/plateforme/tests/api/pdf-worker.m1-6.test.ts",
     "packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts",
@@ -82,7 +81,7 @@
   ],
   "_comment_scenarios": "scenarios[] = sous-ensemble VITEST-matchable (substring d'un titre de test vitest réel). La couverture exhaustive au grain livrable (y compris pgTAP f_next_numero_bordereau/f_upsert_alerte_admin et téléchargements M3.4) vit dans deliverables[]. R2 a réaligné ces chaînes sur les titres réels (l'ancienne formulation legacy ne matchait aucun test → check:coverage M1.6 rouge depuis l'origine).",
   "scenarios": [
-    "bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic",
+    "bordereau émis sans PDF (Val 2026-11-13) ; le rapport naît sans PDF, fabriqué au clic",
     "0 ligne collecte_flux → skip, aucun job créé",
     "collecte skippée depuis > 48h → alerte Admin créée",
     "collecte déjà traitée (bordereau emis)",
@@ -130,9 +129,9 @@
       "id": "M1.6-01",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
       "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
-      "test": "R-PDF1 : collecte ZD cloturee avec flux → bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic (décision Val 2026-10-16)",
+      "test": "R-PDF1 : collecte ZD cloturee avec flux → bordereau émis sans PDF (Val 2026-11-13) ; le rapport naît sans PDF, fabriqué au clic (décision Val 2026-10-16)",
       "statut": "implemented",
-      "libelle": "Collecte ZD réalisée ou clôturée dont les pesées sont là → batch des documents (toutes les 15 min depuis le 2026-11-04, ex « batch J+1 » sur les collectes clôturées) → bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic"
+      "libelle": "Collecte ZD réalisée ou clôturée dont les pesées sont là → batch des documents (toutes les 15 min depuis le 2026-11-04, ex « batch J+1 » sur les collectes clôturées) → bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic Depuis le 2026-11-13 (décision Val, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) : le bordereau est émis sans PDF, aucun rendu mis en file ; le worker clôt sans rendu une demande de bordereau encore en file."
     },
     {
       "id": "M1.6-02",
@@ -185,10 +184,11 @@
     {
       "id": "M1.6-08",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md",
-      "artefact": "supabase/migrations/20260614160000_plateforme_m1_6_pdf_zd.sql",
-      "test": "Download bordereau Admin → URL pré-signée 15min",
-      "statut": "implemented",
-      "libelle": "Download bordereau Admin → URL pré-signée 15min"
+      "artefact": null,
+      "test": null,
+      "statut": "descoped",
+      "libelle": "Download bordereau Admin → URL pré-signée 15min — RETIRÉ (décision Val 2026-11-13 : le bordereau ZD n'a plus de PDF ; route GET /api/v1/admin/bordereaux/[id]/download supprimée).",
+      "ref_divergence": "_Divergences/M1.6_20261113_retrait-bordereau-zd.md"
     },
     {
       "id": "M1.6-09",
@@ -265,24 +265,24 @@
     {
       "id": "BL-P2-16",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:31",
-      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls)",
-      "test": "M1.6 / bordereau ZD §1.1 : colonne « Bacs / Rolls » (bacs si renseigné, sinon rolls) + M1.6 / BatchPdfJ1 / Nominal : le payload bordereau porte l'équivalent bacs",
+      "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (select+map nb_bacs/equivalent_roll, figés dans bordereaux_savr.detail_flux) + apps/pdf-renderer/src/templates/bordereau-zd.ts (bacsRolls ; gabarit plus utilisé depuis le 2026-11-13)",
+      "test": "apps/pdf-renderer/src/render.test.ts « colonne « Bacs / Rolls » : bacs si renseigné, sinon rolls » + packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts « R-PDF1 : collecte ZD cloturee avec flux → bordereau émis sans PDF (Val 2026-11-13) ; le rapport naît sans PDF, fabriqué au clic (décision Val 2026-10-16) »",
       "statut": "implemented",
-      "libelle": "Bordereau ZD : nb_bacs / equivalent_roll lus depuis collecte_flux et transmis au payload ; colonne « Bacs / Rolls » du template statue bacs sinon rolls."
+      "libelle": "Bordereau ZD : nb_bacs / equivalent_roll lus depuis collecte_flux et transmis au payload ; colonne « Bacs / Rolls » du template statue bacs sinon rolls. Depuis le 2026-11-13 (décision Val, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) : plus de PDF du bordereau ; l'équivalent bacs reste figé dans la ligne bordereaux_savr (detail_flux)."
     },
     {
       "id": "BL-P2-20",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:209",
-      "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page) ; rapport-recyclage-zd.ts ne la rend plus",
+      "artefact": "packages/plateforme/src/lib/pdf/regenerate.ts (injection regenere_le, attestation de don ; le bordereau n'a plus de PDF depuis le 2026-11-13) + apps/pdf-renderer/src/templates/{bordereau-zd,attestation-don}.ts (mention pied de page ; gabarit bordereau-zd plus utilisé) ; rapport-recyclage-zd.ts ne la rend plus",
       "test": "apps/pdf-renderer/src/render.test.ts « BL-P2-20 : aucune mention de régénération sur le rapport », « BL-P2-20 : mention de régénération sur bordereau régénéré », « mention pied de page présente uniquement si régénérée » ; packages/plateforme/tests/api/admin/collectes-documents.m0-6.test.ts « M0.6 — succès rapport porté par rapports_rse (« sans excédent » AG) : ré-enqueue jobs_pdf (payload copié) + audit_log + bump regenere_at/version »",
       "statut": "implemented",
-      "libelle": "Mention « Version mise à jour — générée le … » (§12 §1.4) : rendue par le bordereau unitaire et l'attestation de don régénérés ; le rapport de recyclage n'en porte plus (décision Val 2026-10-02), l'indicateur reste à l'écran."
+      "libelle": "Mention « Version mise à jour — générée le … » (§12 §1.4) : rendue par l'attestation de don régénérée (le bordereau n'a plus de PDF depuis le 2026-11-13, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) ; le rapport de recyclage n'en porte plus (décision Val 2026-10-02), l'indicateur reste à l'écran."
     },
     {
       "id": "BL-P1-RPT-04",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:91",
       "artefact": "packages/plateforme/src/lib/collectes/rapport-a-la-demande.ts (repondreRapportClient, repondreRapportStaff, lireVersionDemandee, fabriquerRapport) + packages/plateforme/src/lib/pdf/payload-rapport.ts + packages/plateforme/src/app/api/v1/{traiteur,agence,gestionnaire,admin}/collectes/[id]/rapport-rse/route.ts + packages/plateforme/src/lib/collectes/fiche-client.ts (rapport_rse_disponible = fin d'embargo) + packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx (« Télécharger » + case « Inclure le radar ») + packages/plateforme/src/components/admin/collecte-detail-panel.tsx (même choix dans l'onglet Documents) + listes Collectes (picto du rapport ZD → fiche sur « Bilan & documents ») + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts (plus de rapport fabriqué la nuit) + supabase/migrations/20261016200000_plateforme_email_rapport_disponible_a_telecharger.sql",
-      "test": "packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts « M1.6 / rapport de recyclage fabriqué au clic — accès (RPT-04) », « M1.6 / rapport fabriqué au clic — avec ou sans radar, au choix de celui qui télécharge » ; packages/plateforme/tests/api/admin/rapport-admin.m1-6.test.ts « M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar », « M1.6 / rapport ZD : les anciennes voies du fichier stocké le refusent », « M1.6 / GET admin/collectes/[id]/documents — rapport téléchargeable » ; packages/plateforme/tests/ui/fiche-collecte-client.m3-1.test.tsx « M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans radar) » ; M3.2/fiche_popup_gestionnaire_rapport ; M3.1/fiche_get_rapport_zd_disponible_sans_pdf ; packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée à l’ouverture, le bouton Télécharger envoie le choix », « M0.6/documents_regeneration_filtres_radar » ; packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts « R-PDF1 : collecte ZD cloturee avec flux → bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic » ; packages/shared/src/seed/template-rapport-disponible.m1-6.test.ts « M1.6/email_rapport_disponible_a_telecharger — migration 20261016200000 (Val 2026-10-16) »",
+      "test": "packages/plateforme/tests/api/traiteur/rapport-a-la-demande.m1-6.test.ts « M1.6 / rapport de recyclage fabriqué au clic — accès (RPT-04) », « M1.6 / rapport fabriqué au clic — avec ou sans radar, au choix de celui qui télécharge » ; packages/plateforme/tests/api/admin/rapport-admin.m1-6.test.ts « M1.6 / rapport fabriqué au clic par l’Admin — avec ou sans radar », « M1.6 / rapport ZD : les anciennes voies du fichier stocké le refusent », « M1.6 / GET admin/collectes/[id]/documents — rapport téléchargeable » ; packages/plateforme/tests/ui/fiche-collecte-client.m3-1.test.tsx « M3.1 / pop-up — rapport de recyclage fabriqué au clic (avec ou sans radar) » ; M3.2/fiche_popup_gestionnaire_rapport ; M3.1/fiche_get_rapport_zd_disponible_sans_pdf ; packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx « M0.6 — Bloc 3 : rapport de recyclage ZD, l’Admin choisit la version — case décochée à l’ouverture, le bouton Télécharger envoie le choix », « M0.6/documents_regeneration_filtres_radar » ; packages/plateforme/tests/api/batch-pdf-j1.m1-6.test.ts « R-PDF1 : collecte ZD cloturee avec flux → bordereau émis sans PDF (Val 2026-11-13) ; le rapport naît sans PDF, fabriqué au clic » ; packages/shared/src/seed/template-rapport-disponible.m1-6.test.ts « M1.6/email_rapport_disponible_a_telecharger — migration 20261016200000 (Val 2026-10-16) »",
       "statut": "implemented",
       "libelle": "Rapport de recyclage ZD téléchargé au clic par tout rôle qui y a accès (traiteur manager et commercial, agence, gestionnaire de lieux, Admin ; client organisateur sans radar faute de fiche) — décision Val 2026-10-16 : plus aucun rapport n'est fabriqué automatiquement ; le batch J+1 pose la ligne rapports_rse (fin d'embargo) et envoie l'email reformulé, le PDF est fabriqué au clic avec ou sans le radar, au choix de celui qui le télécharge, et n'est pas stocké (chacun le sien). Accès client : collecte puis rapport lus sous l'identité du demandeur (RLS, rr_select), embargo H+24 jamais contourné, cross-org 403 ; données mesurées lues en service-role une fois l'accès établi ; radar calculé sous l'identité du demandeur (même k-anonymat pour l'Admin). Premier téléchargement client → rapports_rse.consulte_par_user_at. Le picto des listes ouvre la fiche sur « Bilan & documents ». (divergence M1.6_20261016_rapport-recyclage-a-la-demande) Depuis le 2026-11-04 (_Divergences/M1.6_20261104_documents-des-poids.md) : la ligne rapports_rse est posée par le batch des documents (toutes les 15 min), disponible dès son émission (plus d'embargo H+24), et l'email part à la clôture (realisee_at + 48 h)."
     },
@@ -322,9 +322,9 @@
       "id": "M1.6-documents-des-poids",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:13",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1.ts + batch-pdf-j1-ag.ts (realisee|cloturee, plus d'embargo, bordereau refait sur pesées changées) ; packages/plateforme/src/lib/pdf/documents-sans-attendre.ts + routes PATCH …/admin/collectes/[id]/flux et …/admin/attributions-ag/[collecteId]/poids (fabrication juste après la saisie, plus de 409 après clôture) ; packages/plateforme/src/lib/pdf/pdf-worker.ts (entityIds) ; packages/plateforme/src/lib/pdf/emails-documents-disponibles.ts + cron cloture-embargo (email à la clôture) ; packages/plateforme/vercel.json (batch toutes les 15 min) ; supabase/migrations/20261104120000_plateforme_documents_des_poids.sql (clôture 48 h, CO₂ recalculé à chaque changement de poids) ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (« Éditer les pesées » actif après la clôture)",
-      "test": "M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04) ; M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées ; M2.4 / BatchPdfJ1Ag / Sans embargo (Val 2026-11-04) ; fabrication des documents juste après une saisie Admin ; emails « document disponible » à la clôture ; PdfWorker / rendus d’une collecte seule (entityIds) ; M1.1b/flux/manuel — collecte clôturée : pesée corrigée quand même, bordereau refait (Val 2026-11-04) ; supabase/tests/documents_des_poids.test.sql ; supabase/tests/r16a_machine_etats.test.sql « RM-01 : realisee + realisee_at ≥ H+48 → cloturee » ; M1.6 / BatchPdfJ1 / Numéro gapless jamais brûlé ; M2.4 / BatchPdfJ1Ag / Corrections et fabrications simultanées ; M0.6/pesees_zd_cloturee_modifiables (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx)",
+      "test": "M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04) ; M1.6 / BatchPdfJ1 / Bordereau mis à jour sur pesées corrigées ; M2.4 / BatchPdfJ1Ag / Sans embargo (Val 2026-11-04) ; fabrication des documents juste après une saisie Admin ; emails « document disponible » à la clôture ; PdfWorker / rendus d’une collecte seule (entityIds) ; M1.1b/flux/manuel — collecte clôturée : pesée corrigée quand même, bordereau refait (Val 2026-11-04) ; supabase/tests/documents_des_poids.test.sql ; supabase/tests/r16a_machine_etats.test.sql « RM-01 : realisee + realisee_at ≥ H+48 → cloturee » ; M1.6 / BatchPdfJ1 / Numéro gapless jamais brûlé ; M2.4 / BatchPdfJ1Ag / Corrections et fabrications simultanées ; M0.6/pesees_zd_cloturee_modifiables (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx)",
       "statut": "implemented",
-      "libelle": "Documents d'une collecte dès que les poids sont là (Val 2026-11-04) : bordereau ZD et rapport de don AG émis sans embargo (visibles de tous tout de suite), batch toutes les 15 min et fabrication sur-le-champ après une saisie Admin ; pesées toujours corrigeables par l'Admin, même après la clôture, chaque correction refait le document (même numéro, version suivante) ; CO₂ et taux recalculés en base à chaque changement de poids d'une collecte réalisée ou clôturée ; clôture à realisee_at + 48 h ; email « document disponible » une seule fois, à la clôture. Une correction tombée pendant un rendu est reprise (pesées écrites dans les 48 h revues à chaque passage ; brouillon AG mis à jour, attestation émise dépassée refaite en nouvelle version) ; la ligne du document est créée avant le numéro gapless, que deux fabrications simultanées ne brûlent pas."
+      "libelle": "Documents d'une collecte dès que les poids sont là (Val 2026-11-04) : bordereau ZD et rapport de don AG émis sans embargo (visibles de tous tout de suite), batch toutes les 15 min et fabrication sur-le-champ après une saisie Admin ; pesées toujours corrigeables par l'Admin, même après la clôture, chaque correction refait le document (même numéro, version suivante) ; CO₂ et taux recalculés en base à chaque changement de poids d'une collecte réalisée ou clôturée ; clôture à realisee_at + 48 h ; email « document disponible » une seule fois, à la clôture. Une correction tombée pendant un rendu est reprise (pesées écrites dans les 48 h revues à chaque passage ; brouillon AG mis à jour, attestation émise dépassée refaite en nouvelle version) ; la ligne du document est créée avant le numéro gapless, que deux fabrications simultanées ne brûlent pas. Depuis le 2026-11-13 : bordereau mis à jour sans PDF (décision Val, _Divergences/M1.6_20261113_retrait-bordereau-zd.md)."
     },
     {
       "id": "M1.6-stockage-bucket-environnement",
@@ -353,11 +353,11 @@
     {
       "id": "M1.6-convives-de-la-collecte",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:28 + specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:59",
-      "artefact": "packages/plateforme/src/lib/pdf/convives-imprimes.ts + packages/plateforme/src/lib/pdf/batch-pdf-j1.ts + packages/plateforme/src/lib/pdf/payload-rapport.ts + apps/pdf-renderer/src/templates/bordereau-zd.ts (type nb_pax : number | null)",
-      "test": "M1.6 / BatchPdfJ1 / Convives de la collecte + M1.6 / bordereau ZD §1.1 — convives de la collecte + packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « convives de LA collecte ; 0 convive (inconnu) → null, mention omise » + M1.6 / rapport recyclage §1.2 — convives de la collecte",
+      "artefact": "packages/plateforme/src/lib/pdf/convives-imprimes.ts + packages/plateforme/src/lib/pdf/payload-rapport.ts + apps/pdf-renderer/src/templates/bordereau-zd.ts (type nb_pax : number | null)",
+      "test": "M1.6 / bordereau ZD §1.1 — convives de la collecte + packages/plateforme/tests/lib/payload-rapport.m1-6.test.ts « convives de LA collecte ; 0 convive (inconnu) → null, mention omise » + M1.6 / rapport recyclage §1.2 — convives de la collecte",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.2_20261025_lot-c2-pax-grain-collecte.md",
-      "libelle": "Bordereau ZD (batch des documents, ex batch J+1) et rapport de recyclage fabriqué au clic (bandeau de la page 1, grammes par convive et annexe de la page 2) impriment les convives de LA collecte (lot C2, décision Val Q5 du 2026-10-24), plus ceux de l'événement : ils correspondent au kg/pax du radar, déjà calculé sur la collecte (lot C1). Libellé imprimé inchangé (« convives ») ; une collecte à 0 convive (inconnu, reprise Bubble) rend nb_pax null : le bordereau omet la mention, le rapport n'imprime ni la pastille des convives ni les grammes par convive (convivesImprimes)."
+      "libelle": "Bordereau ZD (batch des documents, ex batch J+1) et rapport de recyclage fabriqué au clic (bandeau de la page 1, grammes par convive et annexe de la page 2) impriment les convives de LA collecte (lot C2, décision Val Q5 du 2026-10-24), plus ceux de l'événement : ils correspondent au kg/pax du radar, déjà calculé sur la collecte (lot C1). Libellé imprimé inchangé (« convives ») ; une collecte à 0 convive (inconnu, reprise Bubble) rend nb_pax null : le bordereau omet la mention, le rapport n'imprime ni la pastille des convives ni les grammes par convive (convivesImprimes). Le batch ne fabrique plus le PDF du bordereau (décision Val 2026-11-13, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) : seuls le gabarit et le rapport portent encore les convives."
     },
     {
       "id": "M1.6-logo-client-rapport-de-don",

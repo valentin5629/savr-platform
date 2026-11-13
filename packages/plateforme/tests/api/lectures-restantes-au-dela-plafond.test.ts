@@ -4,53 +4,22 @@
  *
  * Une réponse est amputée à 1 000 lignes sans erreur, et un filtre `in.(…)` de
  * plus de quelques centaines d'identifiants fait échouer la lecture (mesures :
- * `src/lib/pdf/selection-par-pages.ts`). Restaient en une requête : les
- * bordereaux de l'export ZIP du registre, les ordres de création abandonnés des
- * listes Admin, et les options de l'encart « Comparer avec » du Dashboard
- * Client Admin.
+ * `src/lib/pdf/selection-par-pages.ts`). Restaient en une requête : les ordres
+ * de création abandonnés des listes Admin, et les options de l'encart
+ * « Comparer avec » du Dashboard Client Admin (l'export ZIP des bordereaux du
+ * registre est retiré, Val 2026-11-13).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
 import {
   creerApiPlafonnee,
-  PLAFOND_IDS,
   PLAFOND_LIGNES,
   type Ligne,
 } from '@/test-utils/api-donnees-plafonnee';
 import { TAILLE_LOT, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
-import { Constants } from '@savr/shared/src/database.types.js';
 
 type Api = ReturnType<typeof creerApiPlafonnee>;
 type Client = { from: (table: string) => unknown };
 
-/** Lectures sous la session de l'appelant (export ZIP du registre). */
-let rls: Api = creerApiPlafonnee();
-const mockGetUser = vi.fn();
-const mockGetSession = vi.fn();
-
-vi.mock('@supabase/ssr', () => ({
-  createServerClient: () => ({
-    auth: { getUser: mockGetUser, getSession: mockGetSession },
-    from: (table: string) => (rls.client as Client).from(table),
-    // `shared.fichiers` est servie par la même fausse API.
-    schema: () => ({
-      from: (table: string) => (rls.client as Client).from(table),
-    }),
-  }),
-}));
-vi.mock('next/headers', () => ({
-  cookies: () => ({ getAll: () => [], set: () => {} }),
-}));
-vi.mock('@/lib/pdf/r2-client.js', () => ({
-  getObjectBytes: vi.fn(async () => Buffer.from('%PDF-1.4 faux bordereau')),
-}));
-vi.mock('@/lib/registre/trace.js', () => ({
-  traceExport: vi.fn(async () => {}),
-}));
-
-import { getObjectBytes } from '@/lib/pdf/r2-client.js';
-import { traceExport } from '@/lib/registre/trace.js';
-import { bordereauDisponible } from '@/lib/registre/registre.js';
 import { lireCollectesEnvoiAbandonne } from '@/lib/ordre-envoi.js';
 import { loadAdminBenchmarkFiltres } from '@/lib/dashboards/admin-dashboard-client.js';
 
@@ -98,198 +67,6 @@ function attendrePages(api: Api, table: string, total: number): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  rls = creerApiPlafonnee();
-});
-
-// ── Export ZIP des bordereaux du registre ────────────────────────────────────
-
-describe("M4.2 / export ZIP des bordereaux au-delà du plafond d'identifiants", () => {
-  function connecter(): void {
-    const jeton = `h.${Buffer.from(
-      JSON.stringify({
-        aal: 'aal2',
-        user_role: 'traiteur_manager',
-        organisation_id: 'org-a',
-      }),
-    ).toString('base64url')}.s`;
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: 'user-1' } },
-      error: null,
-    });
-    mockGetSession.mockResolvedValue({
-      data: { session: { access_token: jeton } },
-      error: null,
-    });
-  }
-
-  /** Registre de 450 collectes ; les `emis` premières ont un bordereau émis, les `brouillons` suivantes un brouillon. */
-  function registre(emis: number, brouillons = 0): Record<string, Ligne[]> {
-    return {
-      v_registre_dechets: suite(450, (i) => ({
-        collecte_id: id('col', i),
-        date_evenement: '2026-04-10',
-      })),
-      bordereaux_savr: suite(emis + brouillons, (i) => ({
-        collecte_id: id('col', i),
-        statut: i < emis ? 'emis' : 'brouillon',
-        numero: `BSAV-2026-${String(i).padStart(5, '0')}`,
-        pdf_fichier_id: id('fichier', i),
-      })),
-      fichiers: suite(emis + brouillons, (i) => ({
-        id: id('fichier', i),
-        bucket: 'bordereaux',
-        key: `b${i}.pdf`,
-        deleted_at: null,
-      })),
-    };
-  }
-
-  async function exporter() {
-    const { GET } = await import('@/app/api/v1/registre/export-zip/route.js');
-    return GET(
-      new NextRequest(
-        'http://localhost/api/v1/registre/export-zip?from=2026-04-01&to=2026-05-31',
-        { method: 'GET' },
-      ),
-    );
-  }
-
-  /** Les collectes partent par lots, jamais en une liste que l'API refuse. */
-  function attendreLots(): void {
-    const lots = listesIn(rls, 'bordereaux_savr', 'collecte_id');
-    expect(lots.length).toBeGreaterThan(1);
-    expect(lots.every((l) => l.length <= TAILLE_LOT)).toBe(true);
-    expect(TAILLE_LOT).toBeLessThanOrEqual(PLAFOND_IDS);
-    expect(new Set(lots.flat()).size).toBe(450);
-  }
-
-  it('450 collectes sur la période, 60 bordereaux : le refus dit « Trop de bordereaux (60) », pas une erreur', async () => {
-    connecter();
-    rls = creerApiPlafonnee(registre(60));
-
-    const res = await exporter();
-
-    expect(res.status).toBe(422);
-    const corps = (await res.json()) as { error: string };
-    expect(corps.error).toContain('Trop de bordereaux (60)');
-    attendreLots();
-    expect(traceExport).not.toHaveBeenCalled();
-  });
-
-  it('450 collectes sur la période, 40 bordereaux émis et 20 brouillons : le ZIP porte les 40 émis', async () => {
-    connecter();
-    rls = creerApiPlafonnee(registre(40, 20));
-
-    const res = await exporter();
-
-    expect(res.status).toBe(200);
-    expect(res.headers.get('Content-Type')).toBe('application/zip');
-    expect(getObjectBytes).toHaveBeenCalledTimes(40);
-    expect(traceExport).toHaveBeenCalledTimes(1);
-    expect(
-      (vi.mocked(traceExport).mock.calls[0]![1] as { nbLignes: number })
-        .nbLignes,
-    ).toBe(40);
-    attendreLots();
-  });
-
-  it('le deuxième lot en échec : une erreur, ni ZIP partiel ni trace', async () => {
-    connecter();
-    rls = creerApiPlafonnee(registre(40));
-    panneALaLecture(rls, 'bordereaux_savr', 2);
-
-    const res = await exporter();
-
-    expect(res.status).toBe(500);
-    expect(getObjectBytes).not.toHaveBeenCalled();
-    expect(traceExport).not.toHaveBeenCalled();
-  });
-
-  // Le ZIP porte les bordereaux « disponibles » au sens du registre
-  // (`bordereauDisponible`) : émis ou corrigés. Un brouillon ou un bordereau
-  // annulé n'y entre pas.
-  describe('M4.2 / export ZIP des bordereaux : statuts retenus', () => {
-    // Tous les statuts de l'enum, à tour de rôle.
-    const STATUTS = Constants.plateforme.Enums.bordereau_statut;
-    const statut = (i: number) => STATUTS[i % STATUTS.length]!;
-    const numero = (i: number) => `BSAV-2026-${String(i).padStart(5, '0')}`;
-    const rangs = suite(40, (i) => i);
-
-    it('émis, corrigés, brouillons et annulés sur la période : le ZIP porte les émis et les corrigés, eux seuls', async () => {
-      connecter();
-      rls = creerApiPlafonnee({
-        v_registre_dechets: suite(40, (i) => ({
-          collecte_id: id('col', i),
-          date_evenement: '2026-04-10',
-        })),
-        bordereaux_savr: suite(40, (i) => ({
-          collecte_id: id('col', i),
-          statut: statut(i),
-          numero: numero(i),
-          pdf_fichier_id: id('fichier', i),
-        })),
-        fichiers: suite(40, (i) => ({
-          id: id('fichier', i),
-          bucket: 'bordereaux',
-          key: `b${i}.pdf`,
-          deleted_at: null,
-        })),
-      });
-
-      const res = await exporter();
-
-      expect(res.status).toBe(200);
-      expect([...STATUTS].sort()).toEqual([
-        'annule',
-        'brouillon',
-        'corrige',
-        'emis',
-      ]);
-      const attendus = rangs.filter((i) =>
-        ['emis', 'corrige'].includes(statut(i)),
-      );
-      expect(attendus).toHaveLength(20);
-      // Les noms de fichiers d'une archive se lisent en clair dans ses octets.
-      const archive = Buffer.from(await res.arrayBuffer()).toString('latin1');
-      expect(rangs.filter((i) => archive.includes(`${numero(i)}.pdf`))).toEqual(
-        attendus,
-      );
-      // Même règle que la colonne « Bordereau » du registre.
-      expect(attendus).toEqual(
-        rangs.filter((i) => bordereauDisponible(statut(i))),
-      );
-      expect(getObjectBytes).toHaveBeenCalledTimes(20);
-      expect(
-        (vi.mocked(traceExport).mock.calls[0]![1] as { nbLignes: number })
-          .nbLignes,
-      ).toBe(20);
-    });
-
-    it('seulement des brouillons et des annulés sur la période : « Aucun bordereau », pas de ZIP', async () => {
-      connecter();
-      rls = creerApiPlafonnee({
-        v_registre_dechets: suite(6, (i) => ({
-          collecte_id: id('col', i),
-          date_evenement: '2026-04-10',
-        })),
-        bordereaux_savr: suite(6, (i) => ({
-          collecte_id: id('col', i),
-          statut: i % 2 === 0 ? 'brouillon' : 'annule',
-          numero: numero(i),
-          pdf_fichier_id: id('fichier', i),
-        })),
-      });
-
-      const res = await exporter();
-
-      expect(res.status).toBe(422);
-      expect(((await res.json()) as { error: string }).error).toBe(
-        'Aucun bordereau sur la période',
-      );
-      expect(getObjectBytes).not.toHaveBeenCalled();
-      expect(traceExport).not.toHaveBeenCalled();
-    });
-  });
 });
 
 // ── Ordres de création abandonnés (listes Admin, fiche événement) ─────────────

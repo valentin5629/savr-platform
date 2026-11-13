@@ -958,7 +958,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
   );
 
   it(
-    'EVT/telechargement_zd_et_echecs — Rapport RSE fabriqué au clic sans radar ; échec nommé par collecte ; demande urgente refusée : message',
+    'EVT/telechargement_zd_et_echecs — Rapport de recyclage fabriqué au clic sans radar ; échec nommé par collecte ; demande urgente refusée : message',
     async () => {
       const fetchMock = stubFetch((url) =>
         url.endsWith('/c1/rapport-rse')
@@ -1187,7 +1187,7 @@ describe('M3.2 / fiche Événement gestionnaire — écran', () => {
       );
       // Sous-onglet Zéro Déchet : les deux rapports ZD, pas l'annulée.
       expect(lignes).toHaveLength(2);
-      expect(lignes[0]).toHaveTextContent('Rapport RSE');
+      expect(lignes[0]).toHaveTextContent('Rapport de recyclage');
       expect(lignes[1]).toHaveTextContent(
         'Document disponible dans les 48h après la collecte',
       );
@@ -2212,7 +2212,7 @@ describe('M3.2 / fiche Événement Admin et client organisateur — écran', () 
       await screen.findByTestId('bilan-consolide', undefined, ATTENTE_UI);
       expect(screen.queryByTestId('document-collecte')).toBeNull();
       expect(screen.queryByTestId('liens-bilans')).toBeNull();
-      // Rapport RSE cumulé proposé, rapport de don cumulé non (onglet AG).
+      // Rapport de recyclage cumulé proposé, rapport de don cumulé non (onglet AG).
       expect(
         screen.getByTestId('document-evenement-cumul'),
       ).toBeInTheDocument();

@@ -15,10 +15,12 @@
  * que notre rôle puisse le refermer.
  *
  * Variables du projet Vercel `savr-dev-cron` (jamais dans le dépôt) :
- *   CRON_SECRET        propre à ce projet ; Vercel l'envoie à chaque passage de
- *                      cron, et il refuse tout autre appelant
- *   CRON_SECRET_DEV    = CRON_SECRET de l'environnement Preview de l'app
- *   VERCEL_BYPASS_DEV  = secret « Protection Bypass for Automation » de l'app
+ *   CRON_SECRET            propre à ce projet ; Vercel l'envoie à chaque passage
+ *                          de cron, et il refuse tout autre appelant
+ *   CRON_SECRET_DEV        = CRON_SECRET de l'environnement Preview de l'app
+ *   PROTECTION_BYPASS_DEV  = secret « Protection Bypass for Automation » de l'app
+ * Aucun nom ne commence par `VERCEL_` : Vercel réserve ce préfixe à ses propres
+ * variables et refuse qu'on en saisisse la valeur (constaté le 2026-11-13).
  *
  * Ces routes écrivent dans la base de dev PARTAGÉE comme en production, et ce
  * qu'elles écrivent ne se défait pas (clôtures, numéros de documents, PDF,
@@ -88,7 +90,7 @@ export async function appeler(
   }
 
   const secretDev = env['CRON_SECRET_DEV'];
-  const contournement = env['VERCEL_BYPASS_DEV'];
+  const contournement = env['PROTECTION_BYPASS_DEV'];
   if (!secretDev || !contournement) {
     return reponse(500, { route, erreur: 'secrets de dev absents' });
   }

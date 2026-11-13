@@ -31,6 +31,8 @@ interface Etat {
   sansPrestataire?: boolean;
   fichiers: Array<{ key: string }>;
   inserts: Array<Record<string, unknown>>;
+  /** L'enregistrement rend 23505 : enregistrée à l'instant par un import simultané. */
+  insertDoublon?: boolean;
 }
 
 function fauxSupabase(etat: Etat): SupabaseClient {
@@ -89,7 +91,11 @@ function fauxSupabase(etat: Etat): SupabaseClient {
       maybeSingle: () => Promise.resolve({ data: resultat(), error: null }),
       insert: (ligne: Record<string, unknown>) => {
         etat.inserts.push(ligne);
-        return Promise.resolve({ error: null });
+        return Promise.resolve({
+          error: etat.insertDoublon
+            ? { code: '23505', message: 'duplicate key value' }
+            : null,
+        });
       },
       then: (ok: (v: unknown) => void) => ok({ data: resultat(), error: null }),
     };
@@ -298,6 +304,22 @@ describe('importerPhotosTransporteur', () => {
     expect(r.importees).toBe(0);
     expect(r.deja_importees).toBe(1);
     expect(uploads).toEqual([]);
+  });
+
+  it('une photo enregistrée à l’instant par un import simultané (23505) compte comme déjà importée, pas comme un échec', async () => {
+    const sb = fauxSupabase(etat);
+    const liste = await listerPhotosTransporteur(sb, COLLECTE, 'c');
+    if (!liste.pris_en_charge) throw new Error('attendu');
+    etat.insertDoublon = true;
+    const r = await importerPhotosTransporteur(sb, {
+      collecteId: COLLECTE,
+      ids: [liste.photos[0]!.id],
+      userId: 'u-1',
+      correlationId: 'c',
+    });
+    expect(r.importees).toBe(0);
+    expect(r.deja_importees).toBe(1);
+    expect(r.echecs).toBe(0);
   });
 
   it('au-delà du budget de temps, les photos suivantes sont rendues « restantes », pas tentées', async () => {

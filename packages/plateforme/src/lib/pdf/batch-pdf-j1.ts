@@ -67,8 +67,6 @@ interface CollecteRow {
   prestataire_logistique_id: string | null;
   evenements: {
     id: string;
-    nom_evenement: string;
-    date_evenement: string;
     organisation_id: string;
     traiteur_operationnel_organisation_id: string | null;
     organisations: {
@@ -110,7 +108,7 @@ export async function runBatchPdfJ1(
       id, statut, evenement_id, realisee_at, date_collecte,
       taux_recyclage, co2_evite_kg, nb_camions_demande, prestataire_logistique_id,
       evenements (
-        id, nom_evenement, date_evenement,
+        id,
         organisation_id, traiteur_operationnel_organisation_id,
         organisations!organisation_id ( nom, raison_sociale, siret, adresse ),
         traiteur_operationnel:organisations!traiteur_operationnel_organisation_id ( nom, raison_sociale, siret, adresse )
@@ -233,7 +231,9 @@ export async function runBatchPdfJ1(
   // 2ter. Bordereau numéroté resté en brouillon (rendu PDF en attente au
   //       passage au bordereau sans PDF, Val 2026-11-13) : émis ici. Un
   //       producteur fantôme sans SIRET reste en brouillon (la base l'y garde,
-  //       trg_bordereau_gate_shadow_siret) jusqu'à l'arrivée du SIRET.
+  //       trg_bordereau_gate_shadow_siret) jusqu'à l'arrivée du SIRET, où
+  //       trg_cerfa_debloque_siret l'émet. Reprise ponctuelle : à retirer
+  //       (avec son test) après un premier passage en production et sur savr-dev.
   const brouillonsNumerotes = existingBordereaux
     .filter((b) => b.numero != null && b.statut === 'brouillon')
     .map((b) => b.id);
@@ -286,7 +286,7 @@ export async function runBatchPdfJ1(
         continue;
       }
 
-      // 4. Charger les flux pour le payload (équivalent bacs/rolls inclus, §12 §1.1)
+      // 4. Charger les flux : pesées figées du bordereau (équivalent bacs/rolls inclus, §12 §1.1)
       const { fluxDetails, poidsTotalKg } = await lireFlux(
         supabase,
         collecte.id,
@@ -437,7 +437,7 @@ export function cheminFicheCollecte(
   return ROUTES.traiteur.collecte(collecteId);
 }
 
-// ─── Pesées et document refait ──────────────────────────────────────────────
+// ─── Pesées et bordereau mis à jour ──────────────────────────────────────────
 
 interface FluxDetail {
   nom: string;

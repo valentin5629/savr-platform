@@ -244,7 +244,7 @@ export async function fetchRegistreOptions(
   return { lieux: trier(lieux), traiteurs: trier(traiteurs) };
 }
 
-/** Libellé du statut bordereau pour l'affichage (dispo / manquant / —). */
+/** Bordereau émis (numéro rendu dans l'export CSV du registre). */
 export function bordereauDisponible(statut: string | null): boolean {
   return statut === 'emis' || statut === 'corrige';
 }

@@ -60,9 +60,7 @@ interface RegistreDetail {
   flux: FluxDetail[];
   poids_total_kg: number | null;
   documents: {
-    bordereau_id: string | null;
     numero: string | null;
-    statut: string | null;
     date_emission: string | null;
     version: number | null;
   };

@@ -98,6 +98,27 @@ describe('cron:dev:installer — secrets', () => {
       'REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA net FROM PUBLIC, anon, authenticated;',
     );
   });
+
+  it("vérifie l'effet de la fermeture et annule tout si un accès client reste", () => {
+    const debut = sql.indexOf('DO $fermeture$');
+    const fin = sql.indexOf('$fermeture$;', debut + 1);
+    expect(debut).toBeGreaterThan(sql.indexOf('REVOKE EXECUTE'));
+    // Avant les secrets et les tâches, dans la même transaction.
+    expect(fin).toBeLessThan(sql.indexOf("set_config('savr.secret_cron'"));
+    expect(sql.indexOf('BEGIN;')).toBeLessThan(debut);
+    const bloc = sql.slice(debut, fin);
+    expect(bloc).toContain("ARRAY['anon', 'authenticated', 'public']");
+    for (const controle of [
+      "has_function_privilege(r, p.oid, 'EXECUTE')",
+      "has_table_privilege(r, 'net.http_request_queue', 'SELECT')",
+      "has_table_privilege(r, 'net._http_response', 'SELECT')",
+      "has_table_privilege(r, 'vault.decrypted_secrets', 'SELECT')",
+      "has_schema_privilege(r, 'cron', 'USAGE')",
+    ]) {
+      expect(bloc).toContain(controle);
+    }
+    expect(bloc).toMatch(/IF cardinality\(ouvert\) > 0 THEN\s+RAISE EXCEPTION/);
+  });
 });
 
 describe('cron:dev:installer — garde « savr-dev seulement »', () => {
@@ -136,6 +157,10 @@ describe('cron:dev:installer — garde « savr-dev seulement »', () => {
     [
       'un déploiement Vercel',
       { DIRECT_URL: POOLER, VERCEL_ENV: 'preview', ...secrets },
+    ],
+    [
+      'un déploiement Vercel (VERCEL_ENV vide)',
+      { DIRECT_URL: POOLER, VERCEL_ENV: '', ...secrets },
     ],
     [
       'NODE_ENV=production',

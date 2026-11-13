@@ -82,7 +82,9 @@ export function planificationsDev(
  * lues par `\getenv` dans l'environnement du processus psql. Limite : psql les
  * substitue dans le texte de l'instruction `set_config`, qu'il ré-afficherait
  * en partie si cette instruction échouait (et que le journal du serveur peut
- * garder) ; sa sortie normale est coupée par `\o /dev/null`.
+ * garder) ; sa sortie normale est coupée par `\o /dev/null`. Autre limite :
+ * pendant qu'un appel attend dans `net.http_request_queue`, ses en-têtes (donc
+ * les deux secrets) y sont en clair, lisibles des seuls rôles serveur.
  */
 export function sqlInstallation(plans: Planification[]): string {
   const taches = plans.map((p) => {
@@ -106,6 +108,34 @@ CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 -- pg_net n'est appelé que par les tâches (rôle postgres) : personne d'autre.
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA net FROM PUBLIC, anon, authenticated;
+-- Un REVOKE d'un non-propriétaire peut ne rien retirer, avec un simple
+-- avertissement : on vérifie l'effet, et on annule toute l'installation si un
+-- rôle client garde un accès à pg_net, au coffre ou à pg_cron.
+DO $fermeture$
+DECLARE
+  r text;
+  ouvert text[] := ARRAY[]::text[];
+BEGIN
+  FOREACH r IN ARRAY ARRAY['anon', 'authenticated', 'public'] LOOP
+    IF EXISTS (
+      SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'net' AND has_function_privilege(r, p.oid, 'EXECUTE')
+    ) THEN ouvert := ouvert || (r || ' : fonctions net'); END IF;
+    IF has_table_privilege(r, 'net.http_request_queue', 'SELECT') THEN
+      ouvert := ouvert || (r || ' : net.http_request_queue'); END IF;
+    IF has_table_privilege(r, 'net._http_response', 'SELECT') THEN
+      ouvert := ouvert || (r || ' : net._http_response'); END IF;
+    IF has_table_privilege(r, 'vault.decrypted_secrets', 'SELECT') THEN
+      ouvert := ouvert || (r || ' : vault.decrypted_secrets'); END IF;
+    IF has_schema_privilege(r, 'cron', 'USAGE') THEN
+      ouvert := ouvert || (r || ' : schéma cron'); END IF;
+  END LOOP;
+  IF cardinality(ouvert) > 0 THEN
+    RAISE EXCEPTION 'accès client resté ouvert, installation annulée : %',
+      array_to_string(ouvert, ', ');
+  END IF;
+END
+$fermeture$;
 
 \\o /dev/null
 SELECT set_config('savr.secret_cron', :'secret_cron', true),
@@ -147,7 +177,8 @@ SELECT jobname, schedule FROM cron.job WHERE jobname LIKE '${PREFIXE_TACHE}%' OR
  * si un secret manque. `DIRECT_URL` est la connexion qu'ouvre la commande.
  */
 export function refuserHorsDev(env: Record<string, string | undefined>): void {
-  if (env['VERCEL_ENV']) {
+  // Présente, même vide : on est sur un déploiement Vercel.
+  if (env['VERCEL_ENV'] !== undefined) {
     throw new Error(
       'refusé : commande locale, jamais sur un déploiement Vercel.',
     );

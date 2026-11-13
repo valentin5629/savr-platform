@@ -157,6 +157,15 @@ describe('Changement d’association AG — route Admin', () => {
     expect(mockEnvoi).not.toHaveBeenCalled();
   });
 
+  it('transporteur changé dans le même geste (envoi_differe) : changement écrit, envoi laissé au dispatch qui suit', async () => {
+    setupAuth('admin_savr');
+    const res = await post({ association_id: TOP1, envoi_differe: true });
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledOnce();
+    expect(mockEnvoi).not.toHaveBeenCalled();
+  });
+
   it('association absente ou mal formée : 422', async () => {
     setupAuth('admin_savr');
     expect((await post({})).status).toBe(422);

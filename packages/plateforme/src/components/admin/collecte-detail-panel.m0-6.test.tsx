@@ -2075,9 +2075,9 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
   );
 
   it(
-    'AG attribuée : association et transporteur changés ensemble → envoi bloqué, à faire en deux fois',
+    'AG attribuée : association et transporteur changés ensemble → association d’abord (envoi différé), puis dispatch vers le nouveau transporteur',
     async () => {
-      mockFetchAssociation({
+      const fetchMock = mockFetchAssociation({
         ...collecteEnFileMts1,
         statut: 'programmee',
         tms_reference: 'cmd-1',
@@ -2108,7 +2108,6 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         ),
       );
       fireEvent.click(screen.getByRole('radio', { name: /A Toute!/ }));
-      // Motifs remplis : seul le double changement bloque l'envoi.
       fireEvent.change(screen.getByLabelText(/Motif override/), {
         target: { value: 'Zone vélo cargo IDF' },
       });
@@ -2116,15 +2115,41 @@ describe('M0.6 — fiche collecte Bloc 0 dispatch + RM-08 (BL-P1-BOA-06 / RM-08)
         screen.getByLabelText(/Motif \(≥ 5 car\. — association ≠ reco algo\)/),
         { target: { value: 'Association plus proche' } },
       );
-
       expect(
-        screen.getByText(
-          /Changez l’association et le transporteur en deux fois/,
-        ),
+        screen.getByText(/La commande en cours chez MTS-1 sera annulée\./),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /^(Envoyer|Renvoyer) à / }),
-      ).toBeDisabled();
+        screen.getByText(/La collecte part ensuite chez A Toute!/),
+      ).toBeInTheDocument();
+      const bouton = screen.getByRole('button', {
+        name: /^(Envoyer|Renvoyer) à /,
+      });
+      expect(bouton).toBeEnabled();
+      fireEvent.click(bouton);
+
+      await waitFor(() => {
+        const posts = fetchMock.mock.calls.filter(
+          (c) => (c[1] as { method?: string } | undefined)?.method === 'POST',
+        );
+        const iAsso = posts.findIndex((c) =>
+          String(c[0]).endsWith('/attributions-ag/c1/association'),
+        );
+        const iDispatch = posts.findIndex((c) =>
+          String(c[0]).includes('/dispatch'),
+        );
+        expect(iAsso).toBeGreaterThanOrEqual(0);
+        expect(iDispatch).toBeGreaterThan(iAsso);
+        expect(JSON.parse((posts[iAsso]![1] as { body: string }).body)).toEqual(
+          {
+            association_id: 'a2',
+            motif_override: 'Association plus proche',
+            envoi_differe: true,
+          },
+        );
+        expect(
+          JSON.parse((posts[iDispatch]![1] as { body: string }).body),
+        ).toMatchObject({ prestataire_logistique_id: 'presta-atoutes' });
+      }, ATTENTE_UI);
     },
     ATTENTE_CAS_MS,
   );

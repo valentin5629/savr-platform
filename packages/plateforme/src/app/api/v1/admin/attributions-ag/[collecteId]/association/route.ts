@@ -54,6 +54,7 @@ async function postHandler(
   const body = (await req.json().catch(() => null)) as {
     association_id?: unknown;
     motif_override?: unknown;
+    envoi_differe?: unknown;
   } | null;
   const associationId = body?.association_id;
   if (typeof associationId !== 'string' || !UUID_RE.test(associationId)) {
@@ -118,8 +119,13 @@ async function postHandler(
   }
 
   // L'ordre éventuel est en file : il part sans attendre le passage planifié
-  // (décision Val 2026-10-12).
-  envoyerOrdresSansAttendre(collecteId);
+  // (décision Val 2026-10-12). Sauf quand la fiche change aussi le
+  // transporteur dans le même geste (décision Val 2026-11-13) : la route de
+  // dispatch, appelée juste après, déclenchera l'envoi, une fois le nouveau
+  // transporteur posé — sinon la commande pourrait être recréée chez l'ancien.
+  if (body?.envoi_differe !== true) {
+    envoyerOrdresSansAttendre(collecteId);
+  }
 
   return NextResponse.json({ ok: true, event_type: data as string });
 }

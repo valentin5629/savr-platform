@@ -236,6 +236,36 @@ function contactMts1(
   };
 }
 
+// ─── Annulation des anciennes commandes (changement d'association) ───────────
+
+// Changement d'association d'une AG (décisions Val 2026-11-13) : les anciennes
+// commandes MTS-1 sont annulées avant la recréation. Leurs tournées ont déjà
+// été réinitialisées par fn_changer_association_ag, qui passe leurs
+// identifiants à l'ordre de création. Indépendant du transporteur en place :
+// l'Admin peut changer de transporteur dans le même geste, la commande
+// MTS-1 doit partir quand même. DELETE idempotent sur 404 : une reprise de
+// l'ordre ne bute pas sur une commande déjà supprimée.
+export async function annulerCommandesMts1(
+  supabase: SupabaseClient,
+  customerOrderIds: string[],
+): Promise<void> {
+  const client = new Mts1Client(supabase);
+  for (const id of customerOrderIds) {
+    try {
+      await client.deleteOrder(id, id);
+    } catch (err) {
+      if (
+        !(
+          err instanceof LogistiquePermanentError &&
+          err.message.includes('MTS-1 404')
+        )
+      ) {
+        throw err;
+      }
+    }
+  }
+}
+
 // ─── Numéro de commande (décision Val 2026-10-15, C59) ──────────────────────
 
 // MTS-1 n'a aucun champ « nom » de commande ni de lieu (documentation V3, lue le
@@ -544,28 +574,6 @@ export class AdapterMts1 implements LogistiqueProvider {
     }
 
     return 'adapter_mts1';
-  }
-
-  // Changement d'association (décision Val 2026-11-13) : les anciennes commandes
-  // sont annulées avant que la création ne recrée les nouvelles. Leurs tournées
-  // ont déjà été réinitialisées par fn_changer_association_ag, qui passe leurs
-  // identifiants dans l'ordre de création. DELETE idempotent sur 404 : une
-  // reprise de l'ordre ne bute pas sur une commande déjà supprimée.
-  async annulerCommandes(customerOrderIds: string[]): Promise<void> {
-    for (const id of customerOrderIds) {
-      try {
-        await this.client.deleteOrder(id, id);
-      } catch (err) {
-        if (
-          !(
-            err instanceof LogistiquePermanentError &&
-            err.message.includes('MTS-1 404')
-          )
-        ) {
-          throw err;
-        }
-      }
-    }
   }
 
   // Suppression d'un rang retiré (RM-04) : annule la commande MTS-1 (idempotent sur

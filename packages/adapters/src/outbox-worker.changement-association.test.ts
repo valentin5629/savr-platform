@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runOutboxWorker } from './outbox-worker.js';
 import { AdapterEverest } from './everest/adapter.js';
 import { AdapterMts1 } from './mts1/adapter.js';
+import { _setMts1Handlers } from './mts1/mock.js';
 
 const COLLECTE_ID = 'col-ag-asso-001';
 const PRESTA_ID = 'presta-uuid-asso-001';
@@ -135,13 +136,24 @@ function makeWorkerSupabase(opts: {
 describe('Worker — changement d’association d’une collecte AG', () => {
   afterEach(() => vi.restoreAllMocks());
 
+  afterEach(() => _setMts1Handlers(null));
+
+  function deleteOrderTrace(appels: string[]) {
+    const deleteOrder = vi.fn(async (id: string) => {
+      appels.push(`annuler ${id}`);
+    });
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder: vi.fn(),
+      deleteOrder,
+    });
+    return deleteOrder;
+  }
+
   it('MTS-1 : les anciennes commandes sont annulées AVANT la recréation', async () => {
     const appels: string[] = [];
-    const annuler = vi
-      .spyOn(AdapterMts1.prototype, 'annulerCommandes')
-      .mockImplementation(async () => {
-        appels.push('annuler');
-      });
+    deleteOrderTrace(appels);
     const dispatch = vi
       .spyOn(AdapterMts1.prototype, 'dispatchCollecte')
       .mockImplementation(async () => {
@@ -160,14 +172,13 @@ describe('Worker — changement d’association d’une collecte AG', () => {
       }),
     );
 
-    expect(annuler).toHaveBeenCalledWith(['MTS1-OLD-1']);
     expect(dispatch).toHaveBeenCalledTimes(1);
-    expect(appels).toEqual(['annuler', 'dispatch']);
+    expect(appels).toEqual(['annuler MTS1-OLD-1', 'dispatch']);
     expect(result.done).toBe(1);
   });
 
   it('création ordinaire (sans anciennes commandes) : rien n’est annulé', async () => {
-    const annuler = vi.spyOn(AdapterMts1.prototype, 'annulerCommandes');
+    const deleteOrder = deleteOrderTrace([]);
     vi.spyOn(AdapterMts1.prototype, 'dispatchCollecte').mockResolvedValue(
       'adapter_mts1',
     );
@@ -176,29 +187,51 @@ describe('Worker — changement d’association d’une collecte AG', () => {
       makeWorkerSupabase({ typeTms: 'mts1', eventType: 'collecte.creee' }),
     );
 
-    expect(annuler).not.toHaveBeenCalled();
+    expect(deleteOrder).not.toHaveBeenCalled();
   });
 
-  it('transporteur changé depuis (plus MTS-1) : échec définitif, aucune création chez le nouveau', async () => {
+  it('association et transporteur changés ensemble (désormais A Toute!) : la commande MTS-1 est annulée, puis la collecte part chez le nouveau', async () => {
+    const appels: string[] = [];
+    deleteOrderTrace(appels);
     const everest = vi
       .spyOn(AdapterEverest.prototype, 'dispatchCollecte')
-      .mockResolvedValue('adapter_everest');
+      .mockImplementation(async () => {
+        appels.push('dispatch A Toute!');
+        return 'adapter_everest';
+      });
 
-    const supabase = makeWorkerSupabase({
-      typeTms: 'a_toutes',
-      eventType: 'collecte.creee',
-      payload: { commandes_a_annuler: ['MTS1-OLD-1'] },
+    const result = await runOutboxWorker(
+      makeWorkerSupabase({
+        typeTms: 'a_toutes',
+        eventType: 'collecte.creee',
+        payload: { commandes_a_annuler: ['MTS1-OLD-1'] },
+      }),
+    );
+
+    expect(everest).toHaveBeenCalledTimes(1);
+    expect(appels).toEqual(['annuler MTS1-OLD-1', 'dispatch A Toute!']);
+    expect(result.done).toBe(1);
+  });
+
+  it('refus de l’annulation par MTS-1 (autre que 404) : rien n’est recréé, l’ordre repart en reprise', async () => {
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder: vi.fn(),
+      deleteOrder: vi.fn().mockRejectedValue(new Error('MTS-1 indisponible')),
     });
-    const result = await runOutboxWorker(supabase);
+    const dispatch = vi.spyOn(AdapterMts1.prototype, 'dispatchCollecte');
 
-    expect(everest).not.toHaveBeenCalled();
-    expect(result.dead).toBe(1);
-    const resultat = supabase.rpc.mock.calls.find(
-      (c) => c[0] === 'fn_result_outbox',
-    ) as unknown[] | undefined;
-    expect(
-      String((resultat?.[1] as { p_last_error: string }).p_last_error),
-    ).toMatch(/MTS1-OLD-1.*à annuler à la main/);
+    const result = await runOutboxWorker(
+      makeWorkerSupabase({
+        typeTms: 'mts1',
+        eventType: 'collecte.creee',
+        payload: { commandes_a_annuler: ['MTS1-OLD-1'] },
+      }),
+    );
+
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(result.done).toBe(0);
   });
 
   it('la collecte transmise à l’adapter porte son statut, demandé à PostgREST', async () => {

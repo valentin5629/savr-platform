@@ -82,6 +82,7 @@ import type { Collecte, ConsumerTag, Lieu, Transporteur } from './index.js';
 import { composerCommentairesTransporteur } from './infos-acces.js';
 import type { EntreeCommentaire } from './infos-acces.js';
 import { applyLieuOverrides } from './lieu-overrides.js';
+import { annulerCommandesMts1 } from './mts1/adapter.js';
 import type { AdapterMts1 } from './mts1/adapter.js';
 
 interface ClaimedEvent {
@@ -380,19 +381,14 @@ async function processEvent(
     const provider = getLogistiqueProvider(transporteur, supabase);
 
     if (event_type === 'collecte.creee') {
-      // Changement d'association (décision Val 2026-11-13) : les anciennes
-      // commandes MTS-1 sont annulées avant la recréation
-      // (fn_changer_association_ag). Le prestataire a changé depuis : rien ne
-      // les annulerait, l'ordre échoue en définitif (alerte) plutôt que de
-      // laisser vivre une commande vers l'ancienne association.
+      // Changement d'association (décisions Val 2026-11-13) : les anciennes
+      // commandes MTS-1 sont annulées avant la (re)création
+      // (fn_changer_association_ag), quel que soit le transporteur en place :
+      // l'Admin peut avoir changé de transporteur dans le même geste.
       const aAnnuler = event.payload['commandes_a_annuler'];
       if (Array.isArray(aAnnuler) && aAnnuler.length > 0) {
-        if (transporteur.type_tms !== 'mts1') {
-          throw new LogistiquePermanentError(
-            `collecte ${collecte.id} : commande(s) MTS-1 ${aAnnuler.join(', ')} à annuler à la main, le transporteur a changé depuis le changement d'association`,
-          );
-        }
-        await (provider as AdapterMts1).annulerCommandes(
+        await annulerCommandesMts1(
+          supabase,
           aAnnuler.filter((id): id is string => typeof id === 'string'),
         );
       }

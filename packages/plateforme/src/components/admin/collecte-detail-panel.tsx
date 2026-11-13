@@ -1275,9 +1275,11 @@ export function CollecteDetailPanel({
   const handleDispatch = async () => {
     setDispatching(true);
     setDispatchError(null);
-    // Changement d'association : sa route renvoie elle-même la collecte au
-    // prestataire (MTS-1 : commande annulée puis recréée, décision Val
-    // 2026-11-13). Le transporteur se change dans un second temps.
+    // Changement d'association : sa route renvoie la collecte au prestataire
+    // (MTS-1 : commande annulée puis recréée, décision Val 2026-11-13). Avec un
+    // changement de transporteur dans le même geste (Val 2026-11-13), l'envoi
+    // est différé : le dispatch qui suit pose le transporteur puis l'envoie.
+    const transporteurChange = !!selectedTransporteurId;
     if (associationSaisie) {
       const res = await fetch(
         `/api/v1/admin/attributions-ag/${encodeURIComponent(collecteId)}/association`,
@@ -1289,26 +1291,30 @@ export function CollecteDetailPanel({
             ...(motifAssociation.trim()
               ? { motif_override: motifAssociation.trim() }
               : {}),
+            ...(transporteurChange ? { envoi_differe: true } : {}),
           }),
         },
       );
-      if (res.ok) {
-        await refetch();
-        setRelecturesRestantes(RELECTURES_MAX);
-        setAssociationSaisie('');
-        setMotifAssociation('');
-        retourFocusChangerRef.current = changerPrestataire;
-        setChangerPrestataire(false);
-      } else {
+      if (!res.ok) {
         const errBody = (await res.json().catch(() => ({}))) as {
           error?: string;
         };
         setDispatchError(
           errBody.error ?? 'Changement d’association impossible',
         );
+        setDispatching(false);
+        return;
       }
-      setDispatching(false);
-      return;
+      setAssociationSaisie('');
+      setMotifAssociation('');
+      if (!transporteurChange) {
+        await refetch();
+        setRelecturesRestantes(RELECTURES_MAX);
+        retourFocusChangerRef.current = changerPrestataire;
+        setChangerPrestataire(false);
+        setDispatching(false);
+        return;
+      }
     }
     // Prestataire choisi (AG ou ZD) → on envoie son prestataire_logistique_id
     // (pont R5). Sans changement (re-send) → body vide = réémission dispatch
@@ -1951,7 +1957,8 @@ export function CollecteDetailPanel({
     overrideActif && motifOverride.trim().length < 5;
   // Association ≠ n°1 de l'algo : motif obligatoire, comme pour le
   // transporteur (même garde que la route). Association et transporteur se
-  // changent en deux fois : la route d'association renvoie la collecte seule.
+  // changent dans le même geste (Val 2026-11-13) : association d'abord, envoi
+  // différé, puis le dispatch.
   const associationRecommandeeId = reco?.associations[0]?.id ?? null;
   const associationOverride =
     associationSaisie !== '' &&
@@ -1959,7 +1966,6 @@ export function CollecteDetailPanel({
     associationSaisie !== associationRecommandeeId;
   const associationMotifManquant =
     associationOverride && motifAssociation.trim().length < 5;
-  const doubleChangement = associationSaisie !== '' && !!selectedTransporteurId;
   const nomAssociationActuelle =
     collecte.attributions_antgaspi?.associations?.nom ?? null;
   // AG envoyée à un transporteur qui distingue ses services (A Toute!) alors
@@ -2747,17 +2753,16 @@ export function CollecteDetailPanel({
                           {associationSaisie !== '' && (
                             <Text variant="hint">
                               {currentTransporteur?.type_tms === 'mts1'
-                                ? 'La commande en cours chez MTS-1 sera annulée puis recréée vers la nouvelle association : regroupez de nouveau sa tournée dans la console.'
+                                ? selectedTransporteur
+                                  ? 'La commande en cours chez MTS-1 sera annulée.'
+                                  : 'La commande en cours chez MTS-1 sera annulée puis recréée vers la nouvelle association : regroupez de nouveau sa tournée dans la console.'
                                 : 'La nouvelle adresse de livraison est renvoyée au transporteur.'}{' '}
+                              {selectedTransporteur
+                                ? `La collecte part ensuite chez ${selectedTransporteur.nom}. `
+                                : ''}
                               La nouvelle association reçoit l’email
                               d’attribution.
                             </Text>
-                          )}
-                          {doubleChangement && (
-                            <AlertBar variant="warn">
-                              Changez l’association et le transporteur en deux
-                              fois : gardez d’abord le transporteur actuel.
-                            </AlertBar>
                           )}
                         </div>
                       )}
@@ -2957,8 +2962,7 @@ export function CollecteDetailPanel({
                             overrideMotifManquant ||
                             serviceDispatchManquant ||
                             prestataireAChoisir ||
-                            associationMotifManquant ||
-                            doubleChangement
+                            associationMotifManquant
                           }
                           onClick={() => void handleDispatch()}
                           loading={dispatching}

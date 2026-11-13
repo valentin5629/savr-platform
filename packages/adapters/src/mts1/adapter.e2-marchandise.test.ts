@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Collecte, Lieu, Transporteur } from '../index.js';
 import { LogistiquePermanentError } from '../index.js';
-import { AdapterMts1 } from './adapter.js';
+import { AdapterMts1, annulerCommandesMts1 } from './adapter.js';
 import {
   PRESTA_MTS1,
   builderTransporteurs,
@@ -185,9 +185,8 @@ describe('E2 — la modification d’une commande MTS-1 renvoie sa marchandise a
 describe('Changement d’association — annulation des anciennes commandes MTS-1', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  function adapter() {
-    return new AdapterMts1(TRANSPORTEUR, supabaseCommandee());
-  }
+  const annuler = (ids: string[]) =>
+    annulerCommandesMts1(supabaseCommandee(), ids);
 
   it('supprime chaque ancienne commande', async () => {
     const deleteOrder = vi.fn().mockResolvedValue(undefined);
@@ -198,7 +197,7 @@ describe('Changement d’association — annulation des anciennes commandes MTS-
       deleteOrder,
     });
 
-    await adapter().annulerCommandes(['MTS1-ORDER-1', 'MTS1-ORDER-2']);
+    await annuler(['MTS1-ORDER-1', 'MTS1-ORDER-2']);
 
     expect(deleteOrder.mock.calls.map((c) => c[0])).toEqual([
       'MTS1-ORDER-1',
@@ -219,7 +218,7 @@ describe('Changement d’association — annulation des anciennes commandes MTS-
     });
 
     await expect(
-      adapter().annulerCommandes(['MTS1-ORDER-1', 'MTS1-ORDER-2']),
+      annuler(['MTS1-ORDER-1', 'MTS1-ORDER-2']),
     ).resolves.toBeUndefined();
     expect(deleteOrder).toHaveBeenCalledTimes(2);
   });
@@ -237,8 +236,6 @@ describe('Changement d’association — annulation des anciennes commandes MTS-
       deleteOrder,
     });
 
-    await expect(adapter().annulerCommandes(['MTS1-ORDER-1'])).rejects.toThrow(
-      'MTS-1 400',
-    );
+    await expect(annuler(['MTS1-ORDER-1'])).rejects.toThrow('MTS-1 400');
   });
 });

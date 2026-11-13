@@ -54,12 +54,28 @@ describe('savr-dev-cron — planification', () => {
   it("la durée maximale de la fonction couvre celle d'une route (300 s)", () => {
     expect(dev.functions?.['api/[route].ts']?.maxDuration).toBe(300);
   });
+
+  it('aucune variable lue ne commence par VERCEL_ (préfixe réservé par Vercel)', () => {
+    const source = readFileSync(
+      resolve(racine, 'apps/cron-dev/api/[route].ts'),
+      'utf8',
+    );
+    const lues = [...source.matchAll(/env\['([A-Z0-9_]+)'\]/g)].map(
+      (m) => m[1],
+    );
+    expect(lues.sort()).toEqual([
+      'CRON_SECRET',
+      'CRON_SECRET_DEV',
+      'PROTECTION_BYPASS_DEV',
+    ]);
+    expect(lues.filter((n) => n?.startsWith('VERCEL_'))).toEqual([]);
+  });
 });
 
 const ENV = {
   CRON_SECRET: 'secret-du-projet',
   CRON_SECRET_DEV: 'secret-dev',
-  VERCEL_BYPASS_DEV: 'contournement-dev',
+  PROTECTION_BYPASS_DEV: 'contournement-dev',
 };
 
 function requete(route: string, auth?: string): Request {
@@ -130,7 +146,7 @@ describe('savr-dev-cron — garde', () => {
     expect(f).not.toHaveBeenCalled();
   });
 
-  it.each(['CRON_SECRET_DEV', 'VERCEL_BYPASS_DEV'])(
+  it.each(['CRON_SECRET_DEV', 'PROTECTION_BYPASS_DEV'])(
     "n'appelle pas dev sans %s (500)",
     async (nom) => {
       const f = fetchQuiRend(200);
@@ -231,11 +247,11 @@ describe('savr-dev-cron — aucun secret ne sort', () => {
         ),
     ],
     [
-      '500 (VERCEL_BYPASS_DEV absent)',
+      '500 (PROTECTION_BYPASS_DEV absent)',
       () =>
         appeler(
           requete('pdf-worker', AUTORISE),
-          { ...ENV, VERCEL_BYPASS_DEV: undefined },
+          { ...ENV, PROTECTION_BYPASS_DEV: undefined },
           fetchQuiRend(200),
         ),
     ],

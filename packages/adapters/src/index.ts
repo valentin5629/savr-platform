@@ -100,6 +100,10 @@ export interface Lieu {
 export interface Collecte {
   readonly id: string;
   readonly type: 'zero_dechet' | 'anti_gaspi';
+  // Statut de la collecte (`collectes.statut`). Facultatif pour les appelants
+  // qui ne le connaissent pas : la modification MTS-1 ne renvoie alors pas la
+  // marchandise (cf. AdapterMts1.buildUpdatePayload).
+  readonly statut?: string;
   readonly date_collecte: string; // ISO date 'YYYY-MM-DD'
   readonly heure_collecte: string; // 'HH:MM:SS'
   readonly nb_camions_demande: number;

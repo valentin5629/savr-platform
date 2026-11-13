@@ -134,8 +134,12 @@ describe('M1.1b / Dispatch / Permissions', () => {
     expect(res.status).toBe(403);
   });
 
-  it('M1.1b/dispatch — 422 si override sans motif suffisant', async () => {
+  it('M1.1b/dispatch — override avec un motif court : plus refusé (aucun motif demandé, Val 2026-11-13)', async () => {
     setupAuth('admin_savr');
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    });
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
         id: 'col-1',
@@ -158,11 +162,16 @@ describe('M1.1b / Dispatch / Permissions', () => {
       }),
       { params: Promise.resolve({ id: 'col-1' }) },
     );
-    expect(res.status).toBe(422);
+    expect(res.status).not.toBe(422);
+    expect(JSON.stringify(await res.json())).not.toMatch(/motif/);
   });
 
-  it('M1.1b/dispatch — 422 si override sans motif du tout', async () => {
+  it('M1.1b/dispatch — override sans motif : plus refusé (aucun motif demandé, Val 2026-11-13)', async () => {
     setupAuth('admin_savr');
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    });
     mockSupabaseChain.single.mockResolvedValueOnce({
       data: {
         id: 'col-1',
@@ -184,7 +193,8 @@ describe('M1.1b / Dispatch / Permissions', () => {
       }),
       { params: Promise.resolve({ id: 'col-1' }) },
     );
-    expect(res.status).toBe(422);
+    expect(res.status).not.toBe(422);
+    expect(JSON.stringify(await res.json())).not.toMatch(/motif/);
   });
 });
 
@@ -317,18 +327,24 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
     );
   });
 
-  it('M0.6/dispatch_zd_changement_motif — changer un transporteur déjà posé : motif exigé, message propre à la ZD', async () => {
+  it('M0.6/dispatch_zd_changement_motif — changer un transporteur déjà posé : aucun motif demandé (Val 2026-11-13), le dispatch part', async () => {
     setupAuth('admin_savr');
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    });
     mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
     transporteur({ type_tms: 'mts1', actif: true });
 
     const res = await dispatch({ prestataire_logistique_id: 'prest-marathon' });
 
-    expect(res.status).toBe(422);
-    expect(((await res.json()) as { error: string }).error).toMatch(
-      /pour changer le transporteur déjà attribué/,
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      expect.objectContaining({
+        p_prestataire_logistique_id: 'prest-marathon',
+      }),
     );
-    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
 
   it('M0.6/dispatch_zd_a_toutes_refuse — A Toute! choisie pour une ZD : 422, aucun ordre émis (son envoi exige une association AG)', async () => {
@@ -501,7 +517,7 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
     expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
 
-  it('M0.6/dispatch AG — 422 si prestataire ≠ top-1 algo sans motif', async () => {
+  it('M0.6/dispatch AG — prestataire ≠ top-1 algo sans motif : accepté (aucun motif demandé, Val 2026-11-13)', async () => {
     setupAuth('admin_savr');
     mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
       data: { association_id: 'asso-1' },
@@ -517,6 +533,10 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
       data: algoReco,
       error: null,
     }); // algo
+    mockSupabaseChain.rpc.mockResolvedValueOnce({
+      data: 'collecte.creee',
+      error: null,
+    }); // fn_dispatcher_collecte
     const { POST } =
       await import('@/app/api/v1/admin/collectes/[id]/dispatch/route.js');
     const res = await POST(
@@ -525,7 +545,11 @@ describe('M0.6 / Dispatch AG / motif override vs top-1 algo', () => {
       }),
       { params: Promise.resolve({ id: 'col-ag' }) },
     );
-    expect(res.status).toBe(422);
+    expect(res.status).not.toBe(422);
+    expect(mockSupabaseChain.rpc).toHaveBeenCalledWith(
+      'fn_dispatcher_collecte',
+      expect.objectContaining({ p_prestataire_logistique_id: 'presta-AUTRE' }),
+    );
   });
 
   it('M0.6/dispatch AG — accepte le top-1 algo SANS motif (200)', async () => {

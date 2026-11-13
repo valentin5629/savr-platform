@@ -209,10 +209,9 @@ export async function POST(
   }
 
   // Détermination de l'override (§06.06 §3 Bloc 0) :
-  //  - AG : override = prestataire choisi ≠ TOP 1 de l'algo (CDC : « Motif override
-  //    obligatoire si choix ≠ top 1 algo » ; motif NULL sinon). Le top-1 est calculé
+  //  - AG : override = prestataire choisi ≠ TOP 1 de l'algo. Le top-1 est calculé
   //    côté serveur (source de vérité, jamais fourni par le client). Algo indisponible
-  //    ou aucune reco → pas de baseline → pas de motif requis.
+  //    ou aucune reco → pas de baseline → pas d'override.
   //  - ZD : pas de reco algo. Le premier choix est libre ; override = CHANGER un
   //    prestataire déjà posé.
   let isOverride = false;
@@ -243,28 +242,13 @@ export async function POST(
     }
   }
 
-  // Override prestataire : ops interdit, motif obligatoire (≥ 5 car.)
-  if (isOverride) {
-    if (auth.ctx.role === 'ops_savr') {
-      return NextResponse.json(
-        { error: "L'override de transporteur est réservé aux admin Savr" },
-        { status: 403 },
-      );
-    }
-    if (
-      !motif_override_prestataire ||
-      String(motif_override_prestataire).length < 5
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            c.type === 'anti_gaspi'
-              ? "motif_override_prestataire obligatoire (≥ 5 caractères) lorsqu'on choisit un transporteur ≠ recommandation algo (top 1)"
-              : 'motif_override_prestataire obligatoire (≥ 5 caractères) pour changer le transporteur déjà attribué',
-        },
-        { status: 422 },
-      );
-    }
+  // Override prestataire : réservé aux admin Savr. Plus de motif demandé
+  // (décision Val 2026-11-13) ; un motif encore envoyé est rangé tel quel.
+  if (isOverride && auth.ctx.role === 'ops_savr') {
+    return NextResponse.json(
+      { error: "L'override de transporteur est réservé aux admin Savr" },
+      { status: 403 },
+    );
   }
 
   // Seulement sur une collecte qu'on peut encore attribuer (même garde que le

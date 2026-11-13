@@ -86,8 +86,8 @@
     "édition : Type de TMS verrouillé, affichant la valeur posée",
     "M1.1b/dispatch — 403 si ops tente override prestataire",
     "M1.1b/dispatch — 404 si collecte inconnue",
-    "M1.1b/dispatch — 422 si override sans motif du tout",
-    "M1.1b/dispatch — 422 si override sans motif suffisant",
+    "M1.1b/dispatch — override sans motif : plus refusé (aucun motif demandé, Val 2026-11-13)",
+    "M1.1b/dispatch — override avec un motif court : plus refusé (aucun motif demandé, Val 2026-11-13)",
     "M1.1b/dispatch — émet E1 collecte.creee sur premier envoi (via RPC atomique)",
     "M1.1b/dispatch — émet E2 collecte.modifiee si tms_reference présente (via RPC atomique)",
     "M1.1b/collectes/create — 422 si champs obligatoires manquants",
@@ -220,9 +220,9 @@
       "id": "M1.1b-11",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md",
       "artefact": "packages/plateforme/src/app/api/v1/admin/lieux/route.ts",
-      "test": "M1.1b/dispatch/override-sans-motif-422",
+      "test": "M1.1b/dispatch — override sans motif : plus refusé",
       "statut": "implemented",
-      "libelle": "POST /dispatch override prestataire sans motif ou motif < 5 chars → 422"
+      "libelle": "POST /dispatch override prestataire : aucun motif demandé (décision Val 2026-11-13, ex-422 sans motif ≥ 5 car.) ; override toujours refusé à ops_savr (403)"
     },
     {
       "id": "M1.1b-12",

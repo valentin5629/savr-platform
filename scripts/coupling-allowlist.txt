@@ -313,3 +313,9 @@ supabase/migrations/20261110120000_plateforme_renommage_a_toute.sql
 # Aucune logique transporteur : la route appelée passe par logistique_provider.
 apps/cron-dev/api/*
 apps/cron-dev/tests/*
+# supabase/migrations/20261113180000 — fn_changer_association_ag (changement d'association
+# AG, décisions Val 2026-11-13) : 'mts1'/'adapter_mts1' = valeur de l'enum type_tms dans le
+# CASE qui DÉRIVE le consumer outbox (comme rpc_valider_attribution_ag) et filtre des
+# tournées MTS-1 réinitialisées. Aucun appel HTTP : la fonction émet un event outbox,
+# l'adapter (packages/adapters/) le consomme. 'customerOrders' banni.
+supabase/migrations/20261113180000_plateforme_changer_association_ag.sql

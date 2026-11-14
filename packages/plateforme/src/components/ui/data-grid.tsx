@@ -568,7 +568,15 @@ function DataGrid<T>({
                     {carte.pastilles.length > 0 && (
                       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                         {carte.pastilles.map((cell) => (
-                          <div key={cell.id}>
+                          <div
+                            key={cell.id}
+                            onClick={stopIfInteractive(
+                              cell.column.columnDef.meta?.interactive,
+                            )}
+                            onKeyDown={stopIfInteractive(
+                              cell.column.columnDef.meta?.interactive,
+                            )}
+                          >
                             <span className="sr-only">
                               {headerLabel(cell.column)} :{' '}
                             </span>

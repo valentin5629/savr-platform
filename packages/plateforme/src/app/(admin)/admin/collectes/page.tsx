@@ -196,7 +196,7 @@ function KpiTile({
       }`}
     >
       <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-savr-md ${KPI_TONE[tone]}`}
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-savr-md max-sm:hidden ${KPI_TONE[tone]}`}
       >
         <Icone className="h-5 w-5" aria-hidden="true" />
       </span>
@@ -213,7 +213,7 @@ function KpiTile({
           </Text>
         )}
       </div>
-      <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300" />
+      <ArrowRightIcon className="ml-auto h-4 w-4 shrink-0 text-savr-neutral-300 max-sm:hidden" />
     </ChoiceCard>
   );
 }

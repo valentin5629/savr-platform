@@ -184,7 +184,7 @@ describe('globals.css — règles téléphone', () => {
 
   it('sous 640 px, tout champ de saisie fait 16 px (pas de zoom automatique sur iPhone)', () => {
     expect(css).toContain(
-      "@media (width < 40rem) { input:not([type='checkbox'], [type='radio'], [type='range']), textarea, select { font-size: 1rem; } }",
+      "@media (width < 40rem) { input:not( [type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit'], [type='reset'], [type='file'], [type='hidden'] ), textarea, select { font-size: 1rem; } }",
     );
   });
 });

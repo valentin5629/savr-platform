@@ -3448,7 +3448,7 @@ export function CollecteDetailPanel({
 
                 {/* Rapport de don d'une collecte AG avec excédents = l'attestation de don */}
                 {collecte.type === 'anti_gaspi' && !agSansExcedent && (
-                  <div className="flex items-center gap-3 py-3">
+                  <div className="flex items-center max-sm:flex-wrap gap-3 py-3">
                     <div className="flex-1 max-sm:basis-full">
                       <p className="text-sm font-medium">
                         Rapport de don

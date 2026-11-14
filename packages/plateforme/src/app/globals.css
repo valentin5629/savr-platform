@@ -343,6 +343,49 @@ h3 {
   }
 }
 
+/* ─── Téléphone (< 640 px) : pas de zoom automatique sur les champs ─────────
+   Safari sur iPhone agrandit la page dès qu'un champ dont le texte fait moins
+   de 16 px prend le focus, et ne revient pas en arrière : toute la suite de la
+   visite reste agrandie, coupée à droite, à faire glisser du doigt (captures
+   de Val du 2026-11-14 : liste Collectes et fiche collecte agrandies d'environ
+   12 %, soit 16/14, la taille des champs de la page de connexion). Sous
+   640 px, tout champ de saisie passe donc à 16 px. Hors layer, exprès : la règle doit
+   l'emporter sur l'utilitaire `text-sm` des champs. Au-delà de 640 px, rien ne
+   change. */
+@media (width < 40rem) {
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+}
+
+/* ─── Carte mobile des listes (DataGrid, < 640 px) ──────────────────────────
+   Une ligne « étiquette  valeur » sans valeur n'est pas affichée : elle
+   allongeait la carte sans rien apprendre. Sans valeur = cellule vide, seul
+   tiret de `CelluleVide`, ou seul élément lui-même vide (rangée d'indicateurs
+   sans indicateur). « Voir plus » disparaît quand aucune des lignes qu'il
+   révèle n'a de valeur. La carte n'existe que sous 640 px : ces règles
+   n'atteignent pas le tableau. */
+[data-carte-ligne]:has(> dd:empty),
+[data-carte-ligne]:has(> dd > [data-cellule-vide]:only-child),
+[data-carte-ligne]:has(> dd > :only-child:empty) {
+  display: none;
+}
+[data-carte-liste]:not(
+    :has(
+      [data-carte-ligne='secondaire']
+        > dd:not(
+          :empty,
+          :has(> [data-cellule-vide]:only-child),
+          :has(> :only-child:empty)
+        )
+    )
+  )
+  [data-carte-voir-plus] {
+  display: none;
+}
+
 /* ─── Bandeau d'impersonation au-dessus du cadre de l'app ───────────────────
    Le bandeau (ImpersonationBannerMount, layout racine) est dans le flux, au-
    dessus du cadre AppShell qui fait toute la hauteur de l'écran (`h-screen`) :

@@ -18,6 +18,9 @@ const TabsList = React.forwardRef<
     ref={ref}
     className={cn(
       'inline-flex items-center gap-1 border-b border-savr-neutral-200',
+      // Téléphone : une rangée plus large que l'écran défile sur elle-même au
+      // lieu d'entraîner la page.
+      'max-sm:max-w-full max-sm:overflow-x-auto max-sm:[scrollbar-width:none]',
       className,
     )}
     {...props}
@@ -33,7 +36,7 @@ const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       // Cible tactile DS §10 : 44 px sur mobile, 40 px au-delà (comme Button, Input).
-      'inline-flex h-11 items-center whitespace-nowrap border-b-2 border-transparent px-4 text-sm font-semibold text-savr-neutral-500 transition-colors sm:h-10',
+      'inline-flex h-11 items-center whitespace-nowrap border-b-2 border-transparent px-4 text-sm font-semibold text-savr-neutral-500 transition-colors max-sm:shrink-0 sm:h-10',
       'hover:text-savr-neutral-900',
       'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500',
       'disabled:pointer-events-none disabled:opacity-50',

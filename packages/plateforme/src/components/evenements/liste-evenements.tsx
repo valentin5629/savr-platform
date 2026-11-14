@@ -255,6 +255,7 @@ const colonnesEvenements = (
   {
     id: 'statut',
     header: 'Statut',
+    meta: { carteMobile: 'pastille' },
     enableSorting: false,
     cell: ({ row: { original: e } }) => (
       <Badge

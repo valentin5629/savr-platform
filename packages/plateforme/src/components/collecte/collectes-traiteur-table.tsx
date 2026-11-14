@@ -341,13 +341,14 @@ export function colonnesCollectesTraiteur(
     id: 'type',
     header: 'Type',
     accessorFn: (c) => c.type,
-    meta: { className: 'w-[1%] whitespace-nowrap' },
+    meta: { carteMobile: 'pastille', className: 'w-[1%] whitespace-nowrap' },
     cell: ({ row: { original: c } }) => <TypeCollecteBadge type={c.type} />,
   };
   return [
     {
       id: 'date',
       header: 'Date',
+      meta: { carteMobile: 'titre' },
       enableHiding: false,
       accessorFn: (c) => `${c.date_collecte} ${c.heure_collecte ?? ''}`,
       cell: ({ row: { original: c } }) => (
@@ -421,7 +422,7 @@ export function colonnesCollectesTraiteur(
       accessorFn: (c) => c.statut,
       // Colonne au contenu : le badge reste collé aux pictos d'action
       // (revue écran 2026-10-01).
-      meta: { className: 'w-[1%] whitespace-nowrap' },
+      meta: { carteMobile: 'pastille', className: 'w-[1%] whitespace-nowrap' },
       cell: ({ row: { original: c } }) => (
         <CollecteStatutBadge statut={c.statut} />
       ),

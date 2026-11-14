@@ -115,7 +115,10 @@ export function FicheOnglets({
           'w-full',
           mobile === 'pastilles'
             ? 'grid grid-cols-3 gap-1 border-0 bg-savr-sable-100 p-1 max-sm:rounded-savr-full sm:flex sm:gap-6 sm:border-b sm:border-savr-sable-200 sm:bg-transparent sm:p-0 md:gap-9'
-            : 'flex gap-6 overflow-x-auto border-b border-savr-sable-200 bg-transparent p-0 [scrollbar-width:none] md:gap-9',
+            : // Téléphone : la rangée défile ; son bord droit s'estompe pour
+              // montrer qu'il reste des onglets (« Histori… » coupé net se
+              // lisait comme un défaut).
+              'flex gap-6 overflow-x-auto border-b border-savr-sable-200 bg-transparent p-0 [scrollbar-width:none] max-sm:gap-5 max-sm:pr-10 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] md:gap-9',
           className,
         )}
         {...props}

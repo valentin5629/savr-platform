@@ -653,7 +653,7 @@ function DocumentsEvenement({
               className="h-5 w-5 shrink-0 text-savr-primary-700"
               aria-hidden="true"
             />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-2rem)]">
               <p className="text-md font-semibold text-savr-neutral-900">
                 {zd
                   ? 'Rapport de recyclage de l’événement'
@@ -690,6 +690,7 @@ function DocumentsEvenement({
             )}
             <Button
               variant="secondary"
+              className="max-sm:w-full"
               // Radar demandé : on attend les filtres de la barre (sans eux, le
               // serveur comparerait à « Tous », pas à ce que l'écran affiche).
               disabled={
@@ -715,7 +716,7 @@ function DocumentsEvenement({
               className="h-5 w-5 shrink-0 text-savr-primary-700"
               aria-hidden="true"
             />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-2rem)]">
               <p className="text-md font-semibold text-savr-neutral-900">
                 {f.type === 'anti_gaspi'
                   ? 'Rapport de don'
@@ -729,6 +730,7 @@ function DocumentsEvenement({
             </div>
             <Button
               variant="secondary"
+              className="max-sm:w-full"
               disabled={!f.rapport_rse_disponible || enCours !== null}
               loading={enCours === f.id}
               loadingText="Préparation du PDF…"

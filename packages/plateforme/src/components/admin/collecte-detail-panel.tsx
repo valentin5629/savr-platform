@@ -3326,7 +3326,7 @@ export function CollecteDetailPanel({
                 {/* Rapport : « Rapport de recyclage » (ZD) ou « Rapport de don » (AG sans excédents) */}
                 {afficherRapport && (
                   <div className="flex flex-wrap items-center gap-3 py-3">
-                    <div className="flex-1">
+                    <div className="flex-1 max-sm:basis-full">
                       <p className="text-sm font-medium flex items-center gap-2">
                         {agSansExcedent
                           ? 'Rapport de don'
@@ -3449,7 +3449,7 @@ export function CollecteDetailPanel({
                 {/* Rapport de don d'une collecte AG avec excédents = l'attestation de don */}
                 {collecte.type === 'anti_gaspi' && !agSansExcedent && (
                   <div className="flex items-center gap-3 py-3">
-                    <div className="flex-1">
+                    <div className="flex-1 max-sm:basis-full">
                       <p className="text-sm font-medium">
                         Rapport de don
                         {documents?.attestation?.numero && (

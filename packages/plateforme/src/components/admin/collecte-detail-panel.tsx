@@ -2733,7 +2733,7 @@ export function CollecteDetailPanel({
                           role="radiogroup"
                           aria-labelledby="dispatch-transporteur-label"
                           onKeyDown={naviguerRadios}
-                          className="grid gap-2 sm:grid-cols-2"
+                          className="grid gap-2 max-sm:grid-cols-1 sm:grid-cols-2"
                         >
                           {transporteursOrdonnes.map((t, i) => {
                             const estActuel =
@@ -3326,7 +3326,7 @@ export function CollecteDetailPanel({
                 {/* Rapport : « Rapport de recyclage » (ZD) ou « Rapport de don » (AG sans excédents) */}
                 {afficherRapport && (
                   <div className="flex flex-wrap items-center gap-3 py-3">
-                    <div className="flex-1">
+                    <div className="flex-1 max-sm:basis-full">
                       <p className="text-sm font-medium flex items-center gap-2">
                         {agSansExcedent
                           ? 'Rapport de don'
@@ -3448,8 +3448,8 @@ export function CollecteDetailPanel({
 
                 {/* Rapport de don d'une collecte AG avec excédents = l'attestation de don */}
                 {collecte.type === 'anti_gaspi' && !agSansExcedent && (
-                  <div className="flex items-center gap-3 py-3">
-                    <div className="flex-1">
+                  <div className="flex items-center max-sm:flex-wrap gap-3 py-3">
+                    <div className="flex-1 max-sm:basis-full">
                       <p className="text-sm font-medium">
                         Rapport de don
                         {documents?.attestation?.numero && (

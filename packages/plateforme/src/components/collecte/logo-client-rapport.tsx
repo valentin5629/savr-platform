@@ -78,7 +78,10 @@ export function LogoClientRapport({
       className="flex flex-wrap items-center gap-3 py-3"
       data-testid="logo-client-rapport"
     >
-      <div className="min-w-0 flex-1">
+      {/* Sous 640 px le texte prend la ligne entière, l'aperçu et les boutons
+          passent dessous : en `flex-1` seul il se réduisait à un mot par
+          ligne au lieu de céder la place. */}
+      <div className="min-w-0 flex-1 max-sm:basis-full">
         <p className="text-sm font-medium">Logo du client</p>
         <Text variant="hint">
           Imprimé sur les rapports de toutes les collectes de l’événement. JPG

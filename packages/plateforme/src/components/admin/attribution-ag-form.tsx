@@ -175,10 +175,12 @@ function CarteChoix({
   return (
     <span className="flex items-center gap-3">
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="flex items-center justify-between gap-2">
+        {/* Téléphone : le nom n'est plus coupé ; s'il ne tient pas à côté du
+            ratio et de la pastille, ceux-ci passent dessous. */}
+        <span className="flex items-center justify-between gap-2 max-sm:flex-wrap max-sm:gap-y-1">
           <span
             className={cn(
-              'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold',
+              'min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold max-sm:whitespace-normal',
               vide ? 'text-savr-neutral-500' : 'text-savr-neutral-900',
             )}
           >
@@ -590,7 +592,10 @@ export function AttributionAgForm({
               {MESSAGE_LIEU_A_COMPLETER}
             </AlertBar>
           )}
-          <div className="grid gap-x-8 gap-y-4 lg:grid-cols-2">
+          {/* Téléphone : colonne bornée à la largeur de l'écran — sans elle,
+              la carte de choix (nom sur une ligne) élargit la grille et les
+              champs sortent de l'écran. */}
+          <div className="grid gap-x-8 gap-y-4 max-sm:grid-cols-1 lg:grid-cols-2">
             {/* Ligne 1 : titres */}
             <div className="flex h-7 items-center gap-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-savr-full bg-savr-primary-700 text-xs font-extrabold text-savr-white">

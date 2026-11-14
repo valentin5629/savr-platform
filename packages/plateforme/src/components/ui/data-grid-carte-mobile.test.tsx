@@ -159,6 +159,26 @@ describe('DataGrid — carte mobile', () => {
     expect(li.textContent).not.toContain('Bravo');
   });
 
+  it("un clic dans une pastille cliquable n'ouvre pas la fiche de la ligne", () => {
+    const onRowClick = vi.fn();
+    const li = carte(
+      [
+        colonne('a'),
+        colonne('b', {
+          meta: { carteMobile: 'pastille', interactive: true },
+          cell: () => <button type="button">Basculer</button>,
+        }),
+        colonne('c', { meta: { carteMobile: 'pastille' } }),
+      ],
+      { onRowClick },
+    );
+    fireEvent.click(within(li).getByRole('button', { name: 'Basculer' }));
+    expect(onRowClick).not.toHaveBeenCalled();
+    // Témoin : une pastille ordinaire laisse le clic ouvrir la fiche.
+    fireEvent.click(within(li).getByText('Charlie'));
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+  });
+
   it('une cellule vide est repérable par la feuille de style', () => {
     const li = carte([
       colonne('a'),

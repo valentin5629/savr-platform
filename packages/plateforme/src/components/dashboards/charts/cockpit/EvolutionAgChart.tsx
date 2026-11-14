@@ -125,7 +125,7 @@ const EvolutionAgChart = React.forwardRef<
         />
       ) : (
         // Téléphone : même défilement latéral que le graphique ZD.
-        <div className="max-sm:overflow-x-auto max-sm:[scrollbar-width:none]">
+        <div className="max-sm:-my-16 max-sm:overflow-x-auto max-sm:py-16 max-sm:[scrollbar-width:none]">
           <div className="relative max-sm:min-w-[35rem]">
             <svg
               ref={entree.ref}

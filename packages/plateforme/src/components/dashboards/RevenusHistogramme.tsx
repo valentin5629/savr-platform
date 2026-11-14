@@ -267,9 +267,12 @@ export function RevenusHistogramme({
                         // Téléphone : centrée sur une colonne du bord,
                         // l'infobulle dépassait de l'écran et rendait la page
                         // glissable sur le côté. Elle se cale sur le bord.
-                        i >= moisSet.length - 4 &&
-                          'max-sm:left-auto max-sm:right-0 max-sm:translate-x-0',
-                        i < 4 && 'max-sm:left-0 max-sm:translate-x-0',
+                        // Bord gauche prioritaire : sur une période courte, une
+                        // colonne peut être des deux côtés.
+                        i < 4
+                          ? 'max-sm:left-0 max-sm:translate-x-0'
+                          : i >= moisSet.length - 4 &&
+                              'max-sm:left-auto max-sm:right-0 max-sm:translate-x-0',
                       )}
                       role="tooltip"
                     >

@@ -122,8 +122,9 @@ const EvolutionZdChart = React.forwardRef<
         <>
           {/* Téléphone : le graphique garde une largeur lisible et défile sur
               le côté ; réduit à la largeur de l'écran, ses libellés faisaient
-              4 px. */}
-          <div className="max-sm:overflow-x-auto max-sm:[scrollbar-width:none]">
+              4 px. La marge verticale (rendue par une marge négative) laisse
+              la place de l'infobulle, que le cadre défilant rognerait. */}
+          <div className="max-sm:-my-16 max-sm:overflow-x-auto max-sm:py-16 max-sm:[scrollbar-width:none]">
             <div className="relative max-sm:min-w-[35rem]">
               <svg
                 ref={entree.ref}

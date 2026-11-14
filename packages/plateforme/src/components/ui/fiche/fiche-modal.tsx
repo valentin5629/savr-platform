@@ -57,7 +57,14 @@ export function FicheModal({
         onClose={onClose}
         footer={grand ? undefined : footer}
         hideTitle
-        bodyClassName="flex min-h-0 flex-col overflow-hidden p-0"
+        bodyClassName={cn(
+          'flex min-h-0 flex-col overflow-hidden p-0',
+          // Téléphone (demande Val 2026-11-14) : l'en-tête fixe ne laissait au
+          // contenu qu'une bande de quelques lignes. Toute la fiche défile
+          // d'un bloc — en-tête compris —, seul le pied reste en vue.
+          grand &&
+            'max-sm:overflow-y-auto max-sm:[&>*]:h-auto max-sm:[&>*]:min-h-fit max-sm:[&>*]:flex-none',
+        )}
         className={
           grand
             ? // Téléphone (B4) : feuille montée du bas, angles hauts seuls.
@@ -91,7 +98,9 @@ export function FicheCorps({
     <div
       className={cn(
         'min-h-0 flex-1 overflow-y-auto',
-        grand ? 'px-5 pb-3 pt-5 sm:px-6 md:px-12' : 'px-6 py-4 md:px-8',
+        grand
+          ? 'px-5 pb-3 pt-5 max-sm:flex-none max-sm:overflow-visible sm:px-6 md:px-12'
+          : 'px-6 py-4 md:px-8',
         className,
       )}
       {...props}
@@ -112,7 +121,7 @@ export function FichePied({
       className={cn(
         'flex shrink-0 flex-wrap items-center justify-end gap-3 border-t',
         grand
-          ? 'border-savr-sable-200 px-5 py-4 sm:px-6 md:px-12'
+          ? 'border-savr-sable-200 px-5 py-4 max-sm:sticky max-sm:bottom-0 max-sm:bg-savr-white sm:px-6 md:px-12'
           : 'border-savr-neutral-200 px-6 py-4 md:px-8',
         className,
       )}

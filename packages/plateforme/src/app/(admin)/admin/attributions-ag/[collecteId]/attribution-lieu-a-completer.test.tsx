@@ -83,4 +83,25 @@ describe('Attribution AG — lieu à compléter', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  it(
+    'sous 640 px, la grille tient dans l’écran et le nom d’une carte de choix n’est plus coupé',
+    async () => {
+      installFetch({ ...ALGO_VIDE, region_inconnue: false });
+      render(<AttributionDetailPage />);
+
+      const titre = await screen.findByText(
+        'Association bénéficiaire',
+        {},
+        ATTENTE_UI,
+      );
+      // Colonne bornée : sans elle la carte de choix élargit la grille et les
+      // champs sortent de l'écran.
+      expect(titre.closest('.grid')!.className).toContain('max-sm:grid-cols-1');
+      const nom = screen.getByText('Choisir une association…');
+      expect(nom.className).toContain('max-sm:whitespace-normal');
+      expect(nom.parentElement!.className).toContain('max-sm:flex-wrap');
+    },
+    ATTENTE_CAS_MS,
+  );
 });

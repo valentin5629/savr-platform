@@ -2733,7 +2733,7 @@ export function CollecteDetailPanel({
                           role="radiogroup"
                           aria-labelledby="dispatch-transporteur-label"
                           onKeyDown={naviguerRadios}
-                          className="grid gap-2 sm:grid-cols-2"
+                          className="grid gap-2 max-sm:grid-cols-1 sm:grid-cols-2"
                         >
                           {transporteursOrdonnes.map((t, i) => {
                             const estActuel =

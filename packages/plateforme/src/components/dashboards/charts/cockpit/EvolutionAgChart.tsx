@@ -124,9 +124,12 @@ const EvolutionAgChart = React.forwardRef<
           className="py-10 text-center"
         />
       ) : (
-        // Téléphone : même défilement latéral que le graphique ZD.
-        <div className="max-sm:-my-16 max-sm:overflow-x-auto max-sm:py-16 max-sm:[scrollbar-width:none]">
-          <div className="relative max-sm:min-w-[35rem]">
+        // Téléphone : même défilement latéral que le graphique ZD. La marge
+        // du cadre recouvre l'en-tête de la carte : elle laisse passer les
+        // clics (`pointer-events-none`), sans quoi les pastilles « Repas » et
+        // « Ratio/pax » ne répondraient plus.
+        <div className="max-sm:pointer-events-none max-sm:-my-16 max-sm:overflow-x-auto max-sm:py-16 max-sm:[scrollbar-width:none]">
+          <div className="relative max-sm:pointer-events-auto max-sm:min-w-[35rem]">
             <svg
               ref={entree.ref}
               className={entree.classe}

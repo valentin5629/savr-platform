@@ -124,8 +124,8 @@ const EvolutionZdChart = React.forwardRef<
               le côté ; réduit à la largeur de l'écran, ses libellés faisaient
               4 px. La marge verticale (rendue par une marge négative) laisse
               la place de l'infobulle, que le cadre défilant rognerait. */}
-          <div className="max-sm:-my-16 max-sm:overflow-x-auto max-sm:py-16 max-sm:[scrollbar-width:none]">
-            <div className="relative max-sm:min-w-[35rem]">
+          <div className="max-sm:pointer-events-none max-sm:-my-16 max-sm:overflow-x-auto max-sm:py-16 max-sm:[scrollbar-width:none]">
+            <div className="relative max-sm:pointer-events-auto max-sm:min-w-[35rem]">
               <svg
                 ref={entree.ref}
                 className={entree.classe}

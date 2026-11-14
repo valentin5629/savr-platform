@@ -540,12 +540,14 @@ function GestionnaireCollectesContent() {
     {
       id: 'type',
       header: 'Type',
+      meta: { carteMobile: 'pastille' },
       accessorFn: (c) => c.type,
       cell: ({ row: { original: c } }) => <TypeCollecteBadge type={c.type} />,
     },
     {
       id: 'statut',
       header: 'Statut',
+      meta: { carteMobile: 'pastille' },
       accessorFn: (c) => c.statut,
       cell: ({ row: { original: c } }) => (
         <CollecteStatutBadge statut={c.statut} />

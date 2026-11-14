@@ -31,6 +31,9 @@ interface ModalProps {
 // Modal — dialogue centré (§10 §6 « Modal », radius-lg + shadow-lg). Overlay
 // navy translucide, fermeture Esc + clic overlay, focus trap léger, animation
 // « pop » (opacity + translation) sans keyframe globale (globals.css inchangé).
+// Téléphone (< 640 px, DS §8) : feuille montée du bas sur toute la largeur,
+// angles hauts seuls, croix dans une cible de 44 px, boutons du pied à largeur
+// égale. Au-delà de 640 px, rien ne change.
 // §10 ne spécifie pas la structure header/body/footer → divergence tracée.
 //
 // IMPORTANT (compat tests) : le <h2> du titre est un enfant DIRECT du panneau
@@ -131,7 +134,7 @@ const Modal = ({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center bg-[rgba(13,20,40,0.45)] p-4',
+        'fixed inset-0 z-50 flex items-center justify-center bg-[rgba(13,20,40,0.45)] p-4 max-sm:items-end max-sm:p-0 max-sm:pt-10',
         overlayClassName,
       )}
       onMouseDown={(e) => {
@@ -148,7 +151,7 @@ const Modal = ({
         className={cn(
           // Colonne flex bornée à 90vh : en-tête/pied fixes, corps défilable —
           // un contenu long (ex. modale CO₂ méthode) ne déborde plus l'écran.
-          'relative flex max-h-[90vh] w-full flex-col rounded-savr-lg bg-savr-white shadow-savr-lg outline-none',
+          'relative flex max-h-[90vh] w-full flex-col rounded-savr-lg bg-savr-white shadow-savr-lg outline-none max-sm:max-h-full max-sm:rounded-b-none',
           'transition-[opacity,transform] duration-savr-base ease-out',
           show ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0',
           wide ? 'max-w-3xl' : 'max-w-lg',
@@ -161,6 +164,9 @@ const Modal = ({
           aria-label="Fermer"
           className={cn(
             'absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-savr-md text-savr-neutral-400 transition-colors hover:bg-savr-neutral-100 hover:text-savr-neutral-700',
+            // Les grandes fiches règlent elles-mêmes leur croix.
+            !fermetureClassName &&
+              'max-sm:right-2 max-sm:top-3 max-sm:h-11 max-sm:w-11',
             fermetureClassName,
           )}
         >
@@ -180,7 +186,7 @@ const Modal = ({
           {children}
         </div>
         {footer && (
-          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-savr-neutral-100 px-6 py-4">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-savr-neutral-100 px-6 py-4 max-sm:[&>*]:flex-1">
             {footer}
           </div>
         )}

@@ -19,9 +19,11 @@ import { cn } from '@/lib/utils';
 function Picto({
   type,
   petit = false,
+  className,
 }: {
   type: CollecteType;
   petit?: boolean;
+  className?: string;
 }) {
   const Icone = type === 'anti_gaspi' ? ForkKnifeIcon : RecycleIcon;
   return (
@@ -33,6 +35,7 @@ function Picto({
           ? 'text-savr-primary-700'
           : 'text-savr-success-strong',
         'group-data-[state=on]:text-savr-white',
+        className,
       )}
     />
   );
@@ -60,6 +63,14 @@ export function ToggleTypeCollecte<V extends TypeCollecteFiltre>({
   className,
   'data-testid': testId,
 }: ToggleTypeCollecteProps<V>) {
+  // Téléphone : le segmenté prend toute la largeur, ses items se la partagent.
+  // À trois items (« Toutes » en tête), les pictos ne tiennent plus : sans
+  // cela le segmenté dépassait de l'écran et entraînait toute la page.
+  const item = cn(
+    'group gap-1.5 max-sm:min-w-0 max-sm:flex-1 max-sm:px-1.5',
+    avecTous && 'max-sm:text-xs',
+  );
+  const picto = avecTous ? 'max-sm:hidden' : undefined;
   return (
     <ToggleGroup
       type="single"
@@ -70,24 +81,24 @@ export function ToggleTypeCollecte<V extends TypeCollecteFiltre>({
         // obligatoire, on l'ignore.
         if (v) onChange(v as V);
       }}
-      className={className}
+      className={cn('max-sm:flex max-sm:w-full', className)}
       data-testid={testId}
     >
       {avecTous && (
-        <ToggleGroupItem value="tous" className="group gap-1.5">
-          <span className="inline-flex items-center gap-0.5">
+        <ToggleGroupItem value="tous" className={item}>
+          <span className="inline-flex items-center gap-0.5 max-sm:hidden">
             <Picto type="zero_dechet" petit />
             <Picto type="anti_gaspi" petit />
           </span>
           Toutes
         </ToggleGroupItem>
       )}
-      <ToggleGroupItem value="zero_dechet" className="group gap-1.5">
-        <Picto type="zero_dechet" />
+      <ToggleGroupItem value="zero_dechet" className={item}>
+        <Picto type="zero_dechet" className={picto} />
         Zéro Déchet
       </ToggleGroupItem>
-      <ToggleGroupItem value="anti_gaspi" className="group gap-1.5">
-        <Picto type="anti_gaspi" />
+      <ToggleGroupItem value="anti_gaspi" className={item}>
+        <Picto type="anti_gaspi" className={picto} />
         Anti-Gaspi
       </ToggleGroupItem>
     </ToggleGroup>

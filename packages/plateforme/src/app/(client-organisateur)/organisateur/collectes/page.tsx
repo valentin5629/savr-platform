@@ -113,13 +113,14 @@ function colonnes(type: TypeCollecteFiltre): ColumnDef<CollecteRow, unknown>[] {
     id: 'type',
     header: 'Type',
     accessorFn: (c) => c.type,
-    meta: { className: 'w-[1%] whitespace-nowrap' },
+    meta: { carteMobile: 'pastille', className: 'w-[1%] whitespace-nowrap' },
     cell: ({ row: { original: c } }) => <TypeCollecteBadge type={c.type} />,
   };
   return [
     {
       id: 'date',
       header: 'Date',
+      meta: { carteMobile: 'titre' },
       enableHiding: false,
       accessorFn: (c) => `${c.date_collecte} ${c.heure_collecte ?? ''}`,
       cell: ({ row: { original: c } }) => (
@@ -170,6 +171,7 @@ function colonnes(type: TypeCollecteFiltre): ColumnDef<CollecteRow, unknown>[] {
     {
       id: 'statut',
       header: 'Statut',
+      meta: { carteMobile: 'pastille' },
       accessorFn: (c) => c.statut,
       cell: ({ row: { original: c } }) => (
         <CollecteStatutBadge statut={c.statut} />

@@ -386,7 +386,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'statut_tms',
       header: 'TMS',
-      meta: { carteMobile: 'principal' },
+      meta: { carteMobile: 'secondaire' },
       accessorFn: (r) => r.statut_tms,
       cell: ({ row: { original: r } }) => {
         const tms = statutTmsDisplay(r.statut_tms);
@@ -400,7 +400,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'pax',
       header: 'Pax',
-      meta: { carteMobile: 'secondaire', className: 'text-right tabular-nums' },
+      meta: { carteMobile: 'principal', className: 'text-right tabular-nums' },
       cell: ({ row: { original: r } }) => r.pax ?? <CelluleVide />,
     },
     {

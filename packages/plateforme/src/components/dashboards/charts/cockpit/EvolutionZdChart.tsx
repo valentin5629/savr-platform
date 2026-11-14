@@ -120,98 +120,124 @@ const EvolutionZdChart = React.forwardRef<
         />
       ) : (
         <>
-          <div className="relative">
-            <svg
-              ref={entree.ref}
-              className={entree.classe}
-              viewBox={`0 0 ${VBW} ${VBH}`}
-              width="100%"
-              style={{ display: 'block', maxHeight: 340 }}
-              role="img"
-              aria-label="Évolution mensuelle des tonnages par flux et du taux de recyclage"
-              onMouseLeave={() => setHover(null)}
-            >
-              {/* gridlines + axe gauche kg */}
-              {gridT.map((t) => {
-                const y = BASE - t * PLOT_H;
-                return (
-                  <g key={t}>
-                    <line
-                      x1={LEFT}
-                      y1={y}
-                      x2={RIGHT}
-                      y2={y}
-                      stroke={t === 0 ? GRID_BASELINE : GRID}
-                      strokeWidth={1}
-                    />
-                    <text
-                      x={LEFT - 6}
-                      y={y + 3}
-                      textAnchor="end"
-                      className="tabular-nums"
-                      style={{ fontSize: 10, fill: TEXT_FAINT }}
-                    >
-                      {fmtInt(niceMax * t)}
-                    </text>
-                  </g>
-                );
-              })}
-              {/* axe droit % */}
-              {[
-                [0, '0'],
-                [0.5, '50'],
-                [1, '100 %'],
-              ].map(([t, lbl]) => (
-                <text
-                  key={String(t)}
-                  x={RIGHT + 6}
-                  y={BASE - (t as number) * PLOT_H + 3}
-                  className="tabular-nums"
-                  style={{ fontSize: 10, fill: ACCENT_TEXT }}
-                >
-                  {lbl}
-                </text>
-              ))}
+          {/* Téléphone : le graphique garde une largeur lisible et défile sur
+              le côté ; réduit à la largeur de l'écran, ses libellés faisaient
+              4 px. La marge verticale (rendue par une marge négative) laisse
+              la place de l'infobulle, que le cadre défilant rognerait. */}
+          <div className="max-sm:pointer-events-none max-sm:-my-16 max-sm:overflow-x-auto max-sm:py-16 max-sm:[scrollbar-width:none]">
+            <div className="relative max-sm:pointer-events-auto max-sm:min-w-[35rem]">
+              <svg
+                ref={entree.ref}
+                className={entree.classe}
+                viewBox={`0 0 ${VBW} ${VBH}`}
+                width="100%"
+                style={{ display: 'block', maxHeight: 340 }}
+                role="img"
+                aria-label="Évolution mensuelle des tonnages par flux et du taux de recyclage"
+                onMouseLeave={() => setHover(null)}
+              >
+                {/* gridlines + axe gauche kg */}
+                {gridT.map((t) => {
+                  const y = BASE - t * PLOT_H;
+                  return (
+                    <g key={t}>
+                      <line
+                        x1={LEFT}
+                        y1={y}
+                        x2={RIGHT}
+                        y2={y}
+                        stroke={t === 0 ? GRID_BASELINE : GRID}
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={LEFT - 6}
+                        y={y + 3}
+                        textAnchor="end"
+                        className="tabular-nums"
+                        style={{ fontSize: 10, fill: TEXT_FAINT }}
+                      >
+                        {fmtInt(niceMax * t)}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* axe droit % */}
+                {[
+                  [0, '0'],
+                  [0.5, '50'],
+                  [1, '100 %'],
+                ].map(([t, lbl]) => (
+                  <text
+                    key={String(t)}
+                    x={RIGHT + 6}
+                    y={BASE - (t as number) * PLOT_H + 3}
+                    className="tabular-nums"
+                    style={{ fontSize: 10, fill: ACCENT_TEXT }}
+                  >
+                    {lbl}
+                  </text>
+                ))}
 
-              {/* Plus de surbrillance pleine colonne : seul le SEGMENT survolé
+                {/* Plus de surbrillance pleine colonne : seul le SEGMENT survolé
                   est mis en avant (retour Val R24b). */}
 
-              {/* barres empilées */}
-              {series.map((p, i) => {
-                const x = cx(i) - barW / 2;
-                const visible = STACK.filter((f) => !hidden.has(f.code));
-                let yCursor = BASE;
-                return (
-                  <g
-                    key={p.periode}
-                    data-entree="monte"
-                    style={delaiEntree(i, series.length)}
-                  >
-                    {visible.map((f, vi) => {
-                      const val =
-                        Number(p[f.code as keyof FluxSeriePoint]) || 0;
-                      if (val <= 0) return null;
-                      const h = (val / niceMax) * PLOT_H;
-                      const segTop = yCursor - h;
-                      const segBottom = yCursor;
-                      yCursor = segTop;
-                      const isTop = vi === visible.length - 1;
-                      const isHovered = hover?.i === i && hover.code === f.code;
-                      // Un survol actif estompe les AUTRES segments : seule la
-                      // catégorie pointée reste pleine + cerclée de gris (retour Val).
-                      const dim = hover != null && !isHovered;
-                      const onEnter = () =>
-                        setHover({
-                          i,
-                          code: f.code,
-                          midY: (segTop + segBottom) / 2,
-                        });
-                      if (isTop) {
-                        const r = Math.min(3, barW / 2);
+                {/* barres empilées */}
+                {series.map((p, i) => {
+                  const x = cx(i) - barW / 2;
+                  const visible = STACK.filter((f) => !hidden.has(f.code));
+                  let yCursor = BASE;
+                  return (
+                    <g
+                      key={p.periode}
+                      data-entree="monte"
+                      style={delaiEntree(i, series.length)}
+                    >
+                      {visible.map((f, vi) => {
+                        const val =
+                          Number(p[f.code as keyof FluxSeriePoint]) || 0;
+                        if (val <= 0) return null;
+                        const h = (val / niceMax) * PLOT_H;
+                        const segTop = yCursor - h;
+                        const segBottom = yCursor;
+                        yCursor = segTop;
+                        const isTop = vi === visible.length - 1;
+                        const isHovered =
+                          hover?.i === i && hover.code === f.code;
+                        // Un survol actif estompe les AUTRES segments : seule la
+                        // catégorie pointée reste pleine + cerclée de gris (retour Val).
+                        const dim = hover != null && !isHovered;
+                        const onEnter = () =>
+                          setHover({
+                            i,
+                            code: f.code,
+                            midY: (segTop + segBottom) / 2,
+                          });
+                        if (isTop) {
+                          const r = Math.min(3, barW / 2);
+                          return (
+                            <path
+                              key={f.code}
+                              d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
+                              fill={f.color}
+                              fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
+                              stroke={isHovered ? SEGMENT_HOVER : WHITE}
+                              strokeWidth={isHovered ? 1.5 : 0.75}
+                              style={{
+                                cursor: 'pointer',
+                                transition:
+                                  'fill-opacity var(--transition-duration-savr-fast)',
+                              }}
+                              onMouseEnter={onEnter}
+                            />
+                          );
+                        }
                         return (
-                          <path
+                          <rect
                             key={f.code}
-                            d={`M${x},${segTop + r} Q${x},${segTop} ${x + r},${segTop} H${x + barW - r} Q${x + barW},${segTop} ${x + barW},${segTop + r} V${segBottom} H${x} Z`}
+                            x={x}
+                            y={segTop}
+                            width={barW}
+                            height={h}
                             fill={f.color}
                             fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
                             stroke={isHovered ? SEGMENT_HOVER : WHITE}
@@ -224,119 +250,138 @@ const EvolutionZdChart = React.forwardRef<
                             onMouseEnter={onEnter}
                           />
                         );
-                      }
+                      })}
+                    </g>
+                  );
+                })}
+
+                {/* courbe taux de recyclage (fine) — masquable via la légende */}
+                {ratePts.length > 0 && !hidden.has(TAUX) && (
+                  <g data-entree="balaye" data-serie="taux">
+                    <path
+                      d={courbeLissee(ratePts)}
+                      fill="none"
+                      stroke={TAUX_RECYCLAGE_COLOR}
+                      strokeWidth={1}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ pointerEvents: 'none' }}
+                    />
+                    {ratePts.map((pt, k) => {
+                      const isLast = k === ratePts.length - 1;
+                      const isHovered =
+                        hover?.code === TAUX && hover.i === pt.i;
                       return (
-                        <rect
-                          key={f.code}
-                          x={x}
-                          y={segTop}
-                          width={barW}
-                          height={h}
-                          fill={f.color}
-                          fillOpacity={isHovered ? 1 : dim ? 0.45 : 0.75}
-                          stroke={isHovered ? SEGMENT_HOVER : WHITE}
-                          strokeWidth={isHovered ? 1.5 : 0.75}
-                          style={{
-                            cursor: 'pointer',
-                            transition:
-                              'fill-opacity var(--transition-duration-savr-fast)',
-                          }}
-                          onMouseEnter={onEnter}
+                        <circle
+                          key={pt.i}
+                          cx={pt.x}
+                          cy={pt.y}
+                          r={isHovered ? 2.25 : isLast ? 1.75 : 1.25}
+                          fill={
+                            isHovered || isLast ? TAUX_RECYCLAGE_COLOR : WHITE
+                          }
+                          stroke={
+                            isHovered || isLast ? WHITE : TAUX_RECYCLAGE_COLOR
+                          }
+                          strokeWidth={0.75}
+                          style={{ pointerEvents: 'none' }}
                         />
                       );
                     })}
-                  </g>
-                );
-              })}
-
-              {/* courbe taux de recyclage (fine) — masquable via la légende */}
-              {ratePts.length > 0 && !hidden.has(TAUX) && (
-                <g data-entree="balaye" data-serie="taux">
-                  <path
-                    d={courbeLissee(ratePts)}
-                    fill="none"
-                    stroke={TAUX_RECYCLAGE_COLOR}
-                    strokeWidth={1}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                  {ratePts.map((pt, k) => {
-                    const isLast = k === ratePts.length - 1;
-                    const isHovered = hover?.code === TAUX && hover.i === pt.i;
-                    return (
+                    {/* Cibles de survol de la courbe taux (invisibles, larges). */}
+                    {ratePts.map((pt) => (
                       <circle
-                        key={pt.i}
+                        key={`th-${pt.i}`}
                         cx={pt.x}
                         cy={pt.y}
-                        r={isHovered ? 2.25 : isLast ? 1.75 : 1.25}
-                        fill={
-                          isHovered || isLast ? TAUX_RECYCLAGE_COLOR : WHITE
+                        r={9}
+                        fill="transparent"
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={() =>
+                          setHover({ i: pt.i, code: TAUX, midY: pt.y })
                         }
-                        stroke={
-                          isHovered || isLast ? WHITE : TAUX_RECYCLAGE_COLOR
-                        }
-                        strokeWidth={0.75}
-                        style={{ pointerEvents: 'none' }}
                       />
-                    );
-                  })}
-                  {/* Cibles de survol de la courbe taux (invisibles, larges). */}
-                  {ratePts.map((pt) => (
-                    <circle
-                      key={`th-${pt.i}`}
-                      cx={pt.x}
-                      cy={pt.y}
-                      r={9}
-                      fill="transparent"
-                      style={{ cursor: 'pointer' }}
-                      onMouseEnter={() =>
-                        setHover({ i: pt.i, code: TAUX, midY: pt.y })
-                      }
-                    />
-                  ))}
-                </g>
-              )}
+                    ))}
+                  </g>
+                )}
 
-              {/* étiquettes X */}
-              {series.map((p, i) => (
-                <text
-                  key={p.periode}
-                  x={cx(i)}
-                  y={208}
-                  textAnchor="middle"
-                  style={{ fontSize: 10, fill: TEXT_MUTED, fontWeight: 600 }}
-                >
-                  {formatPeriode(p.periode, granularite)}
-                </text>
-              ))}
-            </svg>
+                {/* étiquettes X */}
+                {series.map((p, i) => (
+                  <text
+                    key={p.periode}
+                    x={cx(i)}
+                    y={208}
+                    textAnchor="middle"
+                    style={{ fontSize: 10, fill: TEXT_MUTED, fontWeight: 600 }}
+                  >
+                    {formatPeriode(p.periode, granularite)}
+                  </text>
+                ))}
+              </svg>
 
-            {/* Tooltip au survol d'UN FLUX (segment de couleur) : ce flux seul +
+              {/* Tooltip au survol d'UN FLUX (segment de couleur) : ce flux seul +
                 taux du mois en contexte (retour Val — grain flux, pas la barre). */}
-            {hover != null &&
-              (() => {
-                const p = series[hover.i]!;
-                // Ancrage LATÉRAL : le tooltip se place à droite (barres de
-                // gauche) ou à gauche (barres de droite) de la colonne, à la
-                // hauteur du segment survolé — jamais au-dessus du graphe, il
-                // ne masque plus les autres valeurs (retour Val R24b).
-                const barCenterPct = (cx(hover.i) / VBW) * 100;
-                const toRight = barCenterPct < 62;
-                const anchorLeft = toRight
-                  ? ((cx(hover.i) + barW / 2 + 10) / VBW) * 100
-                  : ((cx(hover.i) - barW / 2 - 10) / VBW) * 100;
-                const anchorTop = Math.min(
-                  84,
-                  Math.max(12, (hover.midY / VBH) * 100),
-                );
-                const anchorStyle: React.CSSProperties = {
-                  left: `${anchorLeft}%`,
-                  top: `${anchorTop}%`,
-                  transform: `${toRight ? 'translateX(0)' : 'translateX(-100%)'} translateY(-50%)`,
-                };
-                // Survol de la courbe taux de recyclage.
-                if (hover.code === TAUX) {
+              {hover != null &&
+                (() => {
+                  const p = series[hover.i]!;
+                  // Ancrage LATÉRAL : le tooltip se place à droite (barres de
+                  // gauche) ou à gauche (barres de droite) de la colonne, à la
+                  // hauteur du segment survolé — jamais au-dessus du graphe, il
+                  // ne masque plus les autres valeurs (retour Val R24b).
+                  const barCenterPct = (cx(hover.i) / VBW) * 100;
+                  const toRight = barCenterPct < 62;
+                  const anchorLeft = toRight
+                    ? ((cx(hover.i) + barW / 2 + 10) / VBW) * 100
+                    : ((cx(hover.i) - barW / 2 - 10) / VBW) * 100;
+                  const anchorTop = Math.min(
+                    84,
+                    Math.max(12, (hover.midY / VBH) * 100),
+                  );
+                  const anchorStyle: React.CSSProperties = {
+                    left: `${anchorLeft}%`,
+                    top: `${anchorTop}%`,
+                    transform: `${toRight ? 'translateX(0)' : 'translateX(-100%)'} translateY(-50%)`,
+                  };
+                  // Survol de la courbe taux de recyclage.
+                  if (hover.code === TAUX) {
+                    return (
+                      <ChartTooltip style={anchorStyle}>
+                        <Text
+                          as="div"
+                          variant="hint"
+                          className="mb-1 font-semibold"
+                        >
+                          {formatPeriode(p.periode, granularite)}
+                        </Text>
+                        <div className="flex items-center justify-between gap-5 text-sm">
+                          <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
+                            <span
+                              style={{
+                                width: 14,
+                                height: 3,
+                                borderRadius: 2,
+                                background: TAUX_RECYCLAGE_COLOR,
+                              }}
+                            />
+                            Taux de recyclage
+                          </span>
+                          <span
+                            className="font-extrabold tabular-nums"
+                            style={{ color: ACCENT_TEXT }}
+                          >
+                            {p.taux_recyclage != null
+                              ? fmtPct(p.taux_recyclage, 1)
+                              : '—'}
+                          </span>
+                        </div>
+                      </ChartTooltip>
+                    );
+                  }
+                  const f = FLUX_ZD.find((x) => x.code === hover.code);
+                  if (!f) return null;
+                  const total = Number(p.tonnage_total) || 0;
+                  const val = Number(p[f.code as keyof FluxSeriePoint]) || 0;
+                  const pct = total > 0 ? (val / total) * 100 : 0;
                   return (
                     <ChartTooltip style={anchorStyle}>
                       <Text
@@ -350,79 +395,42 @@ const EvolutionZdChart = React.forwardRef<
                         <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
                           <span
                             style={{
-                              width: 14,
-                              height: 3,
+                              width: 9,
+                              height: 9,
                               borderRadius: 2,
-                              background: TAUX_RECYCLAGE_COLOR,
+                              background: f.color,
                             }}
                           />
-                          Taux de recyclage
+                          {f.label}
                         </span>
-                        <span
-                          className="font-extrabold tabular-nums"
-                          style={{ color: ACCENT_TEXT }}
-                        >
-                          {p.taux_recyclage != null
-                            ? fmtPct(p.taux_recyclage, 1)
-                            : '—'}
+                        <span className="font-extrabold tabular-nums text-savr-neutral-900">
+                          {fmtKg(val)}
                         </span>
                       </div>
+                      <Text
+                        as="div"
+                        variant="hint"
+                        className="mt-0.5 text-right tabular-nums"
+                      >
+                        {fmtDec(pct, 0)} % du mois
+                      </Text>
+                      {p.taux_recyclage != null && (
+                        <div className="mt-1 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-xs">
+                          <span className="text-savr-neutral-600">
+                            Taux de recyclage
+                          </span>
+                          <span
+                            className="font-bold tabular-nums"
+                            style={{ color: ACCENT_TEXT }}
+                          >
+                            {fmtPct(p.taux_recyclage, 1)}
+                          </span>
+                        </div>
+                      )}
                     </ChartTooltip>
                   );
-                }
-                const f = FLUX_ZD.find((x) => x.code === hover.code);
-                if (!f) return null;
-                const total = Number(p.tonnage_total) || 0;
-                const val = Number(p[f.code as keyof FluxSeriePoint]) || 0;
-                const pct = total > 0 ? (val / total) * 100 : 0;
-                return (
-                  <ChartTooltip style={anchorStyle}>
-                    <Text
-                      as="div"
-                      variant="hint"
-                      className="mb-1 font-semibold"
-                    >
-                      {formatPeriode(p.periode, granularite)}
-                    </Text>
-                    <div className="flex items-center justify-between gap-5 text-sm">
-                      <span className="flex items-center gap-1.5 font-bold text-savr-neutral-900">
-                        <span
-                          style={{
-                            width: 9,
-                            height: 9,
-                            borderRadius: 2,
-                            background: f.color,
-                          }}
-                        />
-                        {f.label}
-                      </span>
-                      <span className="font-extrabold tabular-nums text-savr-neutral-900">
-                        {fmtKg(val)}
-                      </span>
-                    </div>
-                    <Text
-                      as="div"
-                      variant="hint"
-                      className="mt-0.5 text-right tabular-nums"
-                    >
-                      {fmtDec(pct, 0)} % du mois
-                    </Text>
-                    {p.taux_recyclage != null && (
-                      <div className="mt-1 flex items-center justify-between gap-5 border-t border-savr-neutral-100 pt-1 text-xs">
-                        <span className="text-savr-neutral-600">
-                          Taux de recyclage
-                        </span>
-                        <span
-                          className="font-bold tabular-nums"
-                          style={{ color: ACCENT_TEXT }}
-                        >
-                          {fmtPct(p.taux_recyclage, 1)}
-                        </span>
-                      </div>
-                    )}
-                  </ChartTooltip>
-                );
-              })()}
+                })()}
+            </div>
           </div>
 
           {/* légende cliquable */}

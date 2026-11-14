@@ -353,7 +353,16 @@ h3 {
    l'emporter sur l'utilitaire `text-sm` des champs. Au-delà de 640 px, rien ne
    change. */
 @media (width < 40rem) {
-  input:not([type='checkbox'], [type='radio'], [type='range']),
+  input:not(
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='file'],
+    [type='hidden']
+  ),
   textarea,
   select {
     font-size: 1rem;

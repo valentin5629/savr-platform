@@ -227,6 +227,16 @@ const BILAN: BilanPassage = {
   rejets: { 'collecte — date de collecte illisible': 1 },
   listings: { 'lieux-a-completer': 2 },
   co2: { antiGaspi: 3, zeroDechet: 1 },
+  auteurs: {
+    evenements: 5,
+    avecEmailCommercial: 3,
+    avecEmailContactSeul: 1,
+    sansEmail: 1,
+    emailsDistincts: 2,
+    emailsSurDomainePublic: 1,
+    emailsHorsDomaineOrganisation: 1,
+    evenementsHorsDomaineOrganisation: 2,
+  },
   comptes: {
     'plateforme.collectes': { avant: 0, apres: 5 },
     'plateforme.outbox_events': { avant: 0, apres: 0 },
@@ -297,6 +307,8 @@ describe('M5.3 / rapport de répétition', () => {
       '| D1 | Transporteur à compléter | gate_go_live | 4 | à compléter avant le go-live |',
     );
     expect(rapport).toContain('| écriture | 120 | 120 |');
+    expect(rapport).toContain('| 1 | 5 | 3 | 1 | 1 | 2 | 1 | 1 | 2 |');
+    expect(rapport).toContain('`provenance` (`commercial`');
     expect(rapport).toContain('| collectes | trg_pack_debit_programmation |');
     expect(rapport).toContain(
       'export_All-Agences_2026-06-07_18-00-00.csv (complet mais plus ancien)',
@@ -716,14 +728,36 @@ describe.skipIf(!ADRESSE_TEST)(
           rouges(`UPDATE plateforme.packs_antgaspi SET statut = 'actif'`),
         ).rejects.toThrow(/uniq_pack_actif_par_org/);
 
-        // Emails gardés à part pour la réattribution au commercial : un par événement récent, aucun pour la collecte de 2020.
-        expect(await compter(client, 'migration.auteurs_evenements')).toBe(8);
+        expect(
+          await rouges(
+            `UPDATE plateforme.collectes SET origine = 'plateforme' WHERE statut = 'annulee'`,
+          ),
+        ).toEqual(['E10']);
+
+        // Emails gardés à part pour la réattribution : un par événement, ici celui de contact du traiteur.
+        expect(await compter(client, 'migration.auteurs_evenements')).toBe(9);
         expect(
           await compter(
             client,
-            `migration.auteurs_evenements WHERE email_createur = 'camille@traiteur-alpha.example'`,
+            `migration.auteurs_evenements WHERE provenance = 'contact_traiteur'`,
           ),
-        ).toBe(8);
+        ).toBe(9);
+        expect(premier.auteurs).toEqual({
+          evenements: 9,
+          avecEmailCommercial: 0,
+          avecEmailContactSeul: 9,
+          sansEmail: 0,
+          emailsDistincts: 2,
+          emailsSurDomainePublic: 0,
+          emailsHorsDomaineOrganisation: 0,
+          evenementsHorsDomaineOrganisation: 0,
+        });
+        expect(
+          await compter(
+            client,
+            `plateforme.collectes WHERE origine = 'migration_bubble'`,
+          ),
+        ).toBe(9);
 
         // 6. Remise à zéro : plus aucune ligne importée, référentiels intacts.
         const retirees = await remettreAZero(client);

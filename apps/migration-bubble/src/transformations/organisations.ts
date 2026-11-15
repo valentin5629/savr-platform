@@ -48,6 +48,8 @@ export interface Clients {
   organisationParAgence: (bubbleId: string) => string | null;
   /** Entité de facturation par défaut d'une organisation, si elle en a une. */
   entiteParOrganisation: Map<string, string>;
+  /** Email de contact d'une organisation importée (celui de l'entreprise Bubble), s'il existe. */
+  emailContactParOrganisation: Map<string, string>;
   /** Nom d'une organisation importée, par identifiant cible. */
   nomParOrganisation: Map<string, string>;
   /** À appeler quand une collecte n'a pas de client résolu : crée l'organisation d'accueil. */
@@ -193,6 +195,7 @@ export function transformerOrganisations(
   const organisationParAgence = new Map<string, string>();
   const entiteParOrganisation = new Map<string, string>();
   const nomParOrganisation = new Map<string, string>();
+  const emailContactParOrganisation = new Map<string, string>();
   const siretsPris = new Set<string>();
   const organisationsAgences = new Set<string>();
   const nomsAmbigus = new Set<string>();
@@ -268,6 +271,7 @@ export function transformerOrganisations(
       updated_at: modification ? horodatageParis(modification) : created_at,
     });
     nomParOrganisation.set(id, tete.nom);
+    if (emailPrincipal) emailContactParOrganisation.set(id, emailPrincipal);
     if (tete.source === 'agence') organisationsAgences.add(id);
     if (premier('logo'))
       ajouterAuListing(plan, 'logos-non-repris', {
@@ -537,6 +541,7 @@ export function transformerOrganisations(
       organisationParAgence.get(bubbleId.trim()) ?? null,
     entiteParOrganisation,
     nomParOrganisation,
+    emailContactParOrganisation,
     organisationSansClient,
     organisationSavrId,
     compteSystemeId,

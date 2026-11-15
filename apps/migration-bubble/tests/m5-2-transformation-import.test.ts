@@ -468,38 +468,54 @@ describe('M5.2 / collectes — données personnelles', () => {
     expect(seule(plan.tables.lieux).acces_details).toBe('Entrée par la cour');
   });
 
-  it('email du commercial et du compte créateur gardés à part, par événement, pour lui rendre son historique à son inscription ; jamais au-delà de 5 ans', () => {
-    const recente = collecte({
-      'mail du commercial': 'Vente@Traiteur-Alpha.example',
+  it('email gardé à part, par événement, pour rendre son historique au commercial : le sien, sinon le contact du traiteur, avec sa provenance', () => {
+    const avecCommercial = collecte({
+      'mail du commercial': ' Vente@Traiteur-Alpha.example ',
     });
     const sansCommercial = collecte({ 'mail du commercial': '' });
-    const ancienne = collecte({
-      'mail du commercial': 'vente@traiteur-alpha.example',
-      'Heure du pickup': 'Nov 14, 2021 6:00 pm',
+    const illisible = collecte({ 'mail du commercial': 'pas un email' });
+    const sansClient = collecte({
+      'User entreprise': 'Inconnu',
+      User: 'personne@ailleurs.example',
     });
-    const anonyme = collecte({ 'mail du commercial': 'illisible', User: '' });
     const plan = monde({
-      collectes_ag: [recente, sansCommercial, ancienne, anonyme],
+      collectes_ag: [avecCommercial, sansCommercial, illisible, sansClient],
     });
+    const id = (c: Record<string, string>) =>
+      identifiantCible('evenement', c['unique id']!);
     expect(plan.auteursEvenements).toEqual([
       {
-        evenement_id: identifiantCible('evenement', recente['unique id']!),
-        email_commercial: 'vente@traiteur-alpha.example',
-        email_createur: 'camille@traiteur-alpha.example',
+        evenement_id: id(avecCommercial),
+        email: 'vente@traiteur-alpha.example',
+        provenance: 'commercial',
       },
       {
-        evenement_id: identifiantCible(
-          'evenement',
-          sansCommercial['unique id']!,
-        ),
-        email_commercial: null,
-        email_createur: 'camille@traiteur-alpha.example',
+        evenement_id: id(sansCommercial),
+        email: 'contact@traiteur-alpha.example',
+        provenance: 'contact_traiteur',
+      },
+      {
+        evenement_id: id(illisible),
+        email: 'contact@traiteur-alpha.example',
+        provenance: 'contact_traiteur',
       },
     ]);
     // L'auteur en base reste le compte système : la réattribution est un lot du produit.
     expect(new Set(plan.tables.evenements.map((e) => e.created_by))).toEqual(
       new Set([seule(plan.tables.users).id]),
     );
+  });
+
+  it('toute collecte importée porte la marque « migration_bubble »', () => {
+    const plan = monde({
+      collectes_ag: [collecte(), collecte({ Statut: 'Annulée' })],
+      collectes_zd: [collecte({ Type: 'DECHET' })],
+    });
+    expect(plan.tables.collectes.map((c) => c.origine)).toEqual([
+      'migration_bubble',
+      'migration_bubble',
+      'migration_bubble',
+    ]);
   });
 
   it('collecte « sans excédent » qui porte pourtant un poids : poids non repris, listé', () => {

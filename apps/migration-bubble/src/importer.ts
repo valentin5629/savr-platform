@@ -81,6 +81,7 @@ export interface BilanPassage {
   rejets: Record<string, number>;
   listings: Record<string, number>;
   co2: { antiGaspi: number; zeroDechet: number };
+  auteurs: MesuresAuteurs;
   comptes: Record<string, { avant: number; apres: number }>;
   dureesMs: Record<string, number>;
 }
@@ -186,6 +187,49 @@ async function lireContexte(
     poidsParRepasKg: (poids?.kg as number | undefined) ?? 0.45,
     organisationSavrId: (savr[0]?.id as string | undefined) ?? null,
   };
+}
+
+/** Comptes sur les emails gardés pour rendre son historique au commercial — jamais les emails eux-mêmes. */
+export interface MesuresAuteurs {
+  evenements: number;
+  avecEmailCommercial: number;
+  avecEmailContactSeul: number;
+  sansEmail: number;
+  emailsDistincts: number;
+  emailsSurDomainePublic: number;
+  /** Emails dont le domaine n'est celui d'aucune organisation de l'événement (porteuse ou traiteur). */
+  emailsHorsDomaineOrganisation: number;
+  evenementsHorsDomaineOrganisation: number;
+}
+
+export async function mesurerAuteurs(
+  client: Requeteur,
+): Promise<MesuresAuteurs> {
+  const { rows } = await client.query(
+    `WITH evenements AS (
+       SELECT e.id, e.organisation_id, e.traiteur_operationnel_organisation_id
+         FROM plateforme.evenements e
+        WHERE EXISTS (SELECT 1 FROM migration.id_map m
+                       WHERE m.target_table = 'evenements' AND m.target_id = e.id)
+     ), gardes AS (
+       SELECT a.email, a.provenance, split_part(a.email, '@', 2) AS domaine,
+              EXISTS (SELECT 1 FROM plateforme.organisations_domaines_email d
+                       WHERE d.organisation_id IN (e.organisation_id, e.traiteur_operationnel_organisation_id)
+                         AND d.domaine = split_part(a.email, '@', 2)) AS domaine_connu
+         FROM migration.auteurs_evenements a
+         JOIN evenements e ON e.id = a.evenement_id
+     )
+     SELECT (SELECT count(*) FROM evenements)::int AS "evenements",
+            count(*) FILTER (WHERE provenance = 'commercial')::int AS "avecEmailCommercial",
+            count(*) FILTER (WHERE provenance = 'contact_traiteur')::int AS "avecEmailContactSeul",
+            ((SELECT count(*) FROM evenements) - count(*))::int AS "sansEmail",
+            count(DISTINCT email)::int AS "emailsDistincts",
+            count(DISTINCT email) FILTER (WHERE domaine IN (SELECT domaine FROM plateforme.domaines_email_publics))::int AS "emailsSurDomainePublic",
+            count(DISTINCT email) FILTER (WHERE NOT domaine_connu)::int AS "emailsHorsDomaineOrganisation",
+            count(*) FILTER (WHERE NOT domaine_connu)::int AS "evenementsHorsDomaineOrganisation"
+       FROM gardes`,
+  );
+  return rows[0] as unknown as MesuresAuteurs;
 }
 
 /** Arrête l'import, avant toute écriture en base, tant qu'un point reste à trancher par Val. */
@@ -405,6 +449,7 @@ export async function importer(options: OptionsImport): Promise<BilanPassage> {
         Object.entries(plan.listings).map(([nom, l]) => [nom, l.length]),
       ),
       co2: ecrit.co2,
+      auteurs: await mesurerAuteurs(client),
       comptes: Object.fromEntries(
         tablesComptees.map((t) => [t, { avant: avant[t]!, apres: apres[t]! }]),
       ),

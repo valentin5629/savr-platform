@@ -281,18 +281,17 @@ export function transformerCollectes(
           .join(' ');
     const client = texteOuNull(l['Nom du client']);
 
-    // Emails gardés à part pour rendre son historique au commercial (jamais au-delà de 5 ans).
-    const emailCommercial = c.ancienne
-      ? null
-      : (lireEmails(l['mail du commercial'])[0] ?? null);
-    const emailCreateur = c.ancienne
-      ? null
-      : (lireEmails(l['User'])[0] ?? null);
-    if (emailCommercial || emailCreateur)
+    // Email à qui rendre l'événement à son inscription : le commercial qui a programmé
+    // la collecte dans Bubble, sinon le contact du traiteur. L'auteur importé reste le
+    // compte système ; la réattribution est un lot du produit.
+    const emailCommercial = lireEmails(l['mail du commercial'])[0] ?? null;
+    const emailContact =
+      deps.clients.emailContactParOrganisation.get(c.traiteurId) ?? null;
+    if (emailCommercial || emailContact)
       plan.auteursEvenements.push({
         evenement_id: evenementId,
-        email_commercial: emailCommercial,
-        email_createur: emailCreateur,
+        email: emailCommercial ?? emailContact,
+        provenance: emailCommercial ? 'commercial' : 'contact_traiteur',
       });
 
     plan.tables.evenements.push({
@@ -368,6 +367,8 @@ export function transformerCollectes(
       statut: c.statut,
       // Jamais transmise par la nouvelle plateforme : rien à synchroniser avec un prestataire.
       statut_tms: 'non_envoye',
+      // Marque de l'import : ce qui permettra d'écarter l'historique des traitements de documents.
+      origine: BRANCHE_MIGRATION,
       date_collecte: c.date.jour,
       heure_collecte: c.date.heure,
       controle_acces_requis:

@@ -134,7 +134,13 @@ export function exigerHorsDepot(dossier: string, racineDepot: string): void {
 
 // ── Schéma technique ─────────────────────────────────────────────────────────
 
-/** Créé par le script dans la base jetable seulement : aucun fichier dans supabase/migrations/. */
+/**
+ * Posé par le script dans la base jetable seulement : aucun fichier dans
+ * supabase/migrations/. Deux choses : le schéma technique « migration », et la
+ * colonne de marquage des collectes importées (décision Val 2026-11-15). En
+ * prod, cette colonne viendra d'une migration du dépôt (lot produit à part) ;
+ * le « IF NOT EXISTS » rendra alors cette ligne sans effet.
+ */
 const SCHEMA_TECHNIQUE = `
 CREATE SCHEMA IF NOT EXISTS migration;
 REVOKE ALL ON SCHEMA migration FROM PUBLIC;
@@ -158,11 +164,17 @@ CREATE TABLE IF NOT EXISTS migration.rejets (
   motif       text NOT NULL,
   PRIMARY KEY (source_type, bubble_id)
 );
+-- Email à qui rendre l'événement à son inscription (décision Val 2026-11-15) :
+-- celui du commercial Bubble, sinon l'email de contact du traiteur. Toujours en
+-- minuscules, sans espace. Une ligne par événement importé qui a un email.
 CREATE TABLE IF NOT EXISTS migration.auteurs_evenements (
-  evenement_id     uuid PRIMARY KEY,
-  email_commercial text,
-  email_createur   text
+  evenement_id uuid PRIMARY KEY,
+  email        text NOT NULL CHECK (email = lower(btrim(email))),
+  provenance   text NOT NULL CHECK (provenance IN ('commercial', 'contact_traiteur'))
 );
+ALTER TABLE plateforme.collectes
+  ADD COLUMN IF NOT EXISTS origine text NOT NULL DEFAULT 'plateforme'
+  CHECK (origine IN ('plateforme', 'migration_bubble'));
 ALTER TABLE migration.auteurs_evenements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.sources_brutes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.id_map ENABLE ROW LEVEL SECURITY;

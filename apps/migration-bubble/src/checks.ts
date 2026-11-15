@@ -337,6 +337,16 @@ export const CHECKS: Check[] = [
               OR c.dirty_tms OR (c.statut = 'programmee' AND c.tms_reference IS NOT NULL)`,
   },
   {
+    code: 'E10',
+    libelle:
+      'Marquage : toute collecte importée porte l’origine « migration_bubble », et aucune autre collecte ne la porte',
+    nature: 'bloquant',
+    sql: `SELECT c.id FROM plateforme.collectes c
+           WHERE (c.origine = 'migration_bubble') IS DISTINCT FROM
+                 EXISTS (SELECT 1 FROM migration.id_map m
+                          WHERE m.target_table = 'collectes' AND m.target_id = c.id)`,
+  },
+  {
     code: 'D1',
     libelle: 'Transporteur actif avec SIREN, email ou téléphone à compléter',
     nature: 'gate_go_live',

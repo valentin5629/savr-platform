@@ -54,6 +54,14 @@
       "libelle": "statut_tms = non_envoye, aucun prestataire, pas de référence d'ancien logiciel sur une collecte à venir"
     },
     {
+      "id": "M5.2-collectes-marquees",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — données personnelles › toute collecte importée porte la marque « migration_bubble »",
+      "statut": "implemented",
+      "libelle": "Toute collecte importée porte l'origine « migration_bubble » (décision Val 2026-11-15) ; la colonne est posée par le script dans la base jetable, la migration du dépôt est un lot produit à part"
+    },
+    {
       "id": "M5.2-rejets-traces",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:54",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
@@ -105,9 +113,9 @@
       "id": "M5.2-emails-des-commerciaux-gardes-a-part",
       "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
-      "test": "M5.2 / collectes — données personnelles › email du commercial et du compte créateur gardés à part, par événement",
+      "test": "M5.2 / collectes — données personnelles › email gardé à part, par événement, pour rendre son historique au commercial",
       "statut": "implemented",
-      "libelle": "Email Bubble du commercial et du compte créateur gardé par événement dans le schéma technique, pour lui rendre son historique à son inscription (décision Val 2026-11-15) ; l'auteur importé reste le compte système"
+      "libelle": "Email gardé par événement dans le schéma technique (celui du commercial Bubble, sinon le contact du traiteur, avec sa provenance), pour lui rendre son historique à son inscription (décision Val 2026-11-15) ; l'auteur importé reste le compte système"
     },
     {
       "id": "M5.2-bornes-de-la-base",

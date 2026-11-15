@@ -277,7 +277,7 @@ Scénario : fichiers_cross_org_photo_denied ← BLOQUANT go-live
   Alors la ligne n'est pas retournée (f_fichier_visible = false)
 
 Scénario : fichiers_own_bordereau_ok ← BLOQUANT go-live
-  Étant donné un bordereau PDF (entity_type='plateforme.bordereaux_savr') d'une collecte Kaspia
+  Étant donné un bordereau PDF (entity_type='plateforme.bordereaux_savr') d'une collecte Kaspia, fabriqué avant le 2026-11-13 (depuis, le bordereau n'a plus de PDF, décision Val 2026-11-13 ; le scénario reste vrai pour ces fichiers déjà produits)
   Quand `manager_kaspia` exécute SELECT sur `shared.fichiers`
   Alors la ligne est retournée
 

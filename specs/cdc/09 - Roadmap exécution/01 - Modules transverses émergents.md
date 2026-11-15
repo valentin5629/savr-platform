@@ -46,12 +46,12 @@ Règle de design : API générique dans `packages/shared` au 1er usage, pas d'an
 
 ### A — Moteur PDF
 - **Pose** : V1 module 1.6.
-- **API shared/Railway** : Puppeteer headless sur Railway, templates HTML→PDF, stockage R2 via E. Templates V1 : bordereau pesée ZD, rapport recyclage ZD (embargo H+24).
+- **API shared/Railway** : Puppeteer headless sur Railway, templates HTML→PDF, stockage R2 via E. Templates V1 : rapport recyclage ZD (le bordereau de pesée ZD n'est plus rendu en PDF, décision Val 2026-11-13).
 - **Réutilisé par** : attestation don AG 2041-GE (V2).
 
 ### D — Exports CSV / Excel
 - **Pose** : V4 module 4.1 (1er usage réel ; les exports espace traiteur V3 peuvent réutiliser).
-- **API shared** : génération CSV (collectes/événements/pesées/factures), streaming pour gros volumes, registre ZIP (bordereaux). Excel non requis V1 (CSV suffit).
+- **API shared** : génération CSV (collectes/événements/pesées/factures), streaming pour gros volumes, (registre ZIP des bordereaux retiré, décision Val 2026-11-13). Excel non requis V1 (CSV suffit).
 - **Note** : si V3 (espace traiteur) a besoin d'exports CSV avant V4, poser D à ce moment-là — c'est le 1er usage qui déclenche, ajuster.
 
 ### F — Recherche full-text Postgres

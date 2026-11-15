@@ -137,7 +137,7 @@ Supabase est le cœur de l'architecture : base de données, authentification, st
 
 | Dossier (dans le bucket de l'environnement) | Contenu | Pattern d'accès |
 |---|---|---|
-| `bordereaux/` | PDFs bordereaux de pesée | URL pré-signée 15 min |
+| `bordereaux/` | PDFs bordereaux de pesée fabriqués avant le 2026-11-13 (historique seul ; plus aucun n'est produit, décision Val 2026-11-13) | URL pré-signée 15 min |
 | `attestations/` | PDFs attestations de don AG | URL pré-signée 15 min |
 | `rapports/` | PDFs rapports de recyclage et rapports « événement sans excédent » | URL pré-signée 15 min |
 | `factures/` | PDFs factures, copie de travail Savr (§06.08) | URL pré-signée 15 min |
@@ -200,7 +200,7 @@ API Route / batch Vercel Cron (toutes les 15 min, décision Val 2026-11-04)     
 
 | Template | Déclenché par | Dossier de destination (bucket de l'environnement) |
 |---|---|---|
-| Bordereau de pesée ZD | Dès que les pesées sont là | `bordereaux/` |
+| *(Bordereau de pesée ZD : plus rendu en PDF, décision Val 2026-11-13)* | — | — |
 | Attestation de don AG | Dès que le poids est saisi | `attestations/` |
 | Rapport de recyclage | Demande manuelle ou auto J+1 | `rapports/` |
 

@@ -238,7 +238,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Espace Client', gras: true },
           {
             texte:
-              " désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Rapports de don, Rapports RSE), gérer ses données et paramètres.",
+              " désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Rapports de don, Rapports de recyclage), gérer ses données et paramètres.",
             gras: false,
           },
         ],
@@ -345,7 +345,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
       {
         type: 'p',
         segments: [
-          { texte: 'Rapport RSE', gras: true },
+          { texte: 'Rapport de recyclage', gras: true },
           {
             texte:
               " désigne le document généré par la Plateforme à l'issue de chaque Collecte ZD, récapitulant les indicateurs environnementaux (tonnages par flux, taux de recyclage net selon la méthode UE 2019/1004 calculé avec les taux de captation par filière, CO₂e évité).",
@@ -535,7 +535,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: 'Documents réglementaires', gras: true },
           {
             texte:
-              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.",
+              " : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport de recyclage, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.",
             gras: false,
           },
         ],
@@ -670,7 +670,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           {
             texte:
-              'Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Rapport de don, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;',
+              'Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Rapport de don, Rapport de recyclage) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;',
             gras: false,
           },
         ],
@@ -781,7 +781,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
           { texte: " Le Client dispose d'un délai de ", gras: false },
           {
             texte:
-              '48 heures à compter de la mise à disposition du document de la Collecte (Bordereau, Rapport RSE ou Rapport de don) dans son Espace Client',
+              '48 heures à compter de la mise à disposition du document de la Collecte (Bordereau, Rapport de recyclage ou Rapport de don) dans son Espace Client',
             gras: true,
           },
           {
@@ -815,7 +815,7 @@ export const CGU_SECTIONS: SectionCgu[] = [
         segments: [
           {
             texte:
-              "2. En cas de correction validée : SAVR corrige la pesée, les documents de la Collecte (Bordereau, Rapport RSE, Rapport de don) sont régénérés, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.",
+              "2. En cas de correction validée : SAVR corrige la pesée, les documents de la Collecte (Bordereau, Rapport de recyclage, Rapport de don) sont régénérés, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.",
             gras: false,
           },
         ],

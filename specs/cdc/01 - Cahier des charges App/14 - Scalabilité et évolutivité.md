@@ -79,7 +79,7 @@ PostgreSQL devient lent non pas à cause du volume de données brut, mais à cau
 
 ### Situation à T+18 mois
 
-À 150 collectes/mois, une nuit typiquement chargée (vendredi soir d'une grosse semaine événementielle) peut générer 15-20 collectes à traiter en batch. Chaque collecte nécessite 2-3 PDFs (bordereau + rapport + attestation AG si applicable). Le batch peut déclencher **30-50 appels simultanés** vers Railway Puppeteer.
+À 150 collectes/mois, une nuit typiquement chargée (vendredi soir d'une grosse semaine événementielle) peut générer 15-20 collectes à traiter en batch. Chaque collecte nécessite au plus 1 PDF produit par le batch (attestation AG si applicable ; le bordereau n'a plus de PDF, décision Val 2026-11-13 ; le rapport de recyclage est fabriqué au clic). Le batch peut déclencher **30-50 appels simultanés** vers Railway Puppeteer.
 
 ### Solution V1 : file d'attente séquentielle
 

@@ -1568,7 +1568,7 @@
     },
     {
       "id": "M0.6-liste-collectes-export-csv",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:403",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:399",
       "artefact": "packages/plateforme/src/app/(admin)/admin/collectes/page.tsx (bouton « Exporter CSV » du bandeau ; filtresListe : les mêmes paramètres servent à la liste et à l'export) + packages/plateforme/src/app/api/v1/admin/collectes/route.ts (filtres lus et appliqués par packages/plateforme/src/lib/collectes-admin.ts, partagé avec l'export)",
       "test": "M0.6/export_csv_liste_admin_filtres_de_la_liste + M0.6/export_csv_liste_admin_croisement_vide",
       "statut": "implemented",
@@ -1828,16 +1828,16 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e306182509f1b929d8b24573e0ea4e3e4988483c81da818841030e4776f9174",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "63628061ea6f6a5dc701b14dd15fe8607830453d78a0a9a13fbf3fb90ecc7e0f",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c046b6db11c125810733f77fa3c2d5d2ea454fff7f57c93e943788700655fd3d",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "76f54805ba3b544c8ce647c4db0c59664ac879a99adc7ef8af42ca7a2491b6d0",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "47a805a1a2038dcabef70df46c3a96f374543e58c87236543fbb991ebd7d72a2",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "810477600080761e3d25d2e13d49d99e4572db4aca27489a62fe27df8886180a",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "b2378a8d3e0a4542259615e26ad5d1449591e43d212e03ca7f5bdc86128438f4",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "6911d943445819f29b739aec4ab39a438920cab2c1d10d91dd47ea04e21433f1",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5666b09d1e5e2d18e36d8d59423e51db80347d1e4658a3ff1c4d1b9173cbba2e",
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "a9de6c0417ce9d3897389e87ee1dda40c4415f1970931bea722f9c3ba6ea1534",
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "3e6024df5d3f8eaed7d6797ebc0f51d5408b42d2fd3816d0400347724c51d4ac",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "d0d2f00a195516f6ed9e84337d9e6936d1f030c01a3a1a841c5ee50fc167fda5"
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "27bcbb66811a4478865192a2c60b32af6aa929b4f90215c41a4be0479e52f039",
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c26592d4cfedd24f3335e16aa31aa1ae3627fafa57064d593766c60e198763f2",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "1ca4522aabedcd175f3f87ca9dd7f2112e948710ff612f5ffbdc98bc9642cfcd",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "aaa3e673259e71204c1108d6ddb42a4f9895a16f3d3749511e99a36c0c74d958"
   }
 }

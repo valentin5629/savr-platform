@@ -273,7 +273,7 @@ Registre chronologique interne Savr des déchets collectés pour chaque organisa
 - **Filtres** : période, lieu, flux, type (ZD / AG), statut
 - **Export** : Excel et PDF sur la période sélectionnée
 - **Justificatifs téléchargeables** :
-  - Bordereaux Savr (format PDF, émis automatiquement à la clôture de chaque collecte ZD, mentionnant exutoire Veolia, transporteur, poids par flux, code déchet européen)
+  - Bordereaux Savr : ligne de données sans PDF (décision Val 2026-11-13), émise automatiquement pour chaque collecte ZD ; son numéro figure dans le registre et sur le rapport de recyclage
   - Attestations de don aux associations (format PDF, émises pour les collectes AG éligibles — associations habilitées 2041-GE — mentionnant poids/volume donné, valeur estimée pour défiscalisation 60%)
 - **Exutoires** : fiche détaillée par flux (filière de valorisation : recyclage, compostage, méthanisation, valorisation énergétique, enfouissement, don alimentaire + coordonnées exutoire)
 - **Méthodologie** : document PDF Savr statique en MVP (comment on calcule les équivalences, sources ADEME Base Carbone, méthode de pondération). Version dynamique (calculs détaillés par événement) en V2, couplé au Module 19
@@ -282,7 +282,7 @@ Registre chronologique interne Savr des déchets collectés pour chaque organisa
 
 **Traçabilité des exports** : chaque export Excel/PDF généré est loggué (qui, quand, quelle période) pour auditabilité.
 
-**Interfaces concernées** : tous les profils espace client (Traiteur-Manager, Traiteur-Commercial, Agence, Gestionnaire de lieux, Lieu) — chacun voit uniquement les événements qui lui sont associés via RLS. Admin Savr a une vue globale + pouvoir de régénérer/corriger les bordereaux.
+**Interfaces concernées** : tous les profils espace client (Traiteur-Manager, Traiteur-Commercial, Agence, Gestionnaire de lieux, Lieu) — chacun voit uniquement les événements qui lui sont associés via RLS. Admin Savr a une vue globale + pouvoir de corriger les pesées, ce qui met à jour la ligne du bordereau (plus de PDF ni de régénération, décision Val 2026-11-13).
 
 **Dépendances** : [[04 - Data Model]] (tables justificatifs + bordereaux + attestations), Module 4 (rapports RSE), module génération PDF.
 

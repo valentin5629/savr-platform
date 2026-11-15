@@ -401,17 +401,7 @@ Scénario : resend_webhook_opened_maj_statut_emails_envoyes
 ---
 
 ```gherkin
-# Source : §08 §5 — Puppeteer génération bordereau ZD
-# Couche : api
-# Priorité : P1-critique
-
-Scénario : puppeteer_generation_bordereau_zd
-  Étant donné une collecte ZD clôturée avec pesees[] renseignées
-    Et Puppeteer container Railway est disponible
-  Quand la Next.js API Route generate-pdf est appelée (template=bordereau_savr)
-  Alors un PDF est généré et uploadé dans Cloudflare R2 (bucket de l'environnement, clé sous bordereaux/)
-    Et bordereaux_savr.fichier_id est renseigné (référence shared.fichiers)
-    Et bordereaux_savr.template_version est enregistrée
+(scénario retiré — bordereau sans PDF, décision Val 2026-11-13)
 ```
 
 ---
@@ -1082,10 +1072,10 @@ Scénario : chaine_e1_s1_s5_zd_complete
     6. S5 reçu (statut_final=realisee) → collectes.statut = realisee, collecte_flux créés
     7. Clôture à realisee_at + 48h → collectes.statut = cloturee (bordereau déjà émis dès les pesées, décision Val 2026-11-04)
     8. Trigger taux_recyclage → collectes.taux_recyclage calculé, caps_appliques figé
-    9. Puppeteer → bordereau_savr PDF généré
+    9. Ligne bordereaux_savr émise (statut emis), sans PDF (décision Val 2026-11-13)
   Alors l'intégralité de la chaîne s'exécute sans erreur
     Et integrations_logs contient une entrée succes pour chaque étape
-    Et l'état final est cohérent : collecte clôturée + taux_recyclage non-null + bordereau PDF
+    Et l'état final est cohérent : collecte clôturée + taux_recyclage non-null + bordereau émis (sans PDF)
 ```
 
 ---
@@ -1176,7 +1166,7 @@ Scénario : mts1_chaine_polling_complete
     1. Création commande + tournée unitaire MTS-1 → statut_tms=a_attribuer ; l'Admin confie et valide la tournée dans la console
     2. Polling : customerOrderStatus=PLANNED, tour.status.dispatch=ACCEPTED → statut_tms=acceptee, statut=validee
     3. Polling : customerOrderStatus=IN_PROGRESSION → statut=en_cours
-    4. Polling : customerOrderStatus=OK, GET /v3/tours/{id} → pesées (`quantityAfterPickup` de chaque marchandise de l'arrêt d'enlèvement) → statut=realisee + collecte_flux créés
+    4. Polling : customerOrderStatus=OK, GET /v3/tours/{id} → pesées (`quantityAfterDelivery` de chaque marchandise de l'arrêt d'enlèvement) → statut=realisee + collecte_flux créés
     5. Photos téléchargées + ré-uploadées Storage Plateforme
   Alors l'état final est collectes.statut=realisee avec collecte_flux et photos stockées
     Et integrations_inbox contient 3 entrées (PLANNED, IN_PROGRESSION, OK) avec statut=traite

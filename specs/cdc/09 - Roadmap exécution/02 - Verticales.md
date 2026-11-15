@@ -120,7 +120,7 @@ Ordre d'exécution : **Niveau 0 → V1 → V2 → V3 → V4 → V5**. Audit dev 
 
 **Hors périmètre verticale** : export PDF registre formaté → V1.1. Reporting REP/Citeo → V1.1/V2. Benchmark client (UI) → V2.
 
-**Démo possible à la fin** : Admin et clients exportent leurs collectes/événements/pesées/factures en CSV ; export registre ZD (CSV + ZIP bordereaux) conforme R541-43 ; tableau CO₂ avec valeurs figées au snapshot.
+**Démo possible à la fin** : Admin et clients exportent leurs collectes/événements/pesées/factures en CSV ; export registre ZD (CSV, numéro de bordereau en colonne ; ZIP bordereaux retiré, décision Val 2026-11-13) conforme R541-43 ; tableau CO₂ avec valeurs figées au snapshot.
 
 **Modules** (squelette) :
 - M4.1 — Exports CSV (transverse D, tous profils)

@@ -67,7 +67,7 @@ Si une collecte historique Bubble est incomplète (pas d'exutoire, pas de pesée
 
 - **Phase 0 — Préparation (≈ 2 mois avant bascule)** : export Bubble, scripts de migration, staging, audit qualité.
 - **Phase 1 — Migration technique** : import de toutes les données dans la nouvelle app (staging + prod silencieuse), **référentiel lieux figé** et enrichi manuellement par Val/Admin. Historique complet + cas manquants traités manuellement.
-- **Phase 2 — Test parallèle** : ops Savr opère sur les deux apps en parallèle 2 à 4 semaines. Les collectes sont saisies sur la nouvelle app, contrôlées contre Bubble. Contrôle quotidien : factures émises, PDF bordereaux, dashboards client.
+- **Phase 2 — Test parallèle** : ops Savr opère sur les deux apps en parallèle 2 à 4 semaines. Les collectes sont saisies sur la nouvelle app, contrôlées contre Bubble. Contrôle quotidien : factures émises, numéros de bordereau émis (plus de PDF du bordereau, décision Val 2026-11-13), dashboards client.
 - **Phase 3 — Bascule complète** : après validation go/no-go de Val, tous les users basculent sur la nouvelle app. Ancienne app en lecture seule pour sauvegarde, décommissionnée 30 jours après.
 - **Phase 4 — Décommissionnement Bubble** : export cold (S3 ou équivalent) + résiliation abonnement 120 €/mois.
 

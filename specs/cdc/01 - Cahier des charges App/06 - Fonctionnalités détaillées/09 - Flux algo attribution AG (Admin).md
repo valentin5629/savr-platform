@@ -24,8 +24,8 @@ Ce module est exclusivement accessible par le profil `admin_savr`.
 ### Affichage (liste Collectes)
 Colonnes de la liste Collectes, dans l'ordre (décision Val 2026-06-30) : **Type · Date · Heure · Traiteur · Pax · Lieu · Statut · bouton Attribuer**. La colonne « Statut TMS » est **retirée de cette vue**. Le filtre « Collectes à attribuer » restreint la liste aux collectes AG en attente d'attribution, triées par **créneau de collecte le plus proche** (`collectes.date_collecte` ASC).
 
-### Indicateur criticité < 48h (reporté sur « Collectes à attribuer » — décision Val 2026-06-30)
-La criticité < 48h vit désormais sur la vue filtrée « Collectes à attribuer » de la page Collectes (la page dédiée disparaît) : badge rouge **« URGENT »** sur la ligne + ligne surlignée (fond rose pâle) si `now() <= date_collecte < now() + 48h` (créneau dans les 48 h à venir ; un créneau passé n'est plus urgent, décision Val 2026-11-11) ET attribution non validée. Les lignes urgentes sont **automatiquement remontées en tête** de la liste filtrée, avant le tri chronologique général. Pas de notification email Admin pour ce seuil en V1 (traitement visuel uniquement).
+### Indicateur criticité < 48h (sur toute la liste Collectes — décisions Val 2026-06-30 et 2026-11-12)
+La criticité < 48h vit sur la liste de la page Collectes (la page dédiée disparaît) et porte sur les collectes AG **et ZD** que le prestataire n'a pas encore acceptées (décision Val 2026-11-12) : statut `programmee` ou `validee` et `statut_tms` ni `acceptee` ni `en_attente_execution` — même population que la carte « Collectes <48h non validées » du Dashboard Admin (§11). Badge rouge **« URGENT »** sur la ligne + ligne surlignée (fond rose pâle) si `now() <= date_collecte < now() + 48h` (créneau dans les 48 h à venir ; un créneau passé n'est plus urgent, décision Val 2026-11-11). Une collecte en cours, terminale ou annulée n'est jamais urgente. Les lignes urgentes **ne sont pas remontées en tête** : la liste garde l'ordre de son tri, chronologique par défaut (décision Val 2026-11-12, l'ordre chronologique prévaut sur l'urgence). Pas de notification email Admin pour ce seuil en V1 (traitement visuel uniquement).
 
 ---
 
@@ -99,7 +99,7 @@ Actif uniquement si une association est sélectionnée ET un transporteur est s�
 2. `attributions_antgaspi.mode_validation` = `'manuel_top1'` si reco non modifiée, `'manuel_override'` si override (voir §8 enum)
 3. **La collecte passe au statut `programmee`** (et **non** `validee`). **Alignement machine à états ZD/AG (Sujet AG statuts, 2026-05-29)** : la validation d'attribution Admin = décision de dispatch (choix asso + transporteur), équivalent fonctionnel de l'envoi prestataire en ZD — donc `programmee`, pas `validee`. `statut_tms` reste `non_envoye` à ce stade (l'ordre n'est pas encore parti : étape 5, asynchrone). Le passage `programmee → validee` est dérivé **ultérieurement** par le trigger `fn_sync_statut_collecte_from_tms` à l'acceptation transporteur (cf. cascade ci-dessous + [[05 - Règles métier]] §4). Aucune écriture applicative directe de `statut` sur la plage `programmee ↔ validee`.
 4. Aucun mouvement de pack : le crédit a été décompté à la programmation (la collecte porte déjà son pack, ou aucun si elle a été programmée sans crédit restant) ; la validation ne pose plus de réservation (décision Val 2026-11-02, voir [[05 - Règles métier#Débit d'un crédit]])
-5. **Publication d'un événement applicatif `attribution.validee`** qui déclenche **asynchrone** : envoi email association (Resend, template n°16), envoi de l'ordre transporteur (l'email transporteur, template n°18, est retiré — revue des emails, Val 2026-10-28) (cf. cascade V1/V2 ci-dessous).
+5. **Publication d'un événement applicatif `attribution.validee`** qui déclenche **asynchrone** : envoi email association (Resend, template n°16, 48 h avant le créneau de collecte, cf. §4 — Val 2026-11-13), envoi de l'ordre transporteur (l'email transporteur, template n°18, est retiré — revue des emails, Val 2026-10-28) (cf. cascade V1/V2 ci-dessous).
 
    > **Mise en œuvre figée 2026-09-11 (Option A tranchée Val — divergence M2.3).** `fn_valider_attribution_ag` insère dans la **même transaction deux events sur le même agrégat** (la collecte) : `attribution.validee` (consumer **`attribution_job`**) puis `collecte.creee` (famille logistique). Les deux vivent dans `plateforme.outbox_events` mais sont **isolés par famille de consumer** :
    > - le worker logistique (`fn_claim_outbox_batch`) **exclut `attribution_job`** et calcule son head-of-line dans sa seule famille ;
@@ -126,7 +126,7 @@ Actif uniquement si une association est sélectionnée ET un transporteur est s�
 
 Quand l'Admin sélectionne une association ou un transporteur différent du top 1 recommandé, un motif est obligatoire avant que "Valider" soit cliquable.
 
-**UI — liste déroulante + texte libre (refonte 2026-05-09 sobriété B4)** : 6 motifs preset + "Autre" → champ texte libre obligatoire (min 10 car.) :
+**UI — liste déroulante + texte libre (refonte 2026-05-09 sobriété B4)** : 6 motifs preset + "Autre" → champ texte libre obligatoire (min 5 car., aligné sur le changement de transporteur et d'association — Val 2026-11-15) :
 
 | Code preset | Libellé UI |
 |-------------|-----------|
@@ -143,7 +143,9 @@ Stocké dans `attributions_antgaspi.motif_override` (text, code preset ou texte 
 
 ---
 
-## 4. Emails envoyés à la validation
+## 4. Emails envoyés après la validation
+
+L'email à l'association part 48 h avant le créneau de collecte (heure de Paris), pas avant, ou tout de suite si le créneau est à moins de 48 h ; collecte refusée par le prestataire : l'envoi attend le renvoi ; collecte annulée, réalisée ou clôturée au moment de l'envoi : aucun email (Val 2026-11-13).
 
 ### Email — Association bénéficiaire
 Envoyé à : adresse(s) de contact de l'association (`associations.email_contact`)
@@ -266,8 +268,8 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 | Champ | Type | Contrainte | Description |
 |-------|------|-----------|-------------|
 | `motif_override` | text | NULL si `mode_validation ∈ ('manuel_top1', 'auto_accept')` | Code preset (cf. §3 Override) ou texte libre si `autre`. Obligatoire si `mode_validation = 'manuel_override'`. |
-| `motif_override_libre` | text | NULL si motif preset | Texte saisi quand `motif_override = 'autre'` (min 10 car.) |
-| `poids_repas_kg` | decimal | | Poids brut saisi par le chauffeur via TMS (source de vérité). Conversion `volume_repas_realise` : formule + coefficient = **source unique §5** (dédup sobriété 2026-06-03 C1). |
+| `motif_override_libre` | text | NULL si motif preset | Texte saisi quand `motif_override = 'autre'` (min 5 car., Val 2026-11-15) |
+| `poids_repas_kg` | decimal | | Poids brut saisi par le chauffeur (V1 : relevé chez MTS-1 ; V2 : TMS Savr), corrigeable par l'Admin. Conversion `volume_repas_realise` : formule + coefficient = **source unique §5** (dédup sobriété 2026-06-03 C1). |
 | `branche_attribution` | text | NOT NULL | Valeurs canoniques (audit cohérence A3 2026-05-09 — alignées TMS M12) : `ag_marathon_nuit`, `ag_marathon_volume`, `ag_marathon_volume_backup_camion`, `ag_velo_express`, `ag_velo_programme`, `ag_velo_fallback_marathon`, `ag_province_proximite` (= hors IDF, tri distance + secondaire `nb_collectes_6_mois`), `aucun_prestataire`, **`ag_everest_camion_express`** (ajout 2026-06-15, DIV-8, tranché Val) : branche rescue grand volume urgent IDF — service Everest 77 camion express, déclenchée quand `nb_pax ≥ seuil_pax_velo` ET `a_toutes_indisponible=false` ET `delai_minutes < seuil_h2_minutes (90)` — cas edge qui évite le `aucun_prestataire` sur gros volume urgent avec A Toute! disponible. **+ `migration_bubble` (ajout 2026-06-07 Phase 10, tranché Val)** : posée exclusivement par le script de migration sur l'historique AG Bubble — jamais produite par l'algo |
 | `confirmation_transporteur` | jsonb | NULL avant retour prestataire | Réponse Everest/MTS-1 (V1) ou TMS (V2) : `{ statut, reference_externe, recu_at, brut }` |
 | `mode_validation` | enum | NOT NULL | **Refonte 2026-05-09 sobriété D2** : remplace ex-bool `recommandation_auto`. Valeurs : `manuel_top1` (Admin valide reco top 1), `manuel_override` (Admin choisit autre + motif), `auto_accept` (zéro humain, auto-accept activé). Plus lisible que combiner bool + `valide_par null`. |
@@ -302,7 +304,7 @@ Pilotables par l'Admin Savr sans redéploiement. **Source de vérité unique = P
 | Décision | Alternative écartée | Raison |
 |----------|-------------------|--------|
 | Top 3 trié par distance Haversine pure (refonte 2026-05-09 sobriété B3) | Scoring sur 100 pts (60 distance + 40 capacité ajustable) | Règle métier = "association ouverte la plus proche ayant la capacité". Capacité = filtre binaire (`capacite × 2 > volume`), distance = tri unique. Pas besoin de pondération paramétrable que personne n'a vocation à modifier en V1. |
-| Override avec liste déroulante 5 motifs preset + texte libre (refonte 2026-05-09 sobriété B4 + audit sobriété 2026-05-09) | Texte libre min 10 car. | Permet stats overrides exploitables sans NLP + cohérence avec le motif `a_toutes_indispo_locale` introduit par les branches IDF. Motif `recalcul_pax` retiré (cas particulier `nb_pax` post-attribution supprimé — cf. §2.3). |
+| Override avec liste déroulante 5 motifs preset + texte libre (refonte 2026-05-09 sobriété B4 + audit sobriété 2026-05-09) | Texte libre min 5 car. (10 jusqu'au 2026-11-15) | Permet stats overrides exploitables sans NLP + cohérence avec le motif `a_toutes_indispo_locale` introduit par les branches IDF. Motif `recalcul_pax` retiré (cas particulier `nb_pax` post-attribution supprimé — cf. §2.3). |
 | Cascade validation asynchrone via job queue Supabase (refonte 2026-05-09 sobriété B5) | 7 étapes synchrones bloquantes | Échec Everest/Resend ne bloque ni la validation Admin ni la cohérence interne (statut, pack, attribution). Retry indépendant. |
 | Suppression timestamps emails côté Plateforme (refonte 2026-05-09 sobriété A3) | Stockage `email_*_envoye_at` + booléens | Resend journalise les envois côté son interface. Doublon stockage évité. |
 | `mode_validation` enum 3 valeurs (refonte 2026-05-09 sobriété D2) | Bool `recommandation_auto` + check `valide_par null` | Sémantique explicite : `manuel_top1` / `manuel_override` / `auto_accept`. Évite la combinaison bool + champ null ambigüe. |

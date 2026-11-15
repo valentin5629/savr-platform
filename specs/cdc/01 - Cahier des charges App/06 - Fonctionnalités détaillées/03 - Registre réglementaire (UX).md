@@ -8,7 +8,7 @@
 
 Module 20 MVP. Registre chronologique des flux de déchets ZD accessibles à tous les profils espace client **sauf l'agence** (périmètre filtré par RLS). Source unique de vérité pour audits et démonstrations ESG.
 
-**Périmètre des lignes (tranché F2 2026-06-07)** : collectes `statut = cloturee` ET `type = zero_dechet` uniquement (vue `v_registre_dechets` §04). Les collectes `realisee` n'apparaissent pas (registre = définitif). Le filtre « Statut bordereau dispo/manquant » couvre les collectes clôturées dont le bordereau n'est pas encore émis (pesées incomplètes ; il sort dès qu'elles sont là, passage toutes les 15 min, décision Val 2026-11-04) et les bordereaux `brouillon` (shadow sans SIRET). Les collectes migrées incomplètes portent le badge « Historique partiel » (`collectes.historique_partiel`, F3).
+**Périmètre des lignes (tranché F2 2026-06-07)** : collectes `statut = cloturee` ET `type = zero_dechet` uniquement (vue `v_registre_dechets` §04). Les collectes `realisee` n'apparaissent pas (registre = définitif). Plus de filtre « Statut bordereau » (décision Val 2026-11-13) : une collecte clôturée dont le bordereau n'est pas encore émis (pesées incomplètes, ou `brouillon` shadow sans SIRET) reste listée, sans numéro de bordereau. Les collectes migrées incomplètes portent le badge « Historique partiel » (`collectes.historique_partiel`, F3).
 
 ---
 
@@ -35,7 +35,7 @@ Tableau principal + barre de filtres en haut ; bouton « Exporter CSV » dans la
 | Flux             | Badges des flux de la collecte parmi les 5 flux V1 (biodéchets, emballages, carton, verre, déchet résiduel), sur une seule ligne : les deux premiers, puis une pastille « +N » qui regroupe les suivants, listés au survol et aux lecteurs d'écran (décision Val 2026-10-30) | Filtre multi    |
 | Poids total (kg) | `SUM(collecte_flux.poids_reel_kg)`                                      | Oui             |
 | Exutoire         | `exutoire.nom`                                                          | Oui             |
-| Bordereau        | Lien PDF téléchargeable                                                 | —               |
+*(Colonne « Bordereau » retirée : le bordereau n'a plus de PDF — décision Val 2026-11-13.)*
 
 ### Barre de filtres
 
@@ -43,7 +43,7 @@ Tableau principal + barre de filtres en haut ; bouton « Exporter CSV » dans la
 - Lieu (multi-select, case « Tous » en tête) — options = tous les lieux présents au registre du périmètre, pas seulement ceux de la page affichée (arbitrage Val F2 2026-10-01 ; API `GET /api/v1/registre/options`, même garde et même vue `v_registre_dechets` que la liste)
 - Traiteur (multi-select, visible selon RLS, mêmes options que Lieu)
 - Flux (multi-select)
-- Statut bordereau (dispo / manquant, à cocher ; les deux = aucun filtre)
+- *(Filtre « Statut bordereau » retiré — décision Val 2026-11-13.)*
 
 ### Tri
 
@@ -62,8 +62,7 @@ Clic sur une ligne → page de détail de la collecte avec :
 ### Header
 
 - Titre : "Collecte ZD — {{date_evenement}} — {{lieu_nom}}"
-- Statut bordereau
-- Bouton téléchargement PDF bordereau
+- *(Plus de badge de statut du bordereau ni de bouton de téléchargement : le bordereau n'a plus de PDF — décision Val 2026-11-13.)*
 
 ### Bloc 1 — Données événement (snapshot)
 
@@ -93,11 +92,11 @@ Tableau : flux, code déchet européen, filière, poids réel.
 
 ### Bloc 7 — Documents
 
-- Bordereau Savr (PDF) + numéro + date émission + version
+- Bordereau Savr : numéro + date émission + version, sans PDF (décision Val 2026-11-13)
 
 ### Bloc 8 — Historique
 
-Audit log : création, modifications de pesée, régénérations bordereau, contestations.
+Audit log : création, modifications de pesée, mises à jour du bordereau, contestations.
 
 ---
 
@@ -121,13 +120,11 @@ Bouton "Exporter" → CSV des collectes filtrées courantes, **une ligne par flu
 
 ### Export registre PDF — reporté V1.1 (sobriété 2026-06-03 A1)
 
-Le PDF formaté "registre réglementaire type" (3ᵉ template Puppeteer : tableau chronologique + header Savr + page méthodologie + annexes bordereaux) est reporté V1.1. Le besoin réglementaire V1 (tenue du registre déchets, art. R541-43) est couvert par l'**export CSV registre** (tableau chronologique complet) + le **ZIP bordereaux** (pièces justificatives). V1.1 : templates personnalisables, intégration logo client.
+Le PDF formaté "registre réglementaire type" (3ᵉ template Puppeteer : tableau chronologique + header Savr + page méthodologie + annexes bordereaux) est reporté V1.1. Le besoin réglementaire V1 (tenue du registre déchets, art. R541-43) est couvert par l'**export CSV registre** (tableau chronologique complet, avec le numéro de bordereau en colonne « Numéro de BSD »). Le ZIP bordereaux est retiré (bordereau sans PDF, décision Val 2026-11-13). V1.1 : templates personnalisables, intégration logo client.
 
-### Export ZIP bordereaux
+### Export ZIP bordereaux — retiré (décision Val 2026-11-13)
 
-Bouton "Télécharger tous les bordereaux" → ZIP contenant tous les bordereaux PDF de la période filtrée.
-
-**Plafond : 50 fichiers par export (décision 2026-05-29, alignée sur l'export groupé de rapports §06.04)** — au-delà, l'utilisateur restreint la période. Évite les timeouts de génération. Borne ajustable en V1.1.
+Plus de bouton « Télécharger tous les bordereaux » : le bordereau n'a plus de PDF. Route `GET /api/v1/registre/export-zip` supprimée.
 
 ---
 
@@ -139,9 +136,9 @@ Source de vérité unique : [[05 - Règles métier#7. Règles d'accès au regist
 
 ## Décisions prises
 
-- **Watermark PDF** : tous les PDFs réglementaires (bordereaux, export registre) portent la mention "Document généré par Savr — référence {{numero_document}} — toute altération invalide le document" en pied de page, plus un QR code renvoyant à une page publique de vérification (V1.1 pour la page publique, V1 pour le QR inactif).
+- **Watermark PDF** : tous les PDFs réglementaires (export registre V1.1 ; le bordereau n'a plus de PDF, décision Val 2026-11-13) portent la mention "Document généré par Savr — référence {{numero_document}} — toute altération invalide le document" en pied de page, plus un QR code renvoyant à une page publique de vérification (V1.1 pour la page publique, V1 pour le QR inactif).
 - **Rétention documents** : accès illimité aux PDFs côté espace client (pas d'archivage masqué V1). Stockage Cloudflare R2 non capé V1.
-- **Export PDF réglementaire reporté V1.1** (sobriété 2026-06-03 A1) : template et rendu à co-construire en phase de build (itérations Puppeteer) lors du passage V1.1. Hors scope V1 — CSV registre + ZIP bordereaux couvrent l'obligation R541-43.
+- **Export PDF réglementaire reporté V1.1** (sobriété 2026-06-03 A1) : template et rendu à co-construire en phase de build (itérations Puppeteer) lors du passage V1.1. Hors scope V1 — le CSV registre (numéro de bordereau en colonne « Numéro de BSD ») couvre l'obligation R541-43 ; ZIP bordereaux retiré (décision Val 2026-11-13).
 - **Snapshot transporteur** : `plaque_vehicule` et `chauffeur_nom` conservés en DB côté snapshot collecte mais non affichés dans l'UX V1 (audit DREAL).
 - **Rapport RSE PDF retiré du registre** (2026-05-04) : le rapport RSE est un livrable consolidé multi-collectes, il ne vit pas sur la page de détail d'une collecte unitaire. Il est adressé dans deux emplacements dédiés :
   - Espace Traiteur → onglet **Rapports RSE** (voir [[04 - Espace client traiteur#5. Rapports RSE]])

@@ -394,7 +394,7 @@ L'équipe Savr
 
 **Slug** : `ag_attribution_association`
 **Destinataire** : adresse de contact de l'association (`associations.contact_email`)
-**Déclencheur** : validation de l'attribution par Admin Savr (ou auto-accept)
+**Déclencheur** : validation de l'attribution par Admin Savr (ou auto-accept) ; envoi 48 h avant le créneau de collecte (heure de Paris), pas avant, ou tout de suite si le créneau est à moins de 48 h. Créneau déplacé avant l'envoi : l'envoi suit la nouvelle date. Collecte refusée par le prestataire : l'envoi attend le renvoi. Collecte annulée, réalisée ou clôturée au moment de l'envoi : aucun email (Val 2026-11-13)
 **Objet** : Don de repas confirmé — {{evenement_nom}}, {{date_collecte}}
 
 ```

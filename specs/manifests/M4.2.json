@@ -144,7 +144,7 @@
     },
     {
       "id": "M4.2-export-csv-ligne-par-flux",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:116-120",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:115-119",
       "artefact": "packages/plateforme/src/lib/registre/csv.ts (buildRegistreCsv : une ligne par flux pesé, les 20 colonnes du modèle + la colonne Lieu après le producteur ; fetchFluxDetail : lecture par tranches de 100 collectes) + packages/plateforme/src/app/api/v1/registre/export-csv/route.ts (nb_lignes = lignes du fichier) + packages/plateforme/src/lib/registre/registre.ts (FILIERE_LABELS) + packages/plateforme/src/app/api/v1/registre/[id]/route.ts (filière en clair)",
       "test": "M4.2/export_csv_ligne_par_flux + M4.2/export_csv_flux_par_tranches + M4.2/export_csv_adresse_exutoire + M4.2/export_csv_filtre_flux + M4.2/export_csv_bordereau_non_emis + M4.2/export_csv_erreur_tranche + M4.2/export_csv_registre_ampute + M4.2/export_csv_agence_denied + M4.2/detail_registre_filiere_en_clair",
       "statut": "implemented",
@@ -168,7 +168,7 @@
     },
     {
       "id": "M4.2-registre-grain-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:70",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:69",
       "artefact": "supabase/migrations/20261024120000_plateforme_benchmark_registre_grain_collecte.sql (v_registre_dechets) + packages/plateforme/src/app/api/v1/registre/[id]/route.ts",
       "test": "C1/registre_pax_taille_type_de_la_collecte + M4.2/detail_registre_pax_et_type_de_la_collecte + 14. v_registre_dechets garde security_invoker + 15. droits de v_registre_dechets inchangés",
       "statut": "implemented",
@@ -176,7 +176,7 @@
     },
     {
       "id": "M4.2-zip-bordereaux-par-lots",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:127",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -185,7 +185,7 @@
     },
     {
       "id": "M4.2-zip-bordereaux-statuts-retenus",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:128",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md:127",
       "artefact": null,
       "test": null,
       "statut": "descoped",
@@ -194,7 +194,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "6e306182509f1b929d8b24573e0ea4e3e4988483c81da818841030e4776f9174",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "b404815e2c3626158d803dc7b5c18dc5947667958ca5a4681d94206c126ecb69"
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c046b6db11c125810733f77fa3c2d5d2ea454fff7f57c93e943788700655fd3d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "a367a24b1a6706640aa94445706da0296cd02b73fa28a710bb01025b1db67d69"
   }
 }

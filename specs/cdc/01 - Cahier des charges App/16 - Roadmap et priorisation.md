@@ -95,7 +95,7 @@ Sans cette phase, les collectes restent bloquées au statut `programmee` pour to
 ### Phase 6 — Génération PDF (3-5 jours)
 
 - Setup Railway Puppeteer + file d'attente `jobs_pdf`
-- Template PDF bordereau de pesée ZD
+- (retiré : bordereau sans PDF, décision Val 2026-11-13)
 - Template PDF rapport de recyclage ZD (avec logo client organisateur)
 - Template PDF attestation de don AG (avec/sans mention fiscale 2041-GE)
 - Batch cron toutes les 15 min (bordereaux + rapports + attestations), dès que les poids sont là
@@ -126,7 +126,7 @@ Les dashboards traiteur_manager et traiteur_commercial.
 
 - Dashboard manager : KPIs AG/ZD, calendrier collectes, liste événements, taux de recyclage *(ZD uniquement, formule à captation par filière cf. [[05 - Règles métier#R_taux_recyclage]])*
 - Dashboard commercial : mes collectes, accès lecture factures
-- Accès PDFs (bordereaux, rapports, attestations) + régénération manuelle
+- Accès PDFs (rapports, attestations) + régénération manuelle (plus de PDF du bordereau, décision Val 2026-11-13)
 - Picto ⟳ si rapport régénéré
 - Exports CSV (collectes, événements, pesées, factures)
 - **reporté V1.1** (revue sobriété §12 2026-06-03, A1) — V1 : le manager télécharge le PDF et le transmet par email
@@ -200,7 +200,7 @@ L'estimation dépend du rythme de validation de Val entre chaque sprint. En spri
 - Tous les modules documentés dans les sections 01 à 15
 - 6 profils utilisateur (admin_savr, traiteur_manager, traiteur_commercial, agence, gestionnaire_lieux, client_organisateur)
 - Intégrations : TMS Savr, Pennylane v2, Everest (A Toute!), Resend
-- PDFs : bordereau ZD, rapport de recyclage, attestation de don AG
+- PDFs : rapport de recyclage, attestation de don AG (bordereau ZD sans PDF, décision Val 2026-11-13)
 - Exports CSV pour tous les profils
 - Migration complète depuis Bubble (historique intégral)
 

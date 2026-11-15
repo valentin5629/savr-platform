@@ -40,7 +40,7 @@ Liste alignée sur `CLAUDE.md` §12 (cron) **et sur les crons réellement déplo
 | `pdf_worker` | toutes les 5 min | moyenne (file `jobs_pdf`) |
 | `batch_brouillons_j1` | J+1 | moyenne (brouillons de facture) |
 | `email_retry` | toutes les 5 min | moyenne (retry Resend) |
-| `process_attributions_ag` | toutes les 5 min | moyenne (emails association + transporteur après validation d'attribution) |
+| `process_attributions_ag` | toutes les 5 min | moyenne (email association, 48 h avant le créneau de collecte, Val 2026-11-13 ; email transporteur retiré, revue des emails Val 2026-10-28) |
 | `cloture_embargo` | horaire | moyenne (passage `realisee` → `cloturee` à `realisee_at` + 48 h, décision Val 2026-11-04) |
 | `siret_revalidation` | toutes les 15 min | moyenne (gating facturation INSEE) |
 | `notify_pack_etat` | toutes les 15 min | basse (notification état pack AG) |

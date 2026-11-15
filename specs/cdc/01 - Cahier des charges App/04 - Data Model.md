@@ -1628,9 +1628,9 @@ Résultat de l'algorithme d'attribution pour une collecte anti-gaspi.
 | `valide_par` | uuid | FK → users | Admin Savr qui a validé (NULL si `mode_validation = 'auto_accept'`) |
 | `valide_at` | timestamptz | | |
 | `volume_repas_realise` | integer | | Nb de repas effectivement collectés — calculé automatiquement : `ceil(poids_repas_kg / parametres_algo.poids_par_repas_kg)` (audit sobriété 2026-05-09 B2 — coefficient désormais paramétré, défaut 0.45). |
-| `poids_repas_kg` | decimal | | Poids brut saisi par le chauffeur sur le TMS (source de vérité, poussé par webhook) |
+| `poids_repas_kg` | decimal | | Poids brut saisi par le chauffeur : V1 relevé chez MTS-1 par la relève (décision Val 2026-11-13), V2 poussé par webhook du TMS Savr ; corrigeable par l'Admin |
 | `motif_override` | text | NULL si `mode_validation ≠ 'manuel_override'` | **Refonte 2026-05-09 sobriété B4 + audit sobriété 2026-05-09 A2** : code preset 5 valeurs (`assoc_top1_surchargee`, `client_demande`, `transporteur_top1_indispo`, `a_toutes_indispo_locale`, `proximite_acceptable`, `autre`) ou texte libre si `autre`. Motif `recalcul_pax` retiré (cas particulier `nb_pax` post-attribution supprimé). |
-| `motif_override_libre` | text | NULL si motif preset | **Ajouté 2026-05-09** : texte saisi quand `motif_override = 'autre'` (min 10 car.) |
+| `motif_override_libre` | text | NULL si motif preset | **Ajouté 2026-05-09** : texte saisi quand `motif_override = 'autre'` (min 5 car., Val 2026-11-15) |
 | `created_at` | timestamptz | NOT NULL | |
 
 **RLS (audit RLS V1 2026-06-05)** : visibilité dérivée de la collecte parente (`f_collecte_visible(collecte_id)`) ; écriture `admin_savr` (override AG) + `SERVICE_ROLE` (algo/pesées), aucune écriture cliente. Cf. [[09 - Authentification et permissions#A6/A7 — `collecte_flux` + `attributions_antgaspi`]].
@@ -1985,18 +1985,18 @@ Compteurs de numérotation fiscale gapless (§06.08 §7). Une ligne par couple s
 
 ## Niveau 5bis — Traçabilité réglementaire (Module 20 MVP)
 
-Registre chronologique interne Savr. Les données sont agrégées via une vue SQL sur `collectes` + `collecte_flux` + `attributions_antgaspi`, filtrée par RLS sur l'organisation de l'utilisateur. Les justificatifs (bordereaux + attestations) sont des PDF générés automatiquement à la clôture de la collecte.
+Registre chronologique interne Savr. Les données sont agrégées via une vue SQL sur `collectes` + `collecte_flux` + `attributions_antgaspi`, filtrée par RLS sur l'organisation de l'utilisateur. Les attestations de don sont des PDF générés automatiquement ; le bordereau ZD est une ligne de données sans PDF (décision Val 2026-11-13).
 
 ### Table : `bordereaux_savr`
 
-Bordereau de collecte émis par Savr pour chaque collecte zéro-déchet clôturée. Format PDF généré automatiquement. Pas de valeur légale officielle (Trackdéchets V2), mais document interne Savr auditable.
+Bordereau de collecte émis par Savr pour chaque collecte zéro-déchet dont les pesées sont là. **Ligne de données sans PDF (décision Val 2026-11-13)** : émise par le batch (statut `emis`), elle porte le numéro BSAV et les pesées figées, repris par le rapport de recyclage et l'export CSV du registre. Pas de valeur légale officielle (Trackdéchets V2), mais donnée interne Savr auditable.
 
 | Champ | Type | Contrainte | Description |
 |-------|------|-----------|-------------|
 | `id` | uuid | PK | |
 | `collecte_id` | uuid | FK → collectes, NOT NULL, UNIQUE | 1 bordereau par collecte ZD |
 | `numero` | text | NOT NULL, UNIQUE | ex: `BSAV-2026-00123` (séquence globale Savr) |
-| `date_emission` | date | NOT NULL | Date de génération du PDF |
+| `date_emission` | date | NOT NULL | Date d'émission de la ligne (plus de PDF, décision Val 2026-11-13) |
 | `date_collecte` | date | NOT NULL | Snapshot depuis `collectes.date_collecte` |
 | `producteur_entite_facturation_id` | uuid | FK → entites_facturation | **Précisé 2026-05-07** — Snapshot du producteur juridique du déchet = **traiteur opérationnel** (`evenements.traiteur_operationnel_organisation_id`), pas le programmateur. Nullable car le traiteur opérationnel peut être une fiche shadow sans `entite_facturation` ; dans ce cas, les champs `producteur_raison_sociale`/`producteur_siret` ci-dessous sont remplis directement depuis `organisations` (et le bordereau est marqué `bordereaux_savr.statut='brouillon'` tant que `producteur_siret` est manquant — alerte UX au moment de la programmation cf. §06.01). |
 | `producteur_raison_sociale` | text | NOT NULL | Snapshot du traiteur opérationnel |
@@ -2009,10 +2009,10 @@ Bordereau de collecte émis par Savr pour chaque collecte zéro-déchet clôtur�
 | `exutoire_siret` | text | | Snapshot |
 | `detail_flux` | jsonb | NOT NULL | Liste des flux collectés : `[{flux, code_dechet, poids_kg, nb_bacs, filiere}]` — **enrichi 2026-10-02 (lot rapport @3)** : par flux, snapshot à l'émission du code de traitement R/D, du mode de traitement et de l'exutoire (site de traitement du flux) depuis `flux_dechets` (noms de clés à figer par le lot). |
 | `poids_total_kg` | decimal | NOT NULL | Somme des flux |
-| `pdf_url` | text | NOT NULL | URL Cloudflare R2 |
+| `pdf_url` | text | NULL | Plus écrite : le bordereau n'a plus de PDF (décision Val 2026-11-13). La référence de fichier reste NULL. |
 | `statut` | enum | NOT NULL | `brouillon` \| `emis` \| `corrige` \| `annule` |
-| `version` | integer | NOT NULL, défaut 1 | Incrémenté si régénération après correction |
-| `template_version` | text | NULL | **Ajout 2026-06-24 (divergence M1.6/M2.4 — lot R2, BL-P1-API-07)** — Version figée du gabarit PDF utilisé (ex. `bordereau-zd@1`), écrite au rendu pour garantir un re-rendu iso. NULL pour les documents émis avant l'introduction du versioning (R2). Convergence V2 = colonne permanente (le TMS natif génère les mêmes PDF), pas une colonne V1-only neutralisée au cutover. |
+| `version` | integer | NOT NULL, défaut 1 | Incrémenté à chaque correction de pesée (mise à jour de la ligne, sans rendu — décision Val 2026-11-13) |
+| `template_version` | text | NULL | **Ajout 2026-06-24 (divergence M1.6/M2.4 — lot R2, BL-P1-API-07)** — Version figée du gabarit PDF utilisé (ex. `bordereau-zd@1`), écrite au rendu pour garantir un re-rendu iso. Plus écrite depuis le 2026-11-13 : le bordereau n'a plus de PDF (décision Val). NULL pour les documents émis avant l'introduction du versioning (R2). Convergence V2 = colonne permanente (le TMS natif génère les mêmes PDF), pas une colonne V1-only neutralisée au cutover. |
 | `created_at` | timestamptz | NOT NULL | |
 | `updated_at` | timestamptz | NOT NULL | |
 
@@ -2090,11 +2090,11 @@ Traçabilité de chaque export du registre déchets généré par un utilisateur
 | `id` | uuid | PK | |
 | `user_id` | uuid | FK → users, NOT NULL | |
 | `organisation_id` | uuid | FK → organisations, NOT NULL | Périmètre de l'export |
-| `type_export` | enum | NOT NULL | `registre_dechets` \| `bordereaux_batch` \| `attestations_batch` |
+| `type_export` | enum | NOT NULL | `registre_dechets` \| `bordereaux_batch` \| `attestations_batch` — `bordereaux_batch` n'a plus d'écrivain : l'export ZIP des bordereaux est retiré (décision Val 2026-11-13) |
 | `periode_debut` | date | NOT NULL | |
 | `periode_fin` | date | NOT NULL | |
 | `filtres_appliques` | jsonb | | ex: `{lieu_ids: [...], flux_ids: [...]}` |
-| `format` | enum | NOT NULL | `csv` \| `zip` \| `pdf` — **corrigé 2026-06-07 (F1 session test-scenarios §06.03)** : ex `excel \| pdf` incohérent avec les exports V1 réels (CSV registre + ZIP bordereaux). `pdf` = aucun écrivain V1, réservé à l'export registre PDF V1.1 (sobriété §06.03 A1). `nb_lignes` = nb lignes CSV ou nb fichiers ZIP. |
+| `format` | enum | NOT NULL | `csv` \| `zip` \| `pdf` — **corrigé 2026-06-07 (F1 session test-scenarios §06.03)** : ex `excel \| pdf` incohérent avec les exports V1 réels (CSV registre ; le ZIP bordereaux est retiré le 2026-11-13, décision Val — `zip` n'a plus d'écrivain V1). `pdf` = aucun écrivain V1, réservé à l'export registre PDF V1.1 (sobriété §06.03 A1). `nb_lignes` = nb lignes CSV ou nb fichiers ZIP. |
 | `nb_lignes` | integer | | |
 | `genere_at` | timestamptz | NOT NULL | |
 
@@ -2515,7 +2515,7 @@ La validation d'une attribution AG insère, dans la même transaction, **deux** 
 
 ### Table : `jobs_pdf` *(intégrée §04 le 2026-06-10 — challenge Frontière G1 : file de génération PDF imposée par l'architecture (§07 Résilience Railway, CLAUDE.md) mais absente du data model et du DDL cible)*
 
-File d'attente de génération PDF (bordereau ZD, rapport recyclage, attestation don AG). Un job = une demande de génération envoyée à Railway/Puppeteer. Retry **15 min pendant 4h** (politique §07 Résilience, distincte des 3 paliers outbox) ; échec final → notif Admin in-app.
+File d'attente de génération PDF (rapport recyclage, attestation don AG). Le type `bordereau_zd` reste dans l'enum : `trg_cerfa_debloque_siret` en met encore un en file, que le worker clôt sans rien fabriquer (bordereau sans PDF, décision Val 2026-11-13). Un job = une demande de génération envoyée à Railway/Puppeteer. Retry **15 min pendant 4h** (politique §07 Résilience, distincte des 3 paliers outbox) ; échec final → notif Admin in-app.
 
 | Champ | Type | Contrainte | Description |
 |-------|------|-----------|-------------|

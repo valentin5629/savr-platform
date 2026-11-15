@@ -41,7 +41,7 @@
 | Annulation collecte (→ outbox E3) | 400 ms | 1 s | |
 | Dispatch / réémission Admin | 800 ms | 2 s | Action multi-branche (non_envoye→E1 / dirty→E2 / rejetee→E1) |
 | Validation facture (déclenche push Pennylane) | 500 ms | 1,5 s | Push Pennylane **hors transaction** (async, cf. §3) — la réponse UI ne l'attend pas |
-| Génération PDF (bordereau / attestation) | 5 s end-to-end | 15 s | **Async** via `jobs_pdf` + Railway. Jamais synchrone dans la requête |
+| Génération PDF (attestation ; le bordereau n'a plus de PDF, décision Val 2026-11-13) | 5 s end-to-end | 15 s | **Async** via `jobs_pdf` + Railway. Jamais synchrone dans la requête |
 
 ---
 

@@ -45,7 +45,7 @@ Chaque fois qu'ils sont utilisés dans le Contrat, les termes suivants, employé
 
 **DLC** désigne la date limite de consommation d'une Denrée alimentaire. En l'absence d'information communiquée par le Client, SAVR applique par défaut une DLC de 24 heures.
 
-**Espace Client** désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Rapports de don, Rapports RSE), gérer ses données et paramètres.
+**Espace Client** désigne l'interface accessible depuis la Plateforme permettant au Client de programmer des Demandes de Collecte, consulter ses documents réglementaires (Bordereaux, Rapports de don, Rapports de recyclage), gérer ses données et paramètres.
 
 **Exutoire** désigne le site de valorisation ou d'élimination des Déchets auprès duquel SAVR ou ses Prestataires acheminent les Déchets collectés (entrepôt Veolia, centre de tri, etc.).
 
@@ -65,7 +65,7 @@ Chaque fois qu'ils sont utilisés dans le Contrat, les termes suivants, employé
 
 **Prestataire** désigne tout tiers mandaté par SAVR pour effectuer tout ou partie des opérations de Collecte, de transport ou de valorisation.
 
-**Rapport RSE** désigne le document généré par la Plateforme à l'issue de chaque Collecte ZD, récapitulant les indicateurs environnementaux (tonnages par flux, taux de recyclage net selon la méthode UE 2019/1004 calculé avec les taux de captation par filière, CO₂e évité).
+**Rapport de recyclage** désigne le document généré par la Plateforme à l'issue de chaque Collecte ZD, récapitulant les indicateurs environnementaux (tonnages par flux, taux de recyclage net selon la méthode UE 2019/1004 calculé avec les taux de captation par filière, CO₂e évité).
 
 **Territoire** désigne la zone géographique dans laquelle SAVR propose ses services : Paris et sa première couronne (Hauts-de-Seine, Seine-Saint-Denis, Val-de-Marne), ainsi que Versailles.
 
@@ -107,7 +107,7 @@ Le Client peut souscrire à l'une ou aux deux Activités.
 
 **Transport et valorisation** : SAVR ou son Prestataire transporte les Déchets collectés jusqu'à l'Exutoire approprié pour chaque flux. SAVR s'engage à acheminer les Déchets vers des filières de valorisation conformes à la réglementation applicable (notamment la réglementation relative aux Déchets Industriels Banals, aux biodéchets et aux emballages).
 
-**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport RSE, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.
+**Documents réglementaires** : à l'issue de chaque Collecte ZD, la Plateforme génère automatiquement un Bordereau et un Rapport de recyclage, disponibles dans l'Espace Client dans les 48 heures suivant la Collecte, sauf incident de pesée ou de génération. Ces documents constituent la traçabilité réglementaire de la Collecte.
 
 ### 4.2. Activité Anti-Gaspi
 
@@ -138,7 +138,7 @@ SAVR s'engage à :
 - Fournir les Services avec loyauté dans les conditions décrites à l'article 4 ;
 - **ZD** : transporter les Déchets dans des véhicules conformes à la réglementation relative au transport de déchets, et les acheminer vers des Exutoires autorisés ;
 - **AG** : transporter les Excédents dans des véhicules adaptés, propres et respectant la réglementation relative au transport de Denrées alimentaires ;
-- Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Rapport de don, Rapport RSE) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;
+- Mettre à disposition du Client, dans son Espace Client, les documents réglementaires (Bordereau, Rapport de don, Rapport de recyclage) dans les 48 heures suivant la Collecte, sauf incident de pesée, de génération ou vérification en cours des informations du Client ;
 - Informer le Client en cas de difficulté dans l'exécution du Service.
 
 ---
@@ -161,11 +161,11 @@ SAVR s'engage à :
 
 ## ARTICLE 7 — CONTESTATION DES PESÉES
 
-**Délai.** Le Client dispose d'un délai de **48 heures à compter de la mise à disposition du document de la Collecte (Bordereau, Rapport RSE ou Rapport de don) dans son Espace Client** pour contester une pesée, par email à l'adresse louis@gosavr.io. Passé ce délai, la pesée est réputée acceptée définitivement.
+**Délai.** Le Client dispose d'un délai de **48 heures à compter de la mise à disposition du document de la Collecte (Bordereau, Rapport de recyclage ou Rapport de don) dans son Espace Client** pour contester une pesée, par email à l'adresse louis@gosavr.io. Passé ce délai, la pesée est réputée acceptée définitivement.
 
 **Procédure.** En cas de contestation dans le délai imparti :
 1. SAVR instruit la contestation avec le Prestataire.
-2. En cas de correction validée : SAVR corrige la pesée, les documents de la Collecte (Bordereau, Rapport RSE, Rapport de don) sont régénérés, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.
+2. En cas de correction validée : SAVR corrige la pesée, les documents de la Collecte (Bordereau, Rapport de recyclage, Rapport de don) sont régénérés, et si une facture a déjà été émise, un avoir est émis suivi d'une nouvelle facture rectificative.
 3. En cas de rejet de la contestation : le Client en est informé, avec les justificatifs correspondants.
 
 ---

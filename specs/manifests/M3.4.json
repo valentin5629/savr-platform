@@ -144,7 +144,7 @@
     },
     {
       "id": "M3.4-documents-ag-rapport-de-don",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:75",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:71",
       "artefact": "packages/plateforme/src/app/api/v1/organisateur/documents/route.ts (champ `nom` décidé par la route : « Rapport de don » pour l'attestation d'une collecte AG et pour le rapport d'une collecte AG sans excédents, « Rapport RSE » pour une collecte ZD ; une ligne rapports_rse d'une collecte AG avec excédents n'est pas listée) + packages/plateforme/src/app/(client-organisateur)/organisateur/documents/page.tsx (affiche `nom`)",
       "test": "packages/plateforme/tests/api/organisateur/espace-organisateur.m3-4.test.ts « M3.4/documents_collecte_ag_un_seul_rapport_de_don »",
       "statut": "implemented",
@@ -168,7 +168,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "3e6024df5d3f8eaed7d6797ebc0f51d5408b42d2fd3816d0400347724c51d4ac",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "53dc5994f4017e6b24ed491282dc068f2d6767e0fa1bc5c822354aa673a765fc"
+    "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c26592d4cfedd24f3335e16aa31aa1ae3627fafa57064d593766c60e198763f2",
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "1ca4522aabedcd175f3f87ca9dd7f2112e948710ff612f5ffbdc98bc9642cfcd"
   }
 }

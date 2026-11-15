@@ -45,6 +45,14 @@
       "libelle": "Lecture CSV fidèle (BOM, guillemets, cellules multi-lignes)"
     },
     {
+      "id": "M5.1-export-colonnes-utiles",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:80",
+      "artefact": "apps/migration-bubble/src/sources.ts",
+      "test": "M5.1 / exports — seules les colonnes utiles sont gardées › une ligne chargée ne porte que les colonnes du catalogue",
+      "statut": "implemented",
+      "libelle": "Seules les colonnes dont l'import se sert sont gardées d'un export (ni journal Bubble, ni chauffeur, ni téléphone personnel)"
+    },
+    {
       "id": "M5.1-scripts-typescript-rejouables",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:82",
       "artefact": "apps/migration-bubble/src/identifiants.ts",

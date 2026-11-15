@@ -33,7 +33,12 @@ import {
   TYPE_TMS_CAMION,
   TYPE_TMS_VELO,
 } from '../src/referentiel-tms';
-import { CATALOGUE, ExportInattendu, choisirExport } from '../src/sources';
+import {
+  CATALOGUE,
+  ExportInattendu,
+  choisirExport,
+  garderColonnesUtiles,
+} from '../src/sources';
 import {
   EMAIL_A_COMPLETER,
   SIREN_A_COMPLETER,
@@ -122,6 +127,41 @@ describe('M5.1 / exports — lecture et contrôle du format', () => {
     expect(() => choisirExport('packs', [])).toThrow(
       /aucun fichier de ce type/,
     );
+  });
+});
+
+describe('M5.1 / exports — seules les colonnes utiles sont gardées', () => {
+  it('une ligne chargée ne porte que les colonnes du catalogue : ni journal Bubble, ni chauffeur, ni téléphone personnel', () => {
+    const [u] = garderColonnesUtiles('utilisateurs', [
+      {
+        email: 'camille@traiteur-alpha.example',
+        Entreprise: 'Traiteur Alpha',
+        'unique id': '1700000000000x1',
+        'telephone perso': '0600000099',
+        Nom: 'Exemple',
+        prenom: 'Camille',
+      },
+    ]);
+    expect(u).toEqual({
+      email: 'camille@traiteur-alpha.example',
+      Entreprise: 'Traiteur Alpha',
+      'unique id': '1700000000000x1',
+    });
+    const [c] = garderColonnesUtiles('collectes_ag', [
+      {
+        'unique id': '1700000000000x2',
+        History: 'journal',
+        Chauffeur: 'x',
+        Photos: 'y',
+        Lieu: 'adresse',
+      },
+    ]);
+    expect(Object.keys(c!).sort()).toEqual(
+      [...CATALOGUE.collectes_ag.colonnes].sort(),
+    );
+    expect(c).not.toHaveProperty('History');
+    expect(c).not.toHaveProperty('Chauffeur');
+    expect(c!.Lieu).toBe('adresse');
   });
 });
 

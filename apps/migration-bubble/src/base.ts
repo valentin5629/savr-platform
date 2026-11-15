@@ -133,6 +133,7 @@ LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE WHEN btrim(t) ~ '^-?[0-9]+([.,][0-9]+)?$'
               THEN replace(btrim(t), ',', '.')::numeric END
 $$;
+REVOKE ALL ON FUNCTION migration.nombre(text) FROM PUBLIC;
 `;
 
 export interface BilanEcriture {

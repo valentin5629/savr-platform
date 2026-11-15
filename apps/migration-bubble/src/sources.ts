@@ -7,7 +7,8 @@
  * s'arrête en nommant les colonnes manquantes de chaque fichier.
  *
  * Chauffeurs et images de rapports ne sont pas chargés : données abandonnées
- * (07 - Donnees abandonnees, items 1 et 16-17).
+ * (07 - Donnees abandonnees, items 1 et 16-17). D'un export chargé, seules les
+ * colonnes du catalogue sont gardées.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -254,6 +255,21 @@ export function choisirExport(
   return { retenu, ecartes };
 }
 
+/**
+ * Ne garde d'une ligne d'export que les colonnes dont l'import se sert. Le
+ * reste (journal Bubble, chauffeur, liens de photos, téléphone personnel d'un
+ * utilisateur…) n'entre ni en mémoire ni dans le staging de la base.
+ */
+export function garderColonnesUtiles(
+  type: TypeSource,
+  lignes: Ligne[],
+): Ligne[] {
+  const { colonnes } = CATALOGUE[type];
+  return lignes.map((l) =>
+    Object.fromEntries(colonnes.map((c) => [c, l[c] ?? ''])),
+  );
+}
+
 export function chargerSources(dossier: string): Sources {
   const fichiers = readdirSync(dossier).filter((f) => f.endsWith('.csv'));
   const sources = {} as Sources;
@@ -275,8 +291,8 @@ export function chargerSources(dossier: string): Sources {
       );
     sources[type] = {
       fichier: retenu,
-      colonnes: choisi.colonnes,
-      lignes: choisi.lignes,
+      colonnes: CATALOGUE[type].colonnes,
+      lignes: garderColonnesUtiles(type, choisi.lignes),
       ecartes,
     };
   }

@@ -23,6 +23,18 @@ PROJET="savr-migration-bubble"
 PORT=56322
 ADRESSE="postgresql://postgres:postgres@127.0.0.1:${PORT}/postgres"
 
+# Le dossier de la base jetable ne se place jamais dans le dépôt (il est public) :
+# jugé sur le chemin écrit ET sur le chemin réel (lien symbolique, dossier pas encore créé).
+PARENT="$(dirname "$DOSSIER")"
+PARENT_REEL="$(cd "$PARENT" 2>/dev/null && pwd -P || echo "$PARENT")"
+RACINE_REELLE="$(cd "$RACINE" && pwd -P)"
+case "$PARENT/" in "$RACINE"/*|"$RACINE_REELLE"/*) DANS_DEPOT=1 ;; *) DANS_DEPOT=0 ;; esac
+case "$PARENT_REEL/" in "$RACINE"/*|"$RACINE_REELLE"/*) DANS_DEPOT=1 ;; esac
+if [ "$DANS_DEPOT" = 1 ]; then
+  echo "🔴 MIGRATION_BUBBLE_DOSSIER est dans le dépôt : refusé." >&2
+  exit 1
+fi
+
 case "${1:-}" in
   demarrer)
     mkdir -p "$DOSSIER/supabase"
@@ -45,6 +57,10 @@ case "${1:-}" in
     echo "Base jetable prête : $ADRESSE"
     ;;
   arreter)
+    # Jamais un arrêt à l'aveugle : sans la configuration de CETTE pile, on ne touche à rien
+    # (la pile habituelle du dépôt, « savr-platform », sert à d'autres sessions).
+    grep -q "^project_id = \"${PROJET}\"$" "$DOSSIER/supabase/config.toml" 2>/dev/null \
+      || { echo "🔴 pas de pile ${PROJET} dans $DOSSIER : rien à arrêter." >&2; exit 1; }
     supabase stop --no-backup --workdir "$DOSSIER"
     ;;
   adresse)

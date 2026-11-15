@@ -153,9 +153,17 @@
       "id": "M5.2-garde-base-jetable",
       "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/base.ts",
-      "test": "M5.2 / garde — l’import ne tourne que sur la base locale jetable › refuse une base, même locale, qui ne porte pas le marqueur posé par base-jetable.sh",
+      "test": "M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; aucune sortie dans le dépôt › base sans marqueur : une seule requête (la lecture du marqueur), puis connexion fermée",
       "statut": "implemented",
-      "libelle": "L'import exige le marqueur de la base jetable (décision Val 2026-10-28)"
+      "libelle": "L'import exige le marqueur de la base jetable, lu avant toute autre requête (décision Val 2026-10-28)"
+    },
+    {
+      "id": "M5.2-aucune-sortie-dans-le-depot",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; aucune sortie dans le dépôt › refuse un dossier de travail placé dans le dépôt, accepte un dossier voisin ou extérieur",
+      "statut": "implemented",
+      "libelle": "Le dossier de travail (cache, fichiers à valider, rapports, données réelles) est refusé s'il est dans le dépôt, qui est public"
     },
     {
       "id": "M5.2-import-idempotent",

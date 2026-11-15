@@ -8,6 +8,8 @@
  *   2. la base porte le marqueur que seul `base-jetable.sh` pose — une base
  *      distante atteinte par un tunnel local ne l'a pas.
  */
+import { isAbsolute, relative, resolve } from 'node:path';
+
 import pg from 'pg';
 
 import {
@@ -88,15 +90,46 @@ export async function exigerBaseJetable(client: Requeteur): Promise<void> {
     );
 }
 
+/** Client Postgres tel que `connecter` s'en sert (le pilote `pg`, ou un faux client en test). */
+export interface ClientBase extends Requeteur {
+  connect: () => Promise<unknown>;
+  end: () => Promise<unknown>;
+}
+
 export async function connecter(
   adresse: string | undefined,
-): Promise<pg.Client> {
-  const client = new pg.Client(exigerBaseLocale(adresse));
+  creerClient: (acces: AccesBase) => ClientBase = (acces) =>
+    new pg.Client(acces),
+): Promise<ClientBase> {
+  const client = creerClient(exigerBaseLocale(adresse));
   await client.connect();
-  await exigerBaseJetable(client);
-  // Schéma technique posé à chaque connexion : import, checks et remise à zéro voient les mêmes tables.
-  await client.query(SCHEMA_TECHNIQUE);
+  try {
+    // Le marqueur d'abord : sur une base qui ne le porte pas, RIEN d'autre n'est exécuté.
+    await exigerBaseJetable(client);
+    // Schéma technique posé à chaque connexion : import, checks et remise à zéro voient les mêmes tables.
+    await client.query(SCHEMA_TECHNIQUE);
+  } catch (erreur) {
+    await client.end();
+    throw erreur;
+  }
   return client;
+}
+
+/**
+ * Le dossier de travail (exports lus, cache, fichiers à valider, rapports)
+ * porte des données réelles : il ne doit jamais se trouver dans le dépôt, qui
+ * est public.
+ */
+export function exigerHorsDepot(dossier: string, racineDepot: string): void {
+  const interieur = relative(resolve(racineDepot), resolve(dossier));
+  if (
+    interieur === '' ||
+    (!interieur.startsWith('..') && !isAbsolute(interieur))
+  )
+    throw new BaseRefusee(
+      `Dossier de travail refusé : « ${dossier} » est dans le dépôt, qui est public. ` +
+        'Les sorties de l’import portent des données réelles.',
+    );
 }
 
 // ── Schéma technique ─────────────────────────────────────────────────────────

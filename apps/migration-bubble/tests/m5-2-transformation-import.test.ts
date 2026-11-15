@@ -9,11 +9,14 @@ import {
   DECLENCHEURS_COUPES,
   DECLENCHEURS_LAISSES,
   basculerDeclencheurs,
+  connecter,
   ecrireTable,
   exigerBaseJetable,
   exigerBaseLocale,
   exigerDeclencheursActifs,
+  exigerHorsDepot,
   verifierInventaireDeclencheurs,
+  type ClientBase,
   type Requeteur,
 } from '../src/base';
 import { identifiantCible } from '../src/identifiants';
@@ -761,6 +764,70 @@ describe('M5.2 / garde — l’import ne tourne que sur la base locale jetable',
     await expect(exigerBaseJetable(client(false))).rejects.toThrow(
       /marqueur migration\.base_jetable/,
     );
+  });
+});
+
+describe('M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; aucune sortie dans le dépôt', () => {
+  const faux = (presente: boolean) => {
+    const appels: string[] = [];
+    const client: ClientBase = {
+      connect: async () => appels.push('connect'),
+      end: async () => appels.push('end'),
+      query: async (texte) => {
+        appels.push(texte.replace(/\s+/g, ' ').trim().slice(0, 40));
+        return { rows: [{ presente }], rowCount: 1 };
+      },
+    };
+    return { client, appels };
+  };
+  const adresse = 'postgresql://postgres:secret@127.0.0.1:56322/postgres';
+
+  it('base sans marqueur : une seule requête (la lecture du marqueur), puis connexion fermée — le schéma technique n’est jamais posé', async () => {
+    const { client, appels } = faux(false);
+    await expect(connecter(adresse, () => client)).rejects.toThrow(BaseRefusee);
+    expect(appels).toHaveLength(3);
+    expect(appels[0]).toBe('connect');
+    expect(appels[1]).toContain('SELECT to_regclass($1) IS NOT NULL');
+    expect(appels[2]).toBe('end');
+  });
+
+  it('base jetable : marqueur lu d’abord, schéma technique posé ensuite', async () => {
+    const { client, appels } = faux(true);
+    await expect(connecter(adresse, () => client)).resolves.toBe(client);
+    expect(appels).toHaveLength(3);
+    expect(appels[1]).toContain('to_regclass');
+    expect(appels[2]).toContain('CREATE SCHEMA IF NOT EXISTS migration');
+  });
+
+  it('adresse non locale : aucun client n’est même créé', async () => {
+    let crees = 0;
+    const creer = () => {
+      crees++;
+      return faux(true).client;
+    };
+    await expect(
+      connecter('postgresql://postgres:x@db.exemple.test:5432/postgres', creer),
+    ).rejects.toThrow(BaseRefusee);
+    expect(crees).toBe(0);
+  });
+
+  it('refuse un dossier de travail placé dans le dépôt, accepte un dossier voisin ou extérieur', () => {
+    const depot = '/tmp/depot-invente';
+    for (const dedans of [
+      depot,
+      `${depot}/`,
+      `${depot}/sorties`,
+      `${depot}/apps/../sorties`,
+    ])
+      expect(() => exigerHorsDepot(dedans, depot)).toThrow(
+        /dans le dépôt, qui est public/,
+      );
+    for (const dehors of [
+      '/tmp/ailleurs',
+      `${depot}-voisin`,
+      `${depot}/../sorties`,
+    ])
+      expect(() => exigerHorsDepot(dehors, depot)).not.toThrow();
   });
 });
 

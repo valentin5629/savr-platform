@@ -15,8 +15,9 @@
 import { writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { connecter } from './base';
+import { connecter, exigerHorsDepot } from './base';
 import { jouerChecks } from './checks';
 import { importer } from './importer';
 import { ecrireRapport } from './rapport';
@@ -43,6 +44,7 @@ async function main(): Promise<number> {
     dossier,
     env.MIGRATION_BUBBLE_REPETITION ?? 'repetition-1',
   );
+  exigerHorsDepot(dossier, fileURLToPath(new URL('../../..', import.meta.url)));
 
   switch (commande) {
     case 'importer': {

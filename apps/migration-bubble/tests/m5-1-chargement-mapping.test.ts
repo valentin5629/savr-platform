@@ -692,7 +692,11 @@ describe('M5.1 / lieux — référentiel initié par la migration', () => {
     expect(l.id).toBe(
       identifiantCible('lieu', '10 avenue des tests, 75008 paris'),
     );
-    expect(l.traiteurs_operant).toHaveLength(1);
+    // Traiteurs opérant : ceux des fiches du lieu ; une entreprise inconnue n'en ajoute pas.
+    expect(l.traiteurs_operant).toEqual([
+      seule(plan.tables.organisations.filter((o) => o.nom === 'Traiteur Alpha'))
+        .id,
+    ]);
     expect(
       plan.correspondances
         .filter((c) => c.table === 'lieux')

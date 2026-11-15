@@ -695,7 +695,10 @@ const RACINES_FETCH: Record<string, number> = {
   [SRC]: 6,
   // apps/cron-dev/api/[route].ts (2026-11-13) : appelle les routes cron de dev ;
   // son `catch` ne lie pas l'erreur, la règle F n'y trouve rien à rendre.
-  apps: 1,
+  // apps/migration-bubble/src/geocodage.ts (2026-11-15) : situe les lieux de
+  // l'historique Bubble par le service public d'adresses ; son `catch` ne lie
+  // pas l'erreur non plus (un échec est compté, l'adresse est redemandée).
+  apps: 2,
 };
 
 /** Les deux seules fonctions à qui l'on confie l'erreur d'un `fetch`. */

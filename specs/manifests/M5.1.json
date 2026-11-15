@@ -1,0 +1,212 @@
+{
+  "module": "M5.1",
+  "titre": "Migration Bubble — chargement des exports et mapping des référentiels",
+  "description": "Scripts TypeScript rejouables (apps/migration-bubble, hors packages/) : choix et contrôle des exports CSV Bubble, règles de lecture communes (dates en heure de Paris, nombres, téléphones, emails, SIRET, adresses), identifiants cibles déterministes (UUID v5), rapprochement des clients et des lieux en trois niveaux avec fichiers de décision rejoués, mapping des organisations, entités de facturation, domaines email, lieux, associations, transporteurs et contacts. Transformations pures, testées sur fixtures inventées (dépôt public : aucune donnée réelle). Les fiches de mapping vivent dans le Vault (04 - Migration), non exporté dans specs/ : les ref_cdc pointent le §13 App quand il porte la règle, sinon la ligne du module au squelette V5.",
+  "fichiers_produits": [
+    "apps/migration-bubble/src/sources.ts",
+    "apps/migration-bubble/src/csv.ts",
+    "apps/migration-bubble/src/identifiants.ts",
+    "apps/migration-bubble/src/normalisation.ts",
+    "apps/migration-bubble/src/rapprochement.ts",
+    "apps/migration-bubble/src/geocodage.ts",
+    "apps/migration-bubble/src/referentiel-tms.ts",
+    "apps/migration-bubble/src/plan.ts",
+    "apps/migration-bubble/src/construire-plan.ts",
+    "apps/migration-bubble/src/transformations/organisations.ts",
+    "apps/migration-bubble/src/transformations/lieux.ts",
+    "apps/migration-bubble/src/transformations/referentiels.ts",
+    "apps/migration-bubble/tests/fixtures.ts",
+    "apps/migration-bubble/tests/m5-1-chargement-mapping.test.ts"
+  ],
+  "scenarios": [],
+  "deliverables": [
+    {
+      "id": "M5.1-export-format-attendu",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:80",
+      "artefact": "apps/migration-bubble/src/sources.ts",
+      "test": "M5.1 / exports — lecture et contrôle du format › s’arrête avec un message clair quand aucun export n’a le format attendu",
+      "statut": "implemented",
+      "libelle": "Un export au format inattendu arrête le script en nommant les colonnes manquantes"
+    },
+    {
+      "id": "M5.1-export-plus-recent-complet",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:80",
+      "artefact": "apps/migration-bubble/src/sources.ts",
+      "test": "M5.1 / exports — lecture et contrôle du format › retient, parmi les exports complets, le plus récent",
+      "statut": "implemented",
+      "libelle": "Parmi plusieurs versions d'un export, la plus récente qui porte toutes les colonnes"
+    },
+    {
+      "id": "M5.1-lecture-csv",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:80",
+      "artefact": "apps/migration-bubble/src/csv.ts",
+      "test": "M5.1 / exports — lecture et contrôle du format › lit un CSV avec BOM, guillemets doublés et retour à la ligne dans une cellule",
+      "statut": "implemented",
+      "libelle": "Lecture CSV fidèle (BOM, guillemets, cellules multi-lignes)"
+    },
+    {
+      "id": "M5.1-scripts-typescript-rejouables",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:82",
+      "artefact": "apps/migration-bubble/src/identifiants.ts",
+      "test": "M5.1 / règles de lecture des valeurs Bubble › identifiant cible déterministe",
+      "statut": "implemented",
+      "libelle": "Scripts TypeScript dans le dépôt, identifiants cibles déterministes (UUID v5)"
+    },
+    {
+      "id": "M5.1-dates-heure-de-paris",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/normalisation.ts",
+      "test": "M5.1 / règles de lecture des valeurs Bubble › date Bubble : heure murale de Paris, midi et minuit compris",
+      "statut": "implemented",
+      "libelle": "Dates Bubble lues en heure de Paris, jamais d'horodatage silencieux"
+    },
+    {
+      "id": "M5.1-nombres-telephones-emails",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/normalisation.ts",
+      "test": "M5.1 / règles de lecture des valeurs Bubble › téléphone E.164 : premier numéro d’un champ multiple",
+      "statut": "implemented",
+      "libelle": "Nombres à virgule, téléphones E.164, emails : valeur illisible = vide, jamais inventée"
+    },
+    {
+      "id": "M5.1-siret-siren",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:43",
+      "artefact": "apps/migration-bubble/src/normalisation.ts",
+      "test": "M5.1 / règles de lecture des valeurs Bubble › SIRET 14 chiffres après nettoyage, sinon null",
+      "statut": "implemented",
+      "libelle": "SIRET 14 chiffres et SIREN 9 chiffres après nettoyage"
+    },
+    {
+      "id": "M5.1-aucun-utilisateur-migre",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:83",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › aucun compte utilisateur migré : seul le compte système existe",
+      "statut": "implemented",
+      "libelle": "Aucun compte utilisateur migré ; un compte système sans connexion, auteur de l'historique"
+    },
+    {
+      "id": "M5.1-domaines-email-verifies",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:42",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › domaines email importés comme vérifiés",
+      "statut": "implemented",
+      "libelle": "Domaines email des organisations importés comme vérifiés ; publics exclus ; conflit listé"
+    },
+    {
+      "id": "M5.1-organisations-entites-facturation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:43",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › une entité de facturation par défaut par entreprise",
+      "statut": "implemented",
+      "libelle": "Organisations et entités de facturation ; SIRET inconnu = vide et listé"
+    },
+    {
+      "id": "M5.1-type-organisation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:119",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › toute entreprise est importée « traiteur »",
+      "statut": "implemented",
+      "libelle": "Tout importé « traiteur » ; type proposé par règle (type_overrides) appliqué une fois validé"
+    },
+    {
+      "id": "M5.1-rapprochement-clients",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:135",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › rapprochement des clients en trois niveaux",
+      "statut": "implemented",
+      "libelle": "Rapprochement des clients (SIRET, domaine email, nom) en trois niveaux, décisions rejouées"
+    },
+    {
+      "id": "M5.1-agences",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:43",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › agences : même nom = une seule organisation, inactive",
+      "statut": "implemented",
+      "libelle": "Agences Bubble : une organisation par nom, inactive, sans entité de facturation"
+    },
+    {
+      "id": "M5.1-donnees-de-test",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:135",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › données de test : proposées à Val, écartées seulement sur sa décision",
+      "statut": "implemented",
+      "libelle": "Données de test proposées à l'exclusion, écartées sur décision seulement"
+    },
+    {
+      "id": "M5.1-lieux-dedoublonnes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:45",
+      "artefact": "apps/migration-bubble/src/transformations/lieux.ts",
+      "test": "M5.1 / lieux — référentiel initié par la migration › même adresse normalisée = un seul lieu",
+      "statut": "implemented",
+      "libelle": "Référentiel lieux dédoublonné par adresse normalisée"
+    },
+    {
+      "id": "M5.1-lieux-deuxieme-passe",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:45",
+      "artefact": "apps/migration-bubble/src/transformations/lieux.ts",
+      "test": "M5.1 / lieux — référentiel initié par la migration › 2e passe : une adresse de collecte absente du référentiel crée un lieu",
+      "statut": "implemented",
+      "libelle": "2e passe sur les adresses des collectes : chaque collecte a un lieu"
+    },
+    {
+      "id": "M5.1-lieux-colonnes-sans-source",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:95",
+      "artefact": "apps/migration-bubble/src/transformations/lieux.ts",
+      "test": "M5.1 / lieux — référentiel initié par la migration › colonnes sans source Bubble : véhicule maximal « poids_lourd »",
+      "statut": "implemented",
+      "libelle": "type_vehicule_max = poids_lourd ; stationnement et acces_office laissés NULL"
+    },
+    {
+      "id": "M5.1-lieux-rapprochement",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:85",
+      "artefact": "apps/migration-bubble/src/transformations/lieux.ts",
+      "test": "M5.1 / lieux — référentiel initié par la migration › rapprochement en trois niveaux : même position et noms proches = auto",
+      "statut": "implemented",
+      "libelle": "Rapprochement des lieux par position et nom, trois niveaux, décisions rejouées"
+    },
+    {
+      "id": "M5.1-lieux-position-cache",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:85",
+      "artefact": "apps/migration-bubble/src/geocodage.ts",
+      "test": "M5.1 / service d’adresses › n’envoie que l’adresse du lieu, garde chaque réponse en cache",
+      "statut": "implemented",
+      "libelle": "Position par la Base Adresse Nationale : seule l'adresse du lieu part, réponses en cache hors dépôt"
+    },
+    {
+      "id": "M5.1-associations",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:46",
+      "artefact": "apps/migration-bubble/src/transformations/referentiels.ts",
+      "test": "M5.1 / référentiels — associations, transporteurs, contacts › associations : seuls les points de dépôt « NOURRITURE »",
+      "statut": "implemented",
+      "libelle": "Associations : référentiel minimal, jamais habilitées par défaut, exutoires écartés"
+    },
+    {
+      "id": "M5.1-transporteurs-champs-a-completer",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:100",
+      "artefact": "apps/migration-bubble/src/transformations/referentiels.ts",
+      "test": "M5.1 / référentiels — associations, transporteurs, contacts › transporteurs : champs sans source posés à compléter et listés",
+      "statut": "implemented",
+      "libelle": "Transporteurs : champs obligatoires sans source posés à compléter et listés"
+    },
+    {
+      "id": "M5.1-transporteurs-types-vehicules",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:101",
+      "artefact": "apps/migration-bubble/src/transformations/referentiels.ts",
+      "test": "M5.1 / référentiels — associations, transporteurs, contacts › transporteurs : champs sans source posés à compléter et listés",
+      "statut": "implemented",
+      "libelle": "types_vehicules normalisés vers l'enum unifié"
+    },
+    {
+      "id": "M5.1-contacts-dedoublonnes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:43",
+      "artefact": "apps/migration-bubble/src/transformations/referentiels.ts",
+      "test": "M5.1 / référentiels — associations, transporteurs, contacts › contacts du carnet : dédoublonnés par organisation et téléphone puis par nom",
+      "statut": "implemented",
+      "libelle": "Contacts dédoublonnés ; non repris au-delà de 5 ans sans usage"
+    }
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": "3a3aaa4307f06b350470f7fafb7c495ecfe25b0ead0c71e7112950a68a3fc8e3",
+    "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md": "10025603d399263c70770dd3aefcbaa59e926acd639ef1a6714f180e3014911a"
+  }
+}

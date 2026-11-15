@@ -1,0 +1,11 @@
+{
+  "name": "@savr/migration-bubble",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Import de l'historique Bubble (V5) : scripts rejouables, sur base locale jetable",
+  "type": "module",
+  "dependencies": {
+    "@types/pg": "^8.20.0",
+    "pg": "^8.21.0"
+  }
+}

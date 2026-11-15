@@ -231,8 +231,8 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": "3a3aaa4307f06b350470f7fafb7c495ecfe25b0ead0c71e7112950a68a3fc8e3",
-    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "d0d2f00a195516f6ed9e84337d9e6936d1f030c01a3a1a841c5ee50fc167fda5",
+    "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": "4c808a3c08c3185f1ab9a2bfd403d4bf75c47623b92d452166904ab663a656bc",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "aaa3e673259e71204c1108d6ddb42a4f9895a16f3d3749511e99a36c0c74d958",
     "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md": "10025603d399263c70770dd3aefcbaa59e926acd639ef1a6714f180e3014911a"
   }
 }

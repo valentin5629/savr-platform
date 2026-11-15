@@ -74,7 +74,7 @@ export interface Requeteur {
   ) => Promise<{ rows: Record<string, unknown>[]; rowCount: number | null }>;
 }
 
-export const MARQUEUR_BASE_JETABLE = 'migration.base_jetable';
+const MARQUEUR_BASE_JETABLE = 'migration.base_jetable';
 
 export async function exigerBaseJetable(client: Requeteur): Promise<void> {
   const { rows } = await client.query(
@@ -235,7 +235,7 @@ export async function ecrireTable(
     charge,
   );
   const ecarts = controle.rows[0]!.ecarts as number;
-  if (ecarts !== 0 || bilan.inchangees < 0)
+  if (ecarts !== 0)
     throw new Error(
       `${table} : ${ecarts} ligne(s) du plan absentes ou différentes après écriture ` +
         '(écriture filtrée en silence, ou valeur réécrite par un déclencheur).',

@@ -58,13 +58,13 @@ export function construirePlan(sources: Sources, ctx: Contexte): Plan {
     plan,
   );
   const usage = usageDesReferentiels(lues);
-  const { associationParNom } = transformerAssociations(
+  const associationParNom = transformerAssociations(
     sources.points_depot.lignes,
     usage.derniereCollecteParPointDepot,
     ctx,
     plan,
   );
-  const { transporteurParBubbleId } = transformerTransporteurs(
+  const transporteurParBubbleId = transformerTransporteurs(
     sources.transporteurs.lignes,
     usage.transporteurs,
     ctx,

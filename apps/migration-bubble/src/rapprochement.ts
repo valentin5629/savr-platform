@@ -89,6 +89,69 @@ export interface Proposition {
 }
 
 /**
+ * Propose un niveau pour chaque fiche à partir d'un jugement par paire.
+ * `auto` : les deux fiches sont regroupées, le représentant du groupe est la
+ * plus ancienne. `a_revoir` : chaque fiche garde, parmi ses voisines, la plus
+ * ancienne comme rapprochement proposé. Sans avis : `distinct`.
+ */
+export function proposer<F extends { cle: string }>(
+  fiches: F[],
+  anciennete: (a: F, b: F) => number,
+  juger: (a: F, b: F) => { niveau: 'auto' | 'a_revoir'; motif: string } | null,
+): Proposition[] {
+  const liensAuto: [string, string][] = [];
+  const motifAuto = new Map<string, string>();
+  const aRevoir = new Map<string, { autre: F; motif: string }>();
+  for (let i = 0; i < fiches.length; i++) {
+    for (let j = i + 1; j < fiches.length; j++) {
+      const a = fiches[i]!;
+      const b = fiches[j]!;
+      const avis = juger(a, b);
+      if (!avis) continue;
+      if (avis.niveau === 'auto') {
+        liensAuto.push([a.cle, b.cle]);
+        motifAuto.set(a.cle, avis.motif);
+        motifAuto.set(b.cle, avis.motif);
+        continue;
+      }
+      for (const [x, y] of [
+        [a, b],
+        [b, a],
+      ] as const) {
+        const deja = aRevoir.get(x.cle);
+        if (!deja || anciennete(y, deja.autre) < 0)
+          aRevoir.set(x.cle, { autre: y, motif: avis.motif });
+      }
+    }
+  }
+  const parCle = new Map(fiches.map((f) => [f.cle, f]));
+  const chefAuto = regrouper(
+    fiches.map((f) => f.cle),
+    liensAuto,
+    (membres) => membres.map((m) => parCle.get(m)!).sort(anciennete)[0]!.cle,
+  );
+  return fiches.map((f) => {
+    const chef = chefAuto.get(f.cle)!;
+    if (chef !== f.cle)
+      return {
+        cle: f.cle,
+        niveau: 'auto',
+        groupePropose: chef,
+        motif: motifAuto.get(f.cle) ?? 'regroupée',
+      };
+    const voisin = aRevoir.get(f.cle);
+    if (voisin && chefAuto.get(voisin.autre.cle) !== f.cle)
+      return {
+        cle: f.cle,
+        niveau: 'a_revoir',
+        groupePropose: chefAuto.get(voisin.autre.cle)!,
+        motif: voisin.motif,
+      };
+    return { cle: f.cle, niveau: 'distinct', groupePropose: f.cle, motif: '' };
+  });
+}
+
+/**
  * Groupe final de chaque fiche : la décision de Val si elle existe (`distinct`
  * pour la séparer, ou la clé de la fiche à rejoindre), sinon le groupe proposé
  * quand il est `auto`, sinon la fiche seule.

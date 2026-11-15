@@ -204,7 +204,6 @@ export class ExportInattendu extends Error {}
 
 export interface SourceChargee {
   fichier: string;
-  colonnes: string[];
   lignes: Ligne[];
   /** Fichiers du même type écartés, avec le motif (colonnes manquantes ou plus ancien). */
   ecartes: { fichier: string; motif: string }[];
@@ -291,7 +290,6 @@ export function chargerSources(dossier: string): Sources {
       );
     sources[type] = {
       fichier: retenu,
-      colonnes: CATALOGUE[type].colonnes,
       lignes: garderColonnesUtiles(type, choisi.lignes),
       ecartes,
     };

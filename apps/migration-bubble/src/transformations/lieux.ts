@@ -32,9 +32,8 @@ import {
 import {
   appliquerDecisions,
   distanceMetres,
-  regrouper,
+  proposer,
   ressemblanceNoms,
-  type Proposition,
 } from '../rapprochement';
 
 /** Ce que les lieux lisent d'une collecte (2e passe, activité, traiteurs opérant). */
@@ -95,80 +94,6 @@ function anciennete(a: Fiche, b: Fiche): number {
   const da = a.creation ? `${a.creation.jour} ${a.creation.heure}` : '9999';
   const db = b.creation ? `${b.creation.jour} ${b.creation.heure}` : '9999';
   return da === db ? a.cle.localeCompare(b.cle) : da.localeCompare(db);
-}
-
-function proposer(fiches: Fiche[], ctx: Contexte): Proposition[] {
-  const liensAuto: [string, string][] = [];
-  const motifAuto = new Map<string, string>();
-  const aRevoir = new Map<string, { autre: Fiche; motif: string }>();
-  const noter = (a: Fiche, b: Fiche, motif: string) => {
-    for (const [x, y] of [
-      [a, b],
-      [b, a],
-    ] as const) {
-      const deja = aRevoir.get(x.cle);
-      if (!deja || anciennete(y, deja.autre) < 0)
-        aRevoir.set(x.cle, { autre: y, motif });
-    }
-  };
-  const nomPrincipal = new Map(
-    fiches.map((f) => [f.cle, plusFrequents(f.noms)[0] ?? '']),
-  );
-  for (let i = 0; i < fiches.length; i++) {
-    for (let j = i + 1; j < fiches.length; j++) {
-      const a = fiches[i]!;
-      const b = fiches[j]!;
-      const pa = position(ctx.geocodes.get(a.cle), true);
-      const pb = position(ctx.geocodes.get(b.cle), true);
-      const d = pa && pb ? Math.round(distanceMetres(pa, pb)) : null;
-      const r = ressemblanceNoms(
-        nomPrincipal.get(a.cle)!,
-        nomPrincipal.get(b.cle)!,
-      );
-      if (d !== null && d <= DISTANCE_MEME_POSITION_M && r >= 0.7) {
-        liensAuto.push([a.cle, b.cle]);
-        const motif = `même position (${d} m) et noms proches`;
-        motifAuto.set(a.cle, motif);
-        motifAuto.set(b.cle, motif);
-      } else if (d !== null && d <= DISTANCE_MEME_POSITION_M)
-        noter(a, b, `même position (${d} m), noms différents`);
-      else if (d !== null && d <= DISTANCE_VOISINAGE_M && r >= 0.85)
-        noter(a, b, `à ${d} m, noms proches`);
-      else if (r >= 0.9)
-        noter(
-          a,
-          b,
-          d === null
-            ? 'même nom, adresses différentes (position inconnue)'
-            : `même nom, adresses distantes de ${d} m`,
-        );
-    }
-  }
-  const parCle = new Map(fiches.map((f) => [f.cle, f]));
-  const chefAuto = regrouper(
-    fiches.map((f) => f.cle),
-    liensAuto,
-    (membres) => membres.map((m) => parCle.get(m)!).sort(anciennete)[0]!.cle,
-  );
-  return fiches.map((f) => {
-    const chef = chefAuto.get(f.cle)!;
-    if (chef !== f.cle)
-      return {
-        cle: f.cle,
-        niveau: 'auto',
-        groupePropose: chef,
-        motif: motifAuto.get(f.cle) ?? 'regroupée',
-      };
-    const voisin = aRevoir.get(f.cle);
-    if (voisin && chefAuto.get(voisin.autre.cle) !== f.cle)
-      return {
-        cle: f.cle,
-        niveau: 'a_revoir',
-        groupePropose: chefAuto.get(voisin.autre.cle)!,
-        motif: voisin.motif,
-      };
-    return { cle: f.cle, niveau: 'distinct', groupePropose: f.cle, motif: '' };
-  });
 }
 
 export function transformerLieux(
@@ -264,11 +189,40 @@ export function transformerLieux(
   }
 
   const liste = [...fiches.values()].sort(anciennete);
-  const propositions = proposer(liste, ctx);
+  const nomPrincipal = new Map(
+    liste.map((f) => [f.cle, plusFrequents(f.noms)[0] ?? '']),
+  );
+  // Jugement d'une paire de fiches : distance entre positions précises, ressemblance des noms.
+  const propositions = proposer(liste, anciennete, (a, b) => {
+    const pa = position(ctx.geocodes.get(a.cle), true);
+    const pb = position(ctx.geocodes.get(b.cle), true);
+    const d = pa && pb ? Math.round(distanceMetres(pa, pb)) : null;
+    const r = ressemblanceNoms(
+      nomPrincipal.get(a.cle)!,
+      nomPrincipal.get(b.cle)!,
+    );
+    if (d !== null && d <= DISTANCE_MEME_POSITION_M)
+      return r >= 0.7
+        ? { niveau: 'auto', motif: `même position (${d} m) et noms proches` }
+        : {
+            niveau: 'a_revoir',
+            motif: `même position (${d} m), noms différents`,
+          };
+    if (d !== null && d <= DISTANCE_VOISINAGE_M && r >= 0.85)
+      return { niveau: 'a_revoir', motif: `à ${d} m, noms proches` };
+    if (r >= 0.9)
+      return {
+        niveau: 'a_revoir',
+        motif:
+          d === null
+            ? 'même nom, adresses différentes (position inconnue)'
+            : `même nom, adresses distantes de ${d} m`,
+      };
+    return null;
+  });
   const groupe = appliquerDecisions(propositions, ctx.decisions.lieux);
   const propositionParCle = new Map(propositions.map((p) => [p.cle, p]));
-  const nomDe = (cle: string) =>
-    plusFrequents(fiches.get(cle)?.noms ?? [])[0] ?? '';
+  const nomDe = (cle: string) => nomPrincipal.get(cle) ?? '';
 
   for (const f of liste) {
     const p = propositionParCle.get(f.cle)!;

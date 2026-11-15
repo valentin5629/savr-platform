@@ -73,7 +73,7 @@ export function lireOuiNon(texte: string | undefined): boolean | null {
   return t === 'oui' ? true : t === 'non' ? false : null;
 }
 
-export function sansAccents(texte: string): string {
+function sansAccents(texte: string): string {
   return texte.normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 

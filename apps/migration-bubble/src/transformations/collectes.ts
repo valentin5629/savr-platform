@@ -55,7 +55,7 @@ export interface CollecteLue {
 }
 
 /** Colonnes de poids Bubble → codes du référentiel `flux_dechets` (Val 2026-11-02). */
-export const FLUX_BUBBLE: [string, CodeFlux][] = [
+const FLUX_BUBBLE: [string, CodeFlux][] = [
   ['Biodéchets (kg)', 'biodechet'],
   ['Carton (kg)', 'carton'],
   ['DIB (kg)', 'dechet_residuel'],

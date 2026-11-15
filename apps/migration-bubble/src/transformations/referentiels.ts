@@ -60,21 +60,15 @@ export function transformerAssociations(
   derniereCollecteParNom: Map<string, string>,
   ctx: Contexte,
   plan: Plan,
-): {
-  /** Association par nom Bubble complet (avec préfixe de zone), tel que les collectes le citent. */
-  associationParNom: Map<string, string>;
-  /** Noms des points de dépôt qui ne sont pas des associations (exutoires de déchets, type vide). */
-  horsAssociations: Set<string>;
-} {
+): Map<string, string> {
+  // Association par nom Bubble complet (avec préfixe de zone), tel que les collectes le citent.
   const associationParNom = new Map<string, string>();
-  const horsAssociations = new Set<string>();
   const seuil = decalerAnnees(ctx.jourReference, -1);
   for (const l of pointsDepot) {
     const bubbleId = l['unique id']!.trim();
     const nomBubble = (l['Nom'] ?? '').trim();
     if ((l['Type'] ?? '').trim() !== 'NOURRITURE') {
       // Exutoire de déchets ou type vide : pas une association (fiche 05, cas particuliers).
-      if (nomBubble) horsAssociations.add(nomBubble);
       plan.rejets.push({
         sourceType: 'point_depot',
         bubbleId,
@@ -184,7 +178,7 @@ export function transformerAssociations(
       fusionne: false,
     });
   }
-  return { associationParNom, horsAssociations };
+  return associationParNom;
 }
 
 /** « Vélo cargo », « Camion frigorifique »… → valeurs de l'enum des véhicules ; rien de lisible → null. */
@@ -205,9 +199,7 @@ export function transformerTransporteurs(
   usage: UsageReferentiel,
   ctx: Contexte,
   plan: Plan,
-): {
-  transporteurParBubbleId: Map<string, { id: string; nom: string }>;
-} {
+): Map<string, { id: string; nom: string }> {
   const transporteurParBubbleId = new Map<
     string,
     { id: string; nom: string }
@@ -289,7 +281,7 @@ export function transformerTransporteurs(
       fusionne: false,
     });
   }
-  return { transporteurParBubbleId };
+  return transporteurParBubbleId;
 }
 
 export function transformerContacts(

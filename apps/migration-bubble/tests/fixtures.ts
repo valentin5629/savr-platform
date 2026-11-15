@@ -143,7 +143,6 @@ export function sources(lignes: Partial<Record<TypeSource, Ligne[]>>): Sources {
       type,
       {
         fichier: `export_${type}.csv`,
-        colonnes: CATALOGUE[type].colonnes,
         lignes: lignes[type] ?? [],
         ecartes: [],
       },

@@ -12,7 +12,7 @@ import { dirname } from 'node:path';
 
 import type { Geocode } from './plan';
 
-export const SERVICE_ADRESSES = 'https://data.geopf.fr/geocodage/search';
+const SERVICE_ADRESSES = 'https://data.geopf.fr/geocodage/search';
 
 type Recuperer = (url: string) => Promise<{
   ok: boolean;

@@ -15,17 +15,11 @@ import {
   normaliserNom,
   texteOuNull,
 } from '../normalisation';
-import {
-  ajouterAuListing,
-  type Contexte,
-  type LigneCible,
-  type Plan,
-} from '../plan';
+import { ajouterAuListing, type Contexte, type Plan } from '../plan';
 import {
   appliquerDecisions,
-  regrouper,
+  proposer,
   ressemblanceNoms,
-  type Proposition,
 } from '../rapprochement';
 
 export const EMAIL_COMPTE_SYSTEME = 'migration@gosavr.io';
@@ -67,82 +61,36 @@ function ordreAnciennete(a: Fiche, b: Fiche): number {
     : a.creation.localeCompare(b.creation);
 }
 
-function proposerRegroupements(fiches: Fiche[]): Proposition[] {
-  const liensAuto: [string, string][] = [];
-  const motifAuto = new Map<string, string>();
-  const aRevoir = new Map<string, { autre: Fiche; motif: string }>();
-  const noter = (a: Fiche, b: Fiche, motif: string) => {
-    for (const [x, y] of [
-      [a, b],
-      [b, a],
-    ] as const) {
-      const deja = aRevoir.get(x.cle);
-      if (!deja || ordreAnciennete(y, deja.autre) < 0)
-        aRevoir.set(x.cle, { autre: y, motif });
-    }
-  };
-  for (let i = 0; i < fiches.length; i++) {
-    for (let j = i + 1; j < fiches.length; j++) {
-      const a = fiches[i]!;
-      const b = fiches[j]!;
-      const memeNom =
-        normaliserNom(a.nom) !== '' &&
-        normaliserNom(a.nom) === normaliserNom(b.nom);
-      if (a.source === 'agence' || b.source === 'agence') {
-        // Une agence Bubble n'a qu'un nom : seul le nom exact rapproche.
-        if (!memeNom) continue;
-        if (a.source === b.source) {
-          liensAuto.push([a.cle, b.cle]);
-          motifAuto.set(a.cle, 'agence du même nom');
-          motifAuto.set(b.cle, 'agence du même nom');
-        } else noter(a, b, 'agence et entreprise du même nom');
-        continue;
-      }
-      const memeSiret = a.siret !== null && a.siret === b.siret;
-      const siretsContraires =
-        a.siret !== null && b.siret !== null && a.siret !== b.siret;
-      const memeDomaine = a.domaine !== null && a.domaine === b.domaine;
-      const proches = ressemblanceNoms(a.nom, b.nom) >= SEUIL_NOMS_PROCHES;
-      let motif: string | null = null;
-      if (memeSiret && (proches || memeDomaine))
-        motif = 'même SIRET, nom ou domaine email proche';
-      else if (memeNom && !siretsContraires) motif = 'même nom';
-      if (motif) {
-        liensAuto.push([a.cle, b.cle]);
-        motifAuto.set(a.cle, motif);
-        motifAuto.set(b.cle, motif);
-      } else if (memeSiret) noter(a, b, 'même SIRET, noms différents');
-      else if (memeNom) noter(a, b, 'même nom, SIRET différents');
-      else if (memeDomaine) noter(a, b, 'même domaine email');
-      else if (proches) noter(a, b, 'noms proches');
-    }
+/** Jugement d'une paire de clients : SIRET, domaine email, nom. */
+function jugerClients(
+  a: Fiche,
+  b: Fiche,
+): { niveau: 'auto' | 'a_revoir'; motif: string } | null {
+  const memeNom =
+    normaliserNom(a.nom) !== '' &&
+    normaliserNom(a.nom) === normaliserNom(b.nom);
+  if (a.source === 'agence' || b.source === 'agence') {
+    // Une agence Bubble n'a qu'un nom : seul le nom exact rapproche.
+    if (!memeNom) return null;
+    return a.source === b.source
+      ? { niveau: 'auto', motif: 'agence du même nom' }
+      : { niveau: 'a_revoir', motif: 'agence et entreprise du même nom' };
   }
-  const parCle = new Map(fiches.map((f) => [f.cle, f]));
-  const chefAuto = regrouper(
-    fiches.map((f) => f.cle),
-    liensAuto,
-    (membres) =>
-      membres.map((m) => parCle.get(m)!).sort(ordreAnciennete)[0]!.cle,
-  );
-  return fiches.map((f) => {
-    const chef = chefAuto.get(f.cle)!;
-    if (chef !== f.cle)
-      return {
-        cle: f.cle,
-        niveau: 'auto',
-        groupePropose: chef,
-        motif: motifAuto.get(f.cle) ?? 'regroupée',
-      };
-    const voisin = aRevoir.get(f.cle);
-    if (voisin && chefAuto.get(voisin.autre.cle) !== f.cle)
-      return {
-        cle: f.cle,
-        niveau: 'a_revoir',
-        groupePropose: chefAuto.get(voisin.autre.cle)!,
-        motif: voisin.motif,
-      };
-    return { cle: f.cle, niveau: 'distinct', groupePropose: f.cle, motif: '' };
-  });
+  const memeSiret = a.siret !== null && a.siret === b.siret;
+  const siretsContraires =
+    a.siret !== null && b.siret !== null && a.siret !== b.siret;
+  const memeDomaine = a.domaine !== null && a.domaine === b.domaine;
+  const proches = ressemblanceNoms(a.nom, b.nom) >= SEUIL_NOMS_PROCHES;
+  if (memeSiret && (proches || memeDomaine))
+    return { niveau: 'auto', motif: 'même SIRET, nom ou domaine email proche' };
+  if (memeNom && !siretsContraires)
+    return { niveau: 'auto', motif: 'même nom' };
+  if (memeSiret)
+    return { niveau: 'a_revoir', motif: 'même SIRET, noms différents' };
+  if (memeNom)
+    return { niveau: 'a_revoir', motif: 'même nom, SIRET différents' };
+  if (memeDomaine) return { niveau: 'a_revoir', motif: 'même domaine email' };
+  return proches ? { niveau: 'a_revoir', motif: 'noms proches' } : null;
 }
 
 const TYPES_VALIDES = new Set([
@@ -217,7 +165,7 @@ export function transformerOrganisations(
     return false;
   });
 
-  const propositions = proposerRegroupements(fiches);
+  const propositions = proposer(fiches, ordreAnciennete, jugerClients);
   const groupe = appliquerDecisions(propositions, ctx.decisions.clients);
   const parCle = new Map(fiches.map((f) => [f.cle, f]));
   const membres = new Map<string, Fiche[]>();
@@ -232,7 +180,6 @@ export function transformerOrganisations(
   const organisationParAgence = new Map<string, string>();
   const entiteParOrganisation = new Map<string, string>();
   const nomParOrganisation = new Map<string, string>();
-  const lignesOrganisations = new Map<string, LigneCible>();
   const siretsPris = new Set<string>();
   const organisationsAgences = new Set<string>();
   const propositionParCle = new Map(propositions.map((p) => [p.cle, p]));
@@ -286,7 +233,7 @@ export function transformerOrganisations(
         .flatMap((f) => lireEmails(f.ligne['Email de contact']))
         .at(0) ?? null;
     const identifiant = premier('Identifiant');
-    lignesOrganisations.set(id, {
+    plan.tables.organisations.push({
       id,
       nom: tete.nom,
       raison_sociale: tete.source === 'entreprise' ? tete.nom : null,
@@ -452,7 +399,7 @@ export function transformerOrganisations(
   let organisationSavrId = ctx.organisationSavrId;
   if (!organisationSavrId) {
     organisationSavrId = identifiantCible('organisation', 'savr');
-    lignesOrganisations.set(organisationSavrId, {
+    plan.tables.organisations.push({
       id: organisationSavrId,
       nom: 'Savr',
       raison_sociale: null,
@@ -499,7 +446,7 @@ export function transformerOrganisations(
   const organisationSansClient = () => {
     if (sansClientId) return sansClientId;
     sansClientId = identifiantCible('organisation', 'clients-historiques');
-    lignesOrganisations.set(sansClientId, {
+    plan.tables.organisations.push({
       id: sansClientId,
       nom: NOM_ORGANISATION_SANS_CLIENT,
       raison_sociale: null,
@@ -565,7 +512,8 @@ export function transformerOrganisations(
     organisationSavrId,
     compteSystemeId,
     fixerActivite: (derniereCollecte, seuil) => {
-      for (const [id, ligne] of lignesOrganisations) {
+      for (const ligne of plan.tables.organisations) {
+        const id = ligne.id as string;
         // Savr et l'organisation d'accueil gardent leur valeur ; une agence
         // Bubble reste inactive (fiche 01 §2, option a).
         if (id === organisationSavrId || id === sansClientId) continue;
@@ -573,7 +521,6 @@ export function transformerOrganisations(
           !organisationsAgences.has(id) &&
           (derniereCollecte.get(id) ?? '') >= seuil;
       }
-      plan.tables.organisations = [...lignesOrganisations.values()];
     },
   };
 }

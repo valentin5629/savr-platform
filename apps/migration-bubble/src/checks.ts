@@ -11,6 +11,11 @@
  */
 import type { Requeteur } from './base';
 import { TYPE_TMS_CAMION } from './referentiel-tms';
+import { EMAIL_COMPTE_SYSTEME } from './transformations/organisations';
+import {
+  EMAIL_A_COMPLETER,
+  SIREN_A_COMPLETER,
+} from './transformations/referentiels';
 
 export interface Check {
   code: string;
@@ -65,7 +70,7 @@ export const CHECKS: Check[] = [
     nature: 'bloquant',
     sql: `SELECT evenements, collectes FROM (SELECT
             (SELECT count(*) FROM ${IMPORTEES('evenements')} e
-              WHERE e.created_by = (SELECT id FROM plateforme.users WHERE email = 'migration@gosavr.io')) AS evenements,
+              WHERE e.created_by = (SELECT id FROM plateforme.users WHERE email = '${EMAIL_COMPTE_SYSTEME}')) AS evenements,
             (SELECT count(*) FROM ${IMPORTEES('collectes')} c) AS collectes) x
           WHERE evenements <> collectes
           UNION ALL
@@ -309,7 +314,7 @@ export const CHECKS: Check[] = [
     libelle: 'Transporteur actif avec SIREN, email ou téléphone à compléter',
     nature: 'gate_go_live',
     sql: `SELECT id FROM plateforme.transporteurs
-           WHERE actif AND (siren = '000000000' OR contact_email LIKE 'a-completer@%' OR contact_telephone = '-')`,
+           WHERE actif AND (siren = '${SIREN_A_COMPLETER}' OR contact_email = '${EMAIL_A_COMPLETER}' OR contact_telephone = '-')`,
   },
   {
     code: 'D2',
@@ -323,7 +328,7 @@ export const CHECKS: Check[] = [
     code: 'D3',
     libelle: 'Association active avec email de contact à compléter',
     nature: 'gate_go_live',
-    sql: `SELECT id FROM plateforme.associations WHERE actif AND contact_email LIKE 'a-completer@%'`,
+    sql: `SELECT id FROM plateforme.associations WHERE actif AND contact_email = '${EMAIL_A_COMPLETER}'`,
   },
   {
     code: 'D4',
@@ -352,12 +357,9 @@ export interface ResultatCheck {
   exemples: Record<string, unknown>[];
 }
 
-export async function jouerChecks(
-  client: Requeteur,
-  checks: Check[] = CHECKS,
-): Promise<ResultatCheck[]> {
+export async function jouerChecks(client: Requeteur): Promise<ResultatCheck[]> {
   const resultats: ResultatCheck[] = [];
-  for (const c of checks) {
+  for (const c of CHECKS) {
     const { rows } = await client.query(c.sql);
     resultats.push({
       code: c.code,

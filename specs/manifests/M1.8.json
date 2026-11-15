@@ -57,7 +57,7 @@
       "artefact": "supabase/migrations/20260615100000_plateforme_m1_8_fn_agreger_terminal.sql",
       "test": "cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001",
       "statut": "implemented",
-      "libelle": "cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001"
+      "libelle": "cycle nominal : collecte ZD cloturee → batch PDF (bordereau, rapport à télécharger) + brouillon → valider → emise FZD-2026-00001 — depuis le 2026-11-13 (décision Val, _Divergences/M1.6_20261113_retrait-bordereau-zd.md) le bordereau est émis sans PDF."
     },
     {
       "id": "M1.8-02",

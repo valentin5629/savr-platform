@@ -152,6 +152,25 @@ export function proposer<F extends { cle: string }>(
 }
 
 /**
+ * Décisions de Val qui ne s'appliquent à rien : fiche inconnue (clé absente de
+ * l'export), ou fiche à rejoindre inconnue. Une faute de frappe ne doit pas
+ * être ignorée en silence.
+ */
+export function decisionsSansObjet(
+  propositions: Proposition[],
+  decisions: Map<string, string>,
+): string[] {
+  const connues = new Set(propositions.map((p) => p.cle));
+  return [...decisions]
+    .filter(
+      ([cle, decision]) =>
+        !connues.has(cle) ||
+        (decision.trim() !== 'distinct' && !connues.has(decision.trim())),
+    )
+    .map(([cle]) => cle);
+}
+
+/**
  * Groupe final de chaque fiche : la décision de Val si elle existe (`distinct`
  * pour la séparer, ou la clé de la fiche à rejoindre), sinon le groupe proposé
  * quand il est `auto`, sinon la fiche seule.

@@ -118,11 +118,11 @@
     },
     {
       "id": "M5.1-rapprochement-clients",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:135",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
       "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
       "test": "M5.1 / clients — organisations, entités, domaines › rapprochement des clients en trois niveaux",
       "statut": "implemented",
-      "libelle": "Rapprochement des clients (SIRET, domaine email, nom) en trois niveaux, décisions rejouées"
+      "libelle": "Rapprochement des clients (SIRET, domaine email, nom) en trois niveaux, décisions rejouées (méthode validée par Val le 2026-11-06)"
     },
     {
       "id": "M5.1-agences",
@@ -133,12 +133,28 @@
       "libelle": "Agences Bubble : une organisation par nom, inactive, sans entité de facturation"
     },
     {
+      "id": "M5.1-activite-des-referentiels",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / clients — organisations, entités, domaines › organisation active si elle a une collecte dans les 24 derniers mois",
+      "statut": "implemented",
+      "libelle": "Actif selon l'ancienneté de la dernière collecte : organisations et lieux 24 mois, associations et transporteurs 12 mois (fiches du Vault 01, 03, 05, 06)"
+    },
+    {
       "id": "M5.1-donnees-de-test",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:135",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
       "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
       "test": "M5.1 / clients — organisations, entités, domaines › données de test : proposées à Val, écartées seulement sur sa décision",
       "statut": "implemented",
-      "libelle": "Données de test proposées à l'exclusion, écartées sur décision seulement"
+      "libelle": "Données de test proposées à l'exclusion, écartées sur décision seulement (fiche du Vault 07 - Donnees abandonnees, item 15)"
+    },
+    {
+      "id": "M5.1-references-ambigues-bloquantes",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / références ambiguës — jamais résolues au hasard › une raison sociale portée par deux organisations non regroupées bloque l’import",
+      "statut": "implemented",
+      "libelle": "Référence ambiguë (nom ou email désignant deux organisations, deux associations du même nom, décision nommant une fiche inconnue) = arrêt avant toute écriture (fiche du Vault 04 - Transformations §8)"
     },
     {
       "id": "M5.1-lieux-dedoublonnes",
@@ -157,8 +173,16 @@
       "libelle": "2e passe sur les adresses des collectes : chaque collecte a un lieu"
     },
     {
+      "id": "M5.1-lieux-traiteurs-operant",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:85",
+      "artefact": "apps/migration-bubble/src/transformations/lieux.ts",
+      "test": "M5.1 / lieux — référentiel initié par la migration › même adresse normalisée = un seul lieu",
+      "statut": "implemented",
+      "libelle": "Rattachement des traiteurs opérant conservé (lieux.traiteurs_operant = traiteurs des fiches et des collectes du lieu)"
+    },
+    {
       "id": "M5.1-lieux-colonnes-sans-source",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:95",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:45",
       "artefact": "apps/migration-bubble/src/transformations/lieux.ts",
       "test": "M5.1 / lieux — référentiel initié par la migration › colonnes sans source Bubble : véhicule maximal « poids_lourd »",
       "statut": "implemented",
@@ -166,19 +190,19 @@
     },
     {
       "id": "M5.1-lieux-rapprochement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:85",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
       "artefact": "apps/migration-bubble/src/transformations/lieux.ts",
       "test": "M5.1 / lieux — référentiel initié par la migration › rapprochement en trois niveaux : même position et noms proches = auto",
       "statut": "implemented",
-      "libelle": "Rapprochement des lieux par position et nom, trois niveaux, décisions rejouées"
+      "libelle": "Rapprochement des lieux par position et nom, trois niveaux, décisions rejouées (méthode validée par Val le 2026-11-06)"
     },
     {
       "id": "M5.1-lieux-position-cache",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:85",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
       "artefact": "apps/migration-bubble/src/geocodage.ts",
       "test": "M5.1 / service d’adresses › n’envoie que l’adresse du lieu, garde chaque réponse en cache",
       "statut": "implemented",
-      "libelle": "Position par la Base Adresse Nationale : seule l'adresse du lieu part, réponses en cache hors dépôt"
+      "libelle": "Position par la Base Adresse Nationale : seule l'adresse du lieu part, réponses en cache hors dépôt (décision Val 2026-11-06)"
     },
     {
       "id": "M5.1-associations",

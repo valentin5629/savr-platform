@@ -23,11 +23,11 @@
     },
     {
       "id": "M5.2-un-evenement-par-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:86",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
       "test": "M5.2 / collectes — statuts, événement, lieu › 1 collecte Bubble = 1 événement à 1 collecte, nommé « Client - Lieu »",
       "statut": "implemented",
-      "libelle": "1 collecte Bubble = 1 événement à 1 collecte, nommé « Client - Lieu »"
+      "libelle": "1 collecte Bubble = 1 événement à 1 collecte, nommé « Client - Lieu » (décision Val 2026-10-30, fiche du Vault 08 §2)"
     },
     {
       "id": "M5.2-type-evenement-autre",
@@ -63,19 +63,19 @@
     },
     {
       "id": "M5.2-flux-zero-dechet",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:47",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
       "test": "M5.2 / collectes — pesées, attribution, historique partiel › flux Bubble → référentiel : DIB = déchet résiduel, plastique = emballage",
       "statut": "implemented",
-      "libelle": "Pesées : DIB → dechet_residuel, plastique → emballage"
+      "libelle": "Pesées : DIB → dechet_residuel, plastique → emballage (décision Val 2026-11-02, fiche du Vault 08 §4)"
     },
     {
       "id": "M5.2-attributions-anti-gaspi",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:46",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
       "test": "M5.2 / collectes — pesées, attribution, historique partiel › attribution anti-gaspi créée seulement si association ET transporteur sont retrouvés",
       "statut": "implemented",
-      "libelle": "Attribution anti-gaspi (association, transporteur, poids, repas) marquée migration_bubble"
+      "libelle": "Attribution anti-gaspi (association, transporteur, poids, repas) marquée migration_bubble (fiche du Vault 08 §5)"
     },
     {
       "id": "M5.2-historique-partiel",
@@ -102,12 +102,20 @@
       "libelle": "Collectes de plus de 5 ans : aucun nom, téléphone ni email de contact repris"
     },
     {
+      "id": "M5.2-emails-des-commerciaux-gardes-a-part",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — données personnelles › email du commercial et du compte créateur gardés à part, par événement",
+      "statut": "implemented",
+      "libelle": "Email Bubble du commercial et du compte créateur gardé par événement dans le schéma technique, pour lui rendre son historique à son inscription (décision Val 2026-11-15) ; l'auteur importé reste le compte système"
+    },
+    {
       "id": "M5.2-bornes-de-la-base",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:86",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/normalisation.ts",
       "test": "M5.2 / collectes — données personnelles › bornes de la base respectées avant écriture",
       "statut": "implemented",
-      "libelle": "Bornes de longueur et de caractères tenues avant l'écriture"
+      "libelle": "Bornes de longueur et de caractères tenues avant l'écriture (contraintes CHECK du schéma)"
     },
     {
       "id": "M5.2-packs-credits-recomptes",
@@ -135,35 +143,35 @@
     },
     {
       "id": "M5.2-garde-base-locale",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:69",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/base.ts",
       "test": "M5.2 / garde — l’import ne tourne que sur la base locale jetable › refuse : projet hébergé",
       "statut": "implemented",
-      "libelle": "L'import refuse toute base qui n'est pas locale"
+      "libelle": "L'import refuse toute base qui n'est pas locale (décision Val 2026-10-28, fiche du Vault 03)"
     },
     {
       "id": "M5.2-garde-base-jetable",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:69",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/base.ts",
       "test": "M5.2 / garde — l’import ne tourne que sur la base locale jetable › refuse une base, même locale, qui ne porte pas le marqueur posé par base-jetable.sh",
       "statut": "implemented",
-      "libelle": "L'import exige le marqueur de la base jetable"
+      "libelle": "L'import exige le marqueur de la base jetable (décision Val 2026-10-28)"
     },
     {
       "id": "M5.2-import-idempotent",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:82",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/base.ts",
       "test": "M5.2 / écriture idempotente › rejeu : rien d’inséré, rien de modifié",
-      "statut": "implemented",
-      "libelle": "Import rejouable : rien créé en double"
+      "statut": "partial",
+      "libelle": "Import rejouable : rien créé en double. En CI, seul le texte SQL de l'écriture est prouvé (faux client). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
     },
     {
       "id": "M5.2-controle-de-fin-positif",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:82",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/base.ts",
       "test": "M5.2 / écriture idempotente › contrôle de fin positif : une écriture filtrée en silence fait échouer",
-      "statut": "implemented",
-      "libelle": "Contrôle de fin positif après chaque écriture"
+      "statut": "partial",
+      "libelle": "Contrôle de fin positif après chaque écriture. En CI, seule la lecture de la réponse est prouvée (faux client). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
     },
     {
       "id": "M5.2-declencheurs-coupes",
@@ -188,6 +196,14 @@
       "test": "M5.2 / import — une transaction, aucun effet de bord › annule tout si une table d’ordres, de documents ou d’emails a reçu une ligne",
       "statut": "implemented",
       "libelle": "Une transaction ; annulation si un ordre, un document, un email ou une alerte est écrit"
+    },
+    {
+      "id": "M5.2-co2-par-les-fonctions-de-la-base",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/importer.ts",
+      "test": "M5.2 / import — une transaction, aucun effet de bord › écrit les tables dans l’ordre des dépendances, déclencheurs coupés puis rétablis, et valide",
+      "statut": "partial",
+      "libelle": "CO₂, taux de recyclage et repas recalculés à l'import par les fonctions de la base, une fois par collecte clôturée (fiches du Vault 03 étape 13 et 04 §10). En CI, seul l'ordre des appels est prouvé (faux client). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
     },
     {
       "id": "M5.2-factures-et-documents-non-migres",

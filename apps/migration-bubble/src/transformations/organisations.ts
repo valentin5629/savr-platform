@@ -18,6 +18,7 @@ import {
 import { ajouterAuListing, type Contexte, type Plan } from '../plan';
 import {
   appliquerDecisions,
+  decisionsSansObjet,
   proposer,
   ressemblanceNoms,
 } from '../rapprochement';
@@ -167,6 +168,18 @@ export function transformerOrganisations(
 
   const propositions = proposer(fiches, ordreAnciennete, jugerClients);
   const groupe = appliquerDecisions(propositions, ctx.decisions.clients);
+  const sansObjet = decisionsSansObjet(propositions, ctx.decisions.clients);
+  if (sansObjet.length > 0)
+    plan.blocages.push(
+      `clients-a-valider.csv : ${sansObjet.length} décision(s) désignent une fiche inconnue (colonne groupe_decide)`,
+    );
+  const typesInconnus = [...ctx.decisions.types.values()].filter(
+    (t) => !TYPES_VALIDES.has(t.trim()),
+  );
+  if (typesInconnus.length > 0)
+    plan.blocages.push(
+      `type_overrides.csv : ${typesInconnus.length} type(s) validé(s) inconnu(s) (attendu : ${[...TYPES_VALIDES].join(', ')})`,
+    );
   const parCle = new Map(fiches.map((f) => [f.cle, f]));
   const membres = new Map<string, Fiche[]>();
   for (const f of fiches) {
@@ -182,6 +195,8 @@ export function transformerOrganisations(
   const nomParOrganisation = new Map<string, string>();
   const siretsPris = new Set<string>();
   const organisationsAgences = new Set<string>();
+  const nomsAmbigus = new Set<string>();
+  const emailsAmbigus = new Set<string>();
   const propositionParCle = new Map(propositions.map((p) => [p.cle, p]));
 
   const chefs = [...membres.keys()].sort((a, b) =>
@@ -272,6 +287,8 @@ export function transformerOrganisations(
       if (f.source === 'agence') organisationParAgence.set(f.cle, id);
       else if (!organisationParNom.has(normaliserNom(f.nom)))
         organisationParNom.set(normaliserNom(f.nom), id);
+      else if (organisationParNom.get(normaliserNom(f.nom)) !== id)
+        nomsAmbigus.add(normaliserNom(f.nom));
     }
 
     // Entité de facturation : une par organisation issue d'une entreprise (jamais pour une agence).
@@ -359,6 +376,8 @@ export function transformerOrganisations(
       normaliserNom(u['Entreprise']),
     );
     if (!email || !organisationId) continue;
+    if ((organisationParEmail.get(email) ?? organisationId) !== organisationId)
+      emailsAmbigus.add(email);
     organisationParEmail.set(email, organisationId);
     noterDomaine(email, organisationId);
   }
@@ -394,6 +413,16 @@ export function transformerOrganisations(
       fusionne: false,
     });
   }
+
+  // Une référence ambiguë n'est jamais résolue au hasard : elle bloque l'écriture.
+  if (nomsAmbigus.size > 0)
+    plan.blocages.push(
+      `${nomsAmbigus.size} raison(s) sociale(s) portée(s) par plusieurs organisations non regroupées : trancher dans clients-a-valider.csv`,
+    );
+  if (emailsAmbigus.size > 0)
+    plan.blocages.push(
+      `${emailsAmbigus.size} email(s) d'utilisateur Bubble rattaché(s) à plusieurs organisations`,
+    );
 
   // Organisation des comptes Savr et compte système, auteur de tout l'historique.
   let organisationSavrId = ctx.organisationSavrId;

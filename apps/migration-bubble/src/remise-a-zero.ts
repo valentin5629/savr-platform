@@ -45,7 +45,12 @@ export async function remettreAZero(
     }
     await basculerDeclencheurs(client, 'ENABLE');
     await exigerDeclencheursActifs(client);
-    for (const table of ['id_map', 'rejets', 'sources_brutes'])
+    for (const table of [
+      'id_map',
+      'rejets',
+      'sources_brutes',
+      'auteurs_evenements',
+    ])
       await client.query(`DELETE FROM migration.${table}`);
     await client.query('COMMIT');
     return retirees;

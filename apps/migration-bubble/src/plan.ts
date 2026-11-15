@@ -97,6 +97,18 @@ export interface Plan {
   rejets: Rejet[];
   /** Listes de complétion ou d'arbitrage, par nom de fichier (sans extension). */
   listings: Record<string, LigneCible[]>;
+  /**
+   * Ce qui interdit d'écrire dans la base tant que Val n'a pas tranché : référence
+   * ambiguë (un nom ou un email qui désigne deux organisations), décision qui
+   * nomme une fiche inconnue (04 - Transformations §8 : jamais résolu au hasard).
+   */
+  blocages: string[];
+  /**
+   * Email Bubble du commercial et du compte créateur, par événement importé : ce
+   * qui permettra de rendre son historique au commercial à son inscription
+   * (décision Val 2026-11-15). Gardé dans le schéma technique, fermé aux clients.
+   */
+  auteursEvenements: LigneCible[];
   /** Fichiers à valider par Val, rejoués comme décisions au passage suivant. */
   aValider: {
     lieux: LigneCible[];
@@ -114,6 +126,8 @@ export function planVide(): Plan {
     correspondances: [],
     rejets: [],
     listings: {},
+    blocages: [],
+    auteursEvenements: [],
     aValider: { lieux: [], clients: [], types: [], exclusions: [] },
   };
 }

@@ -31,6 +31,7 @@ import {
 } from '../plan';
 import {
   appliquerDecisions,
+  decisionsSansObjet,
   distanceMetres,
   proposer,
   ressemblanceNoms,
@@ -221,6 +222,11 @@ export function transformerLieux(
     return null;
   });
   const groupe = appliquerDecisions(propositions, ctx.decisions.lieux);
+  const sansObjet = decisionsSansObjet(propositions, ctx.decisions.lieux);
+  if (sansObjet.length > 0)
+    plan.blocages.push(
+      `lieux-a-valider.csv : ${sansObjet.length} décision(s) désignent une fiche inconnue (colonne groupe_decide)`,
+    );
   const propositionParCle = new Map(propositions.map((p) => [p.cle, p]));
   const nomDe = (cle: string) => nomPrincipal.get(cle) ?? '';
 

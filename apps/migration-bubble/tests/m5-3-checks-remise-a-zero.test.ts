@@ -78,7 +78,7 @@ describe('M5.3 / checks de réconciliation — catalogue', () => {
 
   it('un check ne fait que lire : aucune écriture, aucun changement de schéma', () => {
     for (const c of CHECKS) {
-      expect(c.sql.trimStart()).toMatch(/^SELECT/);
+      expect(c.sql.trimStart()).toMatch(/^(SELECT|WITH)\b/);
       expect(c.sql).not.toMatch(
         /\b(INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|GRANT)\b/,
       );
@@ -183,10 +183,11 @@ describe('M5.3 / remise à zéro', () => {
     expect(rang(/ENABLE TRIGGER/)).toBeGreaterThan(
       rang(/^DELETE FROM plateforme\.organisations/),
     );
-    expect(requetes.slice(-4, -1)).toEqual([
+    expect(requetes.slice(-5, -1)).toEqual([
       'DELETE FROM migration.id_map',
       'DELETE FROM migration.rejets',
       'DELETE FROM migration.sources_brutes',
+      'DELETE FROM migration.auteurs_evenements',
     ]);
   });
 
@@ -663,6 +664,66 @@ describe.skipIf(!ADRESSE_TEST)(
             `DELETE FROM migration.rejets WHERE source_type = 'collecte'`,
           ),
         ).toEqual(['A1', 'A2']);
+        expect(
+          await rouges(
+            `DELETE FROM migration.id_map WHERE source_type = 'evenement'`,
+          ),
+        ).toEqual(['A3']);
+        expect(
+          await rouges(
+            `DELETE FROM migration.id_map WHERE source_type = 'agence'`,
+          ),
+        ).toEqual(['A4']);
+        expect(
+          await rouges(
+            `DELETE FROM migration.id_map WHERE source_type = 'transporteur'`,
+          ),
+        ).toEqual(['A6']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.packs_antgaspi SET credits_initiaux = credits_initiaux + 1 WHERE type_pack = 'pack_10'`,
+          ),
+        ).toEqual(['B1']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.collectes SET taux_recyclage = NULL WHERE type = 'zero_dechet'`,
+          ),
+        ).toEqual(['E2']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.collectes SET date_collecte = DATE '2031-01-01' WHERE statut = 'annulee'`,
+          ),
+        ).toEqual(['E3']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.collectes SET statut = 'realisee_sans_collecte' WHERE type = 'zero_dechet'`,
+          ),
+        ).toEqual(['E5']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.evenements SET traiteur_operationnel_organisation_id = (SELECT id FROM plateforme.organisations WHERE nom = 'Maison Bêta')
+            WHERE traiteur_operationnel_organisation_id = (SELECT id FROM plateforme.organisations WHERE nom = 'Traiteur Alpha')`,
+          ),
+        ).toEqual(['E1']);
+        // B3 (pack sur-consommé) et B4 (deux packs actifs) ne se sabotent pas : la base les
+        // interdit elle-même (contrainte chk_pack_credits_limite, index uniq_pack_actif_par_org).
+        await expect(
+          rouges(
+            `UPDATE plateforme.packs_antgaspi SET credits_consommes = credits_initiaux + 1`,
+          ),
+        ).rejects.toThrow(/chk_pack_credits_limite/);
+        await expect(
+          rouges(`UPDATE plateforme.packs_antgaspi SET statut = 'actif'`),
+        ).rejects.toThrow(/uniq_pack_actif_par_org/);
+
+        // Emails gardés à part pour la réattribution au commercial : un par événement récent, aucun pour la collecte de 2020.
+        expect(await compter(client, 'migration.auteurs_evenements')).toBe(8);
+        expect(
+          await compter(
+            client,
+            `migration.auteurs_evenements WHERE email_createur = 'camille@traiteur-alpha.example'`,
+          ),
+        ).toBe(8);
 
         // 6. Remise à zéro : plus aucune ligne importée, référentiels intacts.
         const retirees = await remettreAZero(client);
@@ -674,6 +735,7 @@ describe.skipIf(!ADRESSE_TEST)(
           );
         expect(await compter(client, 'shared.prestataires')).toBe(0);
         expect(await compter(client, 'migration.id_map')).toBe(0);
+        expect(await compter(client, 'migration.auteurs_evenements')).toBe(0);
         expect(await compter(client, 'plateforme.flux_dechets')).toBe(5);
       } finally {
         await client.end();

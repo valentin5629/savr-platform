@@ -15,8 +15,8 @@
       "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
       "artefact": "apps/migration-bubble/src/checks.ts",
       "test": "M5.3 / checks de réconciliation — catalogue › chaque check a un code unique, un libellé et une nature",
-      "statut": "implemented",
-      "libelle": "Checks de réconciliation A à E : comptages, cohérence financière, intégrité, fonctionnels"
+      "statut": "partial",
+      "libelle": "Checks de réconciliation A à E : comptages, cohérence financière, intégrité, fonctionnels. En CI, seul le catalogue est prouvé (codes, natures, lecture seule). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels. Chaque check bloquant y est allumé par un sabotage, sauf B3 et B4, que la base interdit elle-même."
     },
     {
       "id": "M5.3-checks-attendus-relus-dans-les-exports",
@@ -39,12 +39,12 @@
       "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
       "artefact": "apps/migration-bubble/src/checks.ts",
       "test": "M5.3 / checks de réconciliation — catalogue › 0 ligne = vert",
-      "statut": "implemented",
-      "libelle": "0 ligne = vert, toute ligne = anomalie"
+      "statut": "partial",
+      "libelle": "0 ligne = vert, toute ligne = anomalie. En CI, prouvé sur un faux client. Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
     },
     {
       "id": "M5.3-gates-go-live",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:87",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:100",
       "artefact": "apps/migration-bubble/src/checks.ts",
       "test": "M5.3 / checks de réconciliation — catalogue › les contrôles de complétion avant go-live ne bloquent pas une répétition",
       "statut": "implemented",
@@ -68,7 +68,7 @@
     },
     {
       "id": "M5.3-rapport-repetition",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:54",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
       "artefact": "apps/migration-bubble/src/rapport.ts",
       "test": "M5.3 / rapport de répétition › donne, par passage, les écritures par table, les rejets par motif, les checks, les durées et les déclencheurs coupés",
       "statut": "implemented",
@@ -76,7 +76,7 @@
     },
     {
       "id": "M5.3-repetition-sur-base-jetable",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:69",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
       "artefact": "apps/migration-bubble/tests/m5-3-checks-remise-a-zero.test.ts",
       "test": null,
       "statut": "partial",

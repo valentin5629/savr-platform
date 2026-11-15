@@ -86,6 +86,9 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
+      disposable-email-domains:
+        specifier: ^1.0.62
+        version: 1.0.62
       pg:
         specifier: ^8.21.0
         version: 8.21.0

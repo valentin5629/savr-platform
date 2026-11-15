@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { ecrireCsv, lireCsv } from '../src/csv';
 import { lireReponse, situerAdresses } from '../src/geocodage';
 import { ESPACE_MIGRATION, identifiantCible } from '../src/identifiants';
+import { exigerAucunBlocage } from '../src/importer';
 import {
   codePostalVille,
   horodatageParis,
@@ -24,6 +25,7 @@ import {
 } from '../src/normalisation';
 import {
   appliquerDecisions,
+  decisionsSansObjet,
   distanceMetres,
   ressemblanceNoms,
 } from '../src/rapprochement';
@@ -575,6 +577,85 @@ describe('M5.1 / clients — organisations, entités, domaines', () => {
     expect(accueil.actif).toBe(false);
     expect(seule(plan.tables.evenements).organisation_id).toBe(accueil.id);
     expect(plan.listings['collectes-sans-client']).toHaveLength(1);
+  });
+});
+
+describe('M5.1 / références ambiguës — jamais résolues au hasard', () => {
+  it('une raison sociale portée par deux organisations non regroupées bloque l’import', () => {
+    const plan = monde({
+      entreprises: [
+        entreprise(),
+        entreprise({
+          SIRET: '22222222200022',
+          'Email de contact': 'a@autre-alpha.example',
+        }),
+      ],
+    });
+    expect(plan.aValider.clients.map((c) => c.motif)).toEqual([
+      'même nom, SIRET différents',
+      'même nom, SIRET différents',
+    ]);
+    expect(plan.blocages).toEqual([
+      '1 raison(s) sociale(s) portée(s) par plusieurs organisations non regroupées : trancher dans clients-a-valider.csv',
+    ]);
+    expect(monde().blocages).toEqual([]);
+  });
+
+  it('un email d’utilisateur rattaché à deux organisations, ou deux associations du même nom, bloquent', () => {
+    const plan = monde({
+      entreprises: [
+        entreprise(),
+        entreprise({
+          'Raison sociale': 'Maison Bêta',
+          SIRET: '22222222200022',
+          'Email de contact': 'a@maison-beta.example',
+        }),
+      ],
+      utilisateurs: [utilisateur(), utilisateur({ Entreprise: 'Maison Bêta' })],
+      points_depot: [pointDepot(), pointDepot()],
+    });
+    expect(plan.blocages).toEqual([
+      "1 email(s) d'utilisateur Bubble rattaché(s) à plusieurs organisations",
+      '1 nom(s) de point de dépôt porté(s) par plusieurs associations',
+    ]);
+  });
+
+  it('une décision de Val qui désigne une fiche inconnue, ou un type inconnu, bloque au lieu d’être ignorée', () => {
+    const alpha = entreprise();
+    const plan = monde(
+      { entreprises: [alpha] },
+      {
+        decisions: {
+          exclusions: new Set(),
+          lieux: new Map([['adresse inconnue', 'distinct']]),
+          clients: new Map([[alpha['unique id']!, 'identifiant-mal-recopie']]),
+          types: new Map([[alpha['unique id']!, 'traiteurs']]),
+        },
+      },
+    );
+    expect(plan.blocages).toEqual([
+      'clients-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide)',
+      'type_overrides.csv : 1 type(s) validé(s) inconnu(s) (attendu : traiteur, agence, gestionnaire_lieux, client_organisateur)',
+      'lieux-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide)',
+    ]);
+    expect(
+      decisionsSansObjet(
+        [{ cle: 'a', niveau: 'distinct', groupePropose: 'a', motif: '' }],
+        new Map([
+          ['a', 'distinct'],
+          ['b', 'a'],
+        ]),
+      ),
+    ).toEqual(['b']);
+  });
+
+  it('l’import s’arrête avant toute écriture tant qu’un point reste à trancher', () => {
+    const plan = monde();
+    expect(() => exigerAucunBlocage(plan)).not.toThrow();
+    plan.blocages.push('un point', 'un autre');
+    expect(() => exigerAucunBlocage(plan)).toThrow(
+      'Import arrêté avant toute écriture — 2 point(s) à trancher :\n  - un point\n  - un autre',
+    );
   });
 });
 

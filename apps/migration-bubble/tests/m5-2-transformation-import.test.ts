@@ -465,6 +465,53 @@ describe('M5.2 / collectes — données personnelles', () => {
     expect(seule(plan.tables.lieux).acces_details).toBe('Entrée par la cour');
   });
 
+  it('email du commercial et du compte créateur gardés à part, par événement, pour lui rendre son historique à son inscription ; jamais au-delà de 5 ans', () => {
+    const recente = collecte({
+      'mail du commercial': 'Vente@Traiteur-Alpha.example',
+    });
+    const sansCommercial = collecte({ 'mail du commercial': '' });
+    const ancienne = collecte({
+      'mail du commercial': 'vente@traiteur-alpha.example',
+      'Heure du pickup': 'Nov 14, 2021 6:00 pm',
+    });
+    const anonyme = collecte({ 'mail du commercial': 'illisible', User: '' });
+    const plan = monde({
+      collectes_ag: [recente, sansCommercial, ancienne, anonyme],
+    });
+    expect(plan.auteursEvenements).toEqual([
+      {
+        evenement_id: identifiantCible('evenement', recente['unique id']!),
+        email_commercial: 'vente@traiteur-alpha.example',
+        email_createur: 'camille@traiteur-alpha.example',
+      },
+      {
+        evenement_id: identifiantCible(
+          'evenement',
+          sansCommercial['unique id']!,
+        ),
+        email_commercial: null,
+        email_createur: 'camille@traiteur-alpha.example',
+      },
+    ]);
+    // L'auteur en base reste le compte système : la réattribution est un lot du produit.
+    expect(new Set(plan.tables.evenements.map((e) => e.created_by))).toEqual(
+      new Set([seule(plan.tables.users).id]),
+    );
+  });
+
+  it('collecte « sans excédent » qui porte pourtant un poids : poids non repris, listé', () => {
+    const plan = monde({
+      collectes_ag: [
+        collecte({ "Pas d'excédents": 'oui', 'Poids total': '1' }),
+      ],
+    });
+    expect(seule(plan.tables.collectes).statut).toBe('realisee_sans_collecte');
+    expect(plan.tables.attributions_antgaspi).toHaveLength(0);
+    expect(seule(plan.listings['poids-non-repris']!).motif).toBe(
+      'collecte « sans excédent » qui porte un poids',
+    );
+  });
+
   it('bornes de la base respectées avant écriture : contact long ou multi-lignes, consigne de plus de 1 000 caractères', () => {
     const plan = monde({
       collectes_ag: [

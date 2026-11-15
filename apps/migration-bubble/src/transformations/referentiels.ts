@@ -63,6 +63,7 @@ export function transformerAssociations(
 ): Map<string, string> {
   // Association par nom Bubble complet (avec préfixe de zone), tel que les collectes le citent.
   const associationParNom = new Map<string, string>();
+  const doublons = new Set<string>();
   const seuil = decalerAnnees(ctx.jourReference, -1);
   for (const l of pointsDepot) {
     const bubbleId = l['unique id']!.trim();
@@ -170,6 +171,7 @@ export function transformerAssociations(
       });
     if (nomBubble && !associationParNom.has(nomBubble))
       associationParNom.set(nomBubble, id);
+    else if (nomBubble) doublons.add(nomBubble);
     plan.correspondances.push({
       sourceType: 'point_depot',
       bubbleId,
@@ -178,6 +180,11 @@ export function transformerAssociations(
       fusionne: false,
     });
   }
+  // Les collectes citent leur association par son nom : deux associations du même nom bloquent.
+  if (doublons.size > 0)
+    plan.blocages.push(
+      `${doublons.size} nom(s) de point de dépôt porté(s) par plusieurs associations`,
+    );
   return associationParNom;
 }
 

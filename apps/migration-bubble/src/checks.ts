@@ -146,7 +146,7 @@ export const CHECKS: Check[] = [
   {
     code: 'B2',
     libelle:
-      'Crédits consommés = collectes rattachées et débitées, bornées aux crédits initiaux (hors abonnements terminés, épuisés par convention)',
+      'Crédits consommés = collectes rattachées et débitées, bornées aux crédits initiaux (un abonnement sans collecte rattachée, épuisé par convention, n’est pas jugé)',
     nature: 'bloquant',
     sql: `SELECT p.id, p.credits_consommes, n.rattachees
             FROM ${IMPORTEES('packs_antgaspi')} p
@@ -240,6 +240,33 @@ export const CHECKS: Check[] = [
     sql: `SELECT c.id FROM plateforme.collectes c
            WHERE c.type = 'anti_gaspi' AND c.statut = 'cloturee' AND NOT c.historique_partiel
              AND NOT EXISTS (SELECT 1 FROM plateforme.attributions_antgaspi a WHERE a.collecte_id = c.id)`,
+  },
+  {
+    code: 'E1',
+    libelle:
+      'Chaque collecte est rattachée au client que l’export désigne (raison sociale, sinon compte créateur), ou à l’organisation d’accueil',
+    nature: 'bloquant',
+    sql: `WITH clients AS (
+            SELECT DISTINCT lower(btrim(s.ligne ->> 'Raison sociale')) AS nom, m.target_id AS organisation
+              FROM migration.sources_brutes s
+              JOIN migration.id_map m ON m.source_type = 'entreprise' AND m.bubble_id = s.bubble_id
+             WHERE s.source_type = 'entreprises'
+          ), attendu AS (
+            SELECT c.bubble_id,
+                   coalesce(par_nom.organisation, par_compte.organisation,
+                            (SELECT m.target_id FROM migration.id_map m
+                              WHERE m.source_type = 'systeme' AND m.bubble_id = 'organisation-sans-client')) AS organisation
+              FROM ${COLLECTES_SRC} c
+              LEFT JOIN clients par_nom ON par_nom.nom = lower(btrim(c.ligne ->> 'User entreprise'))
+              LEFT JOIN migration.sources_brutes u
+                ON u.source_type = 'utilisateurs'
+               AND lower(btrim(u.ligne ->> 'email')) = lower(btrim(c.ligne ->> 'User'))
+              LEFT JOIN clients par_compte ON par_compte.nom = lower(btrim(u.ligne ->> 'Entreprise'))
+          )
+          SELECT a.bubble_id FROM attendu a
+            JOIN migration.id_map m ON m.source_type = 'evenement' AND m.bubble_id = a.bubble_id
+            JOIN plateforme.evenements e ON e.id = m.target_id
+           WHERE e.traiteur_operationnel_organisation_id IS DISTINCT FROM a.organisation`,
   },
   {
     code: 'E2',

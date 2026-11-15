@@ -94,13 +94,15 @@ export async function connecter(
   const client = new pg.Client(exigerBaseLocale(adresse));
   await client.connect();
   await exigerBaseJetable(client);
+  // Schéma technique posé à chaque connexion : import, checks et remise à zéro voient les mêmes tables.
+  await client.query(SCHEMA_TECHNIQUE);
   return client;
 }
 
 // ── Schéma technique ─────────────────────────────────────────────────────────
 
 /** Créé par le script dans la base jetable seulement : aucun fichier dans supabase/migrations/. */
-export const SCHEMA_TECHNIQUE = `
+const SCHEMA_TECHNIQUE = `
 CREATE SCHEMA IF NOT EXISTS migration;
 REVOKE ALL ON SCHEMA migration FROM PUBLIC;
 CREATE TABLE IF NOT EXISTS migration.sources_brutes (
@@ -123,6 +125,12 @@ CREATE TABLE IF NOT EXISTS migration.rejets (
   motif       text NOT NULL,
   PRIMARY KEY (source_type, bubble_id)
 );
+CREATE TABLE IF NOT EXISTS migration.auteurs_evenements (
+  evenement_id     uuid PRIMARY KEY,
+  email_commercial text,
+  email_createur   text
+);
+ALTER TABLE migration.auteurs_evenements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.sources_brutes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.id_map ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.rejets ENABLE ROW LEVEL SECURITY;

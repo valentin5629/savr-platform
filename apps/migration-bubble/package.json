@@ -6,6 +6,7 @@
   "type": "module",
   "dependencies": {
     "@types/pg": "^8.20.0",
+    "disposable-email-domains": "^1.0.62",
     "pg": "^8.21.0"
   }
 }

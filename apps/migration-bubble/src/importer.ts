@@ -9,7 +9,6 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
-  SCHEMA_TECHNIQUE,
   basculerDeclencheurs,
   chargerStaging,
   connecter,
@@ -189,6 +188,15 @@ async function lireContexte(
   };
 }
 
+/** Arrête l'import, avant toute écriture en base, tant qu'un point reste à trancher par Val. */
+export function exigerAucunBlocage(plan: Plan): void {
+  if (plan.blocages.length > 0)
+    throw new Error(
+      `Import arrêté avant toute écriture — ${plan.blocages.length} point(s) à trancher :\n` +
+        plan.blocages.map((b) => `  - ${b}`).join('\n'),
+    );
+}
+
 /** Écrit le plan dans la base, dans une transaction, déclencheurs à effets coupés. */
 export async function ecrirePlan(
   client: Requeteur,
@@ -206,6 +214,17 @@ export async function ecrirePlan(
       client,
       plan.correspondances,
       plan.rejets,
+    );
+    await client.query(
+      `DELETE FROM migration.auteurs_evenements a
+        WHERE NOT (a.evenement_id = ANY($1::uuid[]))`,
+      [plan.auteursEvenements.map((a) => a.evenement_id)],
+    );
+    await ecrireTable(
+      client,
+      'migration.auteurs_evenements',
+      plan.auteursEvenements,
+      { cle: 'evenement_id' },
     );
 
     const ecritures: BilanEcriture[] = [];
@@ -293,7 +312,6 @@ export async function importer(options: OptionsImport): Promise<BilanPassage> {
       chargerSources(options.dossierExports),
     );
     await chrono('staging', async () => {
-      await client.query(SCHEMA_TECHNIQUE);
       await client.query('BEGIN');
       for (const type of Object.keys(sources) as TypeSource[])
         await chargerStaging(client, type, sources[type].lignes);
@@ -318,6 +336,26 @@ export async function importer(options: OptionsImport): Promise<BilanPassage> {
     const plan = await chrono('transformations', () =>
       construirePlan(sources, ctx),
     );
+
+    // Sorties hors dépôt : fichiers à valider, listes de complétion, bilan du passage.
+    const sortie = options.dossierSortie;
+    mkdirSync(join(sortie, 'listings'), { recursive: true });
+    mkdirSync(join(sortie, 'passages'), { recursive: true });
+    const ecrire = (chemin: string, lignes: LigneCible[]) => {
+      if (lignes.length > 0)
+        writeFileSync(
+          join(sortie, chemin),
+          ecrireCsv(Object.keys(lignes[0]!), lignes),
+        );
+    };
+    ecrire('lieux-a-valider.csv', plan.aValider.lieux);
+    ecrire('clients-a-valider.csv', plan.aValider.clients);
+    ecrire('type_overrides.csv', plan.aValider.types);
+    ecrire('exclusions.csv', plan.aValider.exclusions);
+    for (const [nom, lignes] of Object.entries(plan.listings))
+      ecrire(join('listings', `${nom}.csv`), lignes);
+    // Les fichiers à valider sont écrits : Val a de quoi trancher. Rien n'entre en base d'ici là.
+    exigerAucunBlocage(plan);
 
     const tablesComptees = [
       ...TABLES_CIBLES.map((t) => `plateforme.${t}`),
@@ -373,25 +411,8 @@ export async function importer(options: OptionsImport): Promise<BilanPassage> {
       dureesMs,
     };
 
-    // Sorties hors dépôt : fichiers à valider, listes de complétion, bilan du passage.
-    const sortie = options.dossierSortie;
-    mkdirSync(join(sortie, 'listings'), { recursive: true });
-    mkdirSync(join(sortie, 'passages'), { recursive: true });
-    const ecrire = (chemin: string, lignes: LigneCible[]) => {
-      if (lignes.length > 0)
-        writeFileSync(
-          join(sortie, chemin),
-          ecrireCsv(Object.keys(lignes[0]!), lignes),
-        );
-    };
-    ecrire('lieux-a-valider.csv', plan.aValider.lieux);
-    ecrire('clients-a-valider.csv', plan.aValider.clients);
-    ecrire('type_overrides.csv', plan.aValider.types);
-    ecrire('exclusions.csv', plan.aValider.exclusions);
-    for (const [nom, lignes] of Object.entries(plan.listings))
-      ecrire(join('listings', `${nom}.csv`), lignes);
     writeFileSync(
-      join(sortie, 'passages', `passage-${horodatage}.json`),
+      join(options.dossierSortie, 'passages', `passage-${horodatage}.json`),
       JSON.stringify(bilan, null, 2),
     );
     return bilan;

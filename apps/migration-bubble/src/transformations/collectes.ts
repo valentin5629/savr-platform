@@ -281,6 +281,20 @@ export function transformerCollectes(
           .join(' ');
     const client = texteOuNull(l['Nom du client']);
 
+    // Emails gardés à part pour rendre son historique au commercial (jamais au-delà de 5 ans).
+    const emailCommercial = c.ancienne
+      ? null
+      : (lireEmails(l['mail du commercial'])[0] ?? null);
+    const emailCreateur = c.ancienne
+      ? null
+      : (lireEmails(l['User'])[0] ?? null);
+    if (emailCommercial || emailCreateur)
+      plan.auteursEvenements.push({
+        evenement_id: evenementId,
+        email_commercial: emailCommercial,
+        email_createur: emailCreateur,
+      });
+
     plan.tables.evenements.push({
       id: evenementId,
       organisation_id: c.organisationId,
@@ -458,6 +472,13 @@ export function transformerCollectes(
         motif: 'pesées présentes sur une collecte non terminée',
       });
 
+    if (c.statut === 'realisee_sans_collecte' && poidsRepas !== null)
+      ajouterAuListing(plan, 'poids-non-repris', {
+        bubble_id: c.bubbleId,
+        identifiant: l['Identifiant'] ?? '',
+        statut: c.statut,
+        motif: 'collecte « sans excédent » qui porte un poids',
+      });
     if (attribuee) {
       const id = identifiantCible('attribution', c.bubbleId);
       plan.tables.attributions_antgaspi.push({

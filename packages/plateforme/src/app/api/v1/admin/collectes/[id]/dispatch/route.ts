@@ -113,7 +113,7 @@ export async function POST(
   const { data: collecte, error: fetchErr } = await supabase
     .from('collectes')
     .select(
-      'id, statut, statut_tms, tms_reference, type, date_collecte, dirty_tms, prestataire_logistique_id',
+      'id, statut, statut_tms, tms_reference, type, date_collecte, dirty_tms, prestataire_logistique_id, type_vehicule_souhaite',
     )
     .eq('id', id)
     .single();
@@ -134,6 +134,7 @@ export async function POST(
     date_collecte: string;
     dirty_tms: boolean;
     prestataire_logistique_id: string | null;
+    type_vehicule_souhaite: string | null;
   };
 
   // 409 si statut terminal
@@ -190,6 +191,23 @@ export async function POST(
       {
         error:
           "Choisissez d'abord le transporteur : sans lui, la collecte ne peut pas être transmise.",
+      },
+      { status: 422 },
+    );
+  }
+
+  // ZD : le véhicule choisi par l'Admin part comme article camion de la
+  // commande (décision Val 2026-11-16) — choisi ici ou déjà posé. Sans lui,
+  // le transporteur ne saurait pas quel camion envoyer : l'envoi est refusé.
+  const vehiculeRetenu =
+    besoin.type_vehicule_souhaite !== undefined
+      ? besoin.type_vehicule_souhaite
+      : c.type_vehicule_souhaite;
+  if (c.type === 'zero_dechet' && !vehiculeRetenu) {
+    return NextResponse.json(
+      {
+        error:
+          "Choisissez d'abord le type de véhicule : il est transmis au transporteur.",
       },
       { status: 422 },
     );

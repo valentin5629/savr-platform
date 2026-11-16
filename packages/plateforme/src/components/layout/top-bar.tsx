@@ -25,13 +25,13 @@ function hrefProgrammer(pathname: string | null, type: string | null): string {
 // Bouton blanc à pastille orange (Val 2026-11-03) : au survol, le fond passe
 // à l'orange et la pastille au blanc. Le camion reste marine (sur la pastille
 // orange, un camion orange ne se verrait pas). Sur téléphone, la pastille seule
-// laisse la place au titre de la page.
+// laisse la place au titre de la page, dans une cible tactile de 44 px.
 function BoutonProgrammer({ href }: { href: string }) {
   return (
     <Link
       href={href}
       aria-label="Programmer une collecte"
-      className="group inline-flex h-9 shrink-0 items-center gap-2 rounded-savr-md border border-savr-primary-200 bg-savr-white p-1 text-sm font-medium whitespace-nowrap text-savr-primary-800 shadow-savr-sm transition-[background-color,border-color,box-shadow,transform] duration-savr-fast ease-out hover:-translate-y-px hover:border-savr-accent-500 hover:bg-savr-accent-500 hover:text-savr-primary-950 hover:shadow-savr-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 sm:pr-4"
+      className="group inline-flex h-9 shrink-0 items-center gap-2 rounded-savr-md border border-savr-primary-200 bg-savr-white p-1 text-sm font-medium whitespace-nowrap text-savr-primary-800 shadow-savr-sm transition-[background-color,border-color,box-shadow,transform] duration-savr-fast ease-out hover:-translate-y-px hover:border-savr-accent-500 hover:bg-savr-accent-500 hover:text-savr-primary-950 hover:shadow-savr-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 max-sm:h-11 max-sm:w-11 max-sm:justify-center sm:pr-4"
     >
       <span
         aria-hidden="true"
@@ -92,7 +92,7 @@ const TopBar = React.forwardRef<HTMLElement, TopBarProps>(
             size="sm"
             onClick={onMenuToggle}
             aria-label="Ouvrir le menu"
-            className="text-savr-primary-800 hover:bg-savr-primary-200 lg:hidden"
+            className="text-savr-primary-800 hover:bg-savr-primary-200 max-sm:h-11 max-sm:w-11 lg:hidden"
           >
             <ListIcon aria-hidden="true" />
           </IconButton>

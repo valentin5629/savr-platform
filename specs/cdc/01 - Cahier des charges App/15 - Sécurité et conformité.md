@@ -161,12 +161,12 @@ Supabase, Railway et Resend traitent des données personnelles pour le compte de
 
 ### Watermark et intégrité des PDFs
 
-- **Watermark** "Document officiel Savr" sur tous les PDFs réglementaires (bordereaux, attestations, rapports)
+- **Watermark** "Document officiel Savr" sur tous les PDFs réglementaires (attestations, rapports ; le bordereau n'a plus de PDF, décision Val 2026-11-13)
 - **QR code de vérification** : page publique permettant de valider l'authenticité d'un document par son numéro de série → prévu V1.1
 
 ### Conservation des PDFs
 
-Les PDFs sont stockés dans Cloudflare R2. Un PDF de bordereau ou d'attestation ne peut pas être supprimé par un utilisateur client — uniquement par l'Admin Savr. Les URLs R2 sont pré-signées (expiration 1h pour les téléchargements directs). **Liens de partage public horodatés (URL permanente 90 jours) reportés V1.1** (revue sobriété §12 2026-06-03, A1) — V1 : pas d'URL publique permanente, le `traiteur_manager` télécharge et transmet le PDF lui-même.
+Les PDFs sont stockés dans Cloudflare R2. Un PDF d'attestation, ou un PDF de bordereau fabriqué avant le 2026-11-13 (plus aucun n'est produit depuis, décision Val 2026-11-13), ne peut pas être supprimé par un utilisateur client — uniquement par l'Admin Savr. Les URLs R2 sont pré-signées (expiration 1h pour les téléchargements directs). **Liens de partage public horodatés (URL permanente 90 jours) reportés V1.1** (revue sobriété §12 2026-06-03, A1) — V1 : pas d'URL publique permanente, le `traiteur_manager` télécharge et transmet le PDF lui-même.
 
 ### Audit log
 

@@ -16,6 +16,7 @@ vi.mock('../../src/lib/pdf/r2-client.js', () => ({
 import { generatePdf } from '../../src/lib/pdf/railway-client.js';
 import { uploadPdf } from '../../src/lib/pdf/r2-client.js';
 import { runPdfWorker } from '../../src/lib/pdf/pdf-worker.js';
+import { TEMPLATE_VERSIONS } from '@savr/shared/src/pdf/document-types.js';
 
 // ── Supabase mock ──────────────────────────────────────────────────────────
 
@@ -30,10 +31,10 @@ const supabase = {
 function makePendingJob(overrides: Record<string, unknown> = {}) {
   return {
     id: 'job-1',
-    type_document: 'bordereau-zd',
-    entity_type: 'bordereaux_savr',
-    entity_id: 'bord-1',
-    payload: { numero: 'BSAV-2026-00001' },
+    type_document: 'rapport-evenement-sans-excedent',
+    entity_type: 'rapports_rse',
+    entity_id: 'rse-1',
+    payload: { nom_evenement: 'Gala' },
     attempts: 0,
     ...overrides,
   };
@@ -145,7 +146,7 @@ describe('M1.6 / PdfWorker / Job nominal', () => {
     const pdfBuf = Buffer.from('PDF');
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: pdfBuf });
     vi.mocked(uploadPdf).mockResolvedValue(
-      stocke('bordereaux/bord-1/bordereau-zd-v1-123.pdf'),
+      stocke('rapports/rse-1/rapport-evenement-sans-excedent-v1-123.pdf'),
     );
 
     const chain = buildChain([
@@ -153,19 +154,50 @@ describe('M1.6 / PdfWorker / Job nominal', () => {
       { data: [{ id: 'job-1' }], error: null }, // M5 claim atomique → 1 ligne verrouillée
       { data: { id: 'fichier-1' }, error: null }, // insert fichiers
       { data: null, error: null }, // update jobs done
-      { data: null, error: null }, // update bordereaux_savr
+      { data: null, error: null }, // update rapports_rse
     ]);
     mockFrom.mockReturnValue(chain);
 
     const result = await runPdfWorker(supabase);
     expect(result.done).toBe(1);
     expect(result.errors).toHaveLength(0);
-    expect(generatePdf).toHaveBeenCalledWith('bordereau-zd', job.payload);
+    expect(generatePdf).toHaveBeenCalledWith(
+      'rapport-evenement-sans-excedent',
+      job.payload,
+    );
     // Aucun bucket à l'appel : la clé porte le dossier du document.
     expect(uploadPdf).toHaveBeenCalledWith(
-      expect.stringMatching(/^bordereaux\/bord-1\/bordereau-zd-v1-\d+\.pdf$/),
+      expect.stringMatching(
+        /^rapports\/rse-1\/rapport-evenement-sans-excedent-v1-\d+\.pdf$/,
+      ),
       pdfBuf,
     );
+  });
+});
+
+describe('M1.6 / PdfWorker / bordereau ZD sans PDF (Val 2026-11-13)', () => {
+  it('une demande de rendu de bordereau encore en file est close sans rien fabriquer', async () => {
+    const job = makePendingJob({
+      type_document: 'bordereau-zd',
+      entity_type: 'bordereaux_savr',
+      entity_id: 'bord-1',
+    });
+    const chain = buildChain([
+      { data: [job], error: null }, // select jobs
+      { data: [{ id: 'job-1' }], error: null }, // claim
+      { data: null, error: null }, // update job done
+    ]);
+    mockFrom.mockReturnValue(chain);
+
+    const result = await runPdfWorker(supabase);
+    expect(result).toMatchObject({ processed: 1, done: 0, dead: 0 });
+    expect(result.errors).toHaveLength(0);
+    expect(generatePdf).not.toHaveBeenCalled();
+    expect(uploadPdf).not.toHaveBeenCalled();
+    const updates = (chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(updates.at(-1)![0]).toMatchObject({ statut: 'done' });
+    expect(updates.some((c) => c[0].pdf_fichier_id !== undefined)).toBe(false);
   });
 });
 
@@ -212,8 +244,8 @@ describe('M1.6 / PdfWorker / Retry', () => {
       'f_upsert_alerte_admin',
       expect.objectContaining({
         p_code: 'pdf_job_dead',
-        p_entity_type: 'bordereaux_savr',
-        p_entity_id: 'bord-1',
+        p_entity_type: 'rapports_rse',
+        p_entity_id: 'rse-1',
       }),
     );
   });
@@ -258,7 +290,6 @@ describe('M1.6 / PdfWorker / un dossier par nature de document (décision Val 20
   // communs à dev et prod. Désormais un seul bucket (celui de l'environnement) et
   // la nature du document en tête de clé.
   it.each([
-    ['bordereau-zd', 'bordereaux_savr', 'bordereaux'],
     ['rapport-recyclage-zd', 'rapports_rse', 'rapports'],
     ['rapport-evenement-sans-excedent', 'rapports_rse', 'rapports'],
     ['attestation-don', 'attestations_don', 'attestations'],
@@ -293,7 +324,7 @@ describe('M1.6 / PdfWorker / shared.fichiers — colonnes réelles (column-db)',
     const pdfBuf = Buffer.from('PDF');
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: pdfBuf });
     vi.mocked(uploadPdf).mockResolvedValue(
-      stocke('bordereaux/bord-1/bordereau-zd-v1-123.pdf'),
+      stocke('rapports/rse-1/rapport-evenement-sans-excedent-v1-123.pdf'),
     );
 
     const chain = buildChain([
@@ -301,7 +332,7 @@ describe('M1.6 / PdfWorker / shared.fichiers — colonnes réelles (column-db)',
       { data: [{ id: 'job-1' }], error: null }, // M5 claim
       { data: { id: 'fichier-1' }, error: null }, // insert fichiers
       { data: null, error: null }, // update jobs done
-      { data: null, error: null }, // update bordereaux_savr
+      { data: null, error: null }, // update rapports_rse
     ]);
     mockFrom.mockReturnValue(chain);
 
@@ -322,12 +353,12 @@ describe('M1.6 / PdfWorker / shared.fichiers — colonnes réelles (column-db)',
       bucket: BUCKET_ENV,
       content_type: 'application/pdf',
       size_bytes: pdfBuf.length,
-      entity_type: 'plateforme.bordereaux_savr',
-      entity_id: 'bord-1',
+      entity_type: 'plateforme.rapports_rse',
+      entity_id: 'rse-1',
     });
     // La clé persistée est celle qui a été envoyée, dossier du document en tête.
     expect(fichierInsert!.key).toBe(vi.mocked(uploadPdf).mock.calls[0]![0]);
-    expect(fichierInsert!.key).toMatch(/^bordereaux\/bord-1\//);
+    expect(fichierInsert!.key).toMatch(/^rapports\/rse-1\//);
     // Colonnes fantômes de l'ancien code : absentes.
     for (const ghost of ['nom', 'mime_type', 'url', 'taille_octets']) {
       expect(fichierInsert).not.toHaveProperty(ghost);
@@ -337,10 +368,10 @@ describe('M1.6 / PdfWorker / shared.fichiers — colonnes réelles (column-db)',
 
 describe('M1.6 / PdfWorker / template_version (BL-P1-API-07)', () => {
   it("template_version persisté sur l'entité (re-rendu iso)", async () => {
-    const job = makePendingJob(); // bordereau-zd → bordereaux_savr
+    const job = makePendingJob(); // rapport « sans excédent » → rapports_rse
     vi.mocked(generatePdf).mockResolvedValue({ pdfBuffer: Buffer.from('PDF') });
     vi.mocked(uploadPdf).mockResolvedValue(
-      stocke('bordereaux/bord-1/bordereau-zd-v1-123.pdf'),
+      stocke('rapports/rse-1/rapport-evenement-sans-excedent-v1-123.pdf'),
     );
 
     const chain = buildChain([
@@ -360,8 +391,9 @@ describe('M1.6 / PdfWorker / template_version (BL-P1-API-07)', () => {
       (c) => c[0].template_version !== undefined,
     )?.[0];
     expect(entityUpdate).toBeDefined();
-    // Version figée du contrat partagé pour 'bordereau-zd' → re-rendu iso.
-    // @2 depuis R21a (colonne bacs/rolls + mention de régénération).
-    expect(entityUpdate!.template_version).toBe('bordereau-zd@2');
+    // Version figée du contrat partagé → re-rendu iso.
+    expect(entityUpdate!.template_version).toBe(
+      TEMPLATE_VERSIONS['rapport-evenement-sans-excedent'],
+    );
   });
 });

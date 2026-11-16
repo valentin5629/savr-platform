@@ -1,6 +1,6 @@
 // GET /api/v1/registre — liste paginée du registre réglementaire ZD (§06.03).
 // Tous les rôles autorisés (sauf agence) ; cloisonnement par la vue RLS-safe
-// `v_registre_dechets`. Filtres : période, lieu, traiteur, flux, statut bordereau.
+// `v_registre_dechets`. Filtres : période, lieu, traiteur, flux.
 
 import { NextRequest, NextResponse } from 'next/server';
 

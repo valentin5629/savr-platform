@@ -172,26 +172,13 @@ describe('M4.2 — Registre : filtres à choix multiple', () => {
   );
 
   it(
-    'M4.2 — Bordereau : Disponible → bordereau=dispo ; Disponible + Manquant = aucun paramètre',
+    'M4.2 — plus de filtre « Bordereau » ni de téléchargement de tous les bordereaux (bordereau sans PDF, Val 2026-11-13)',
     async () => {
       render(<RegistrePage />);
       await screen.findByRole('table', undefined, ATTENTE_UI);
-
-      fireEvent.click(screen.getByTestId('registre-bordereau'));
-      const liste = within(
-        await screen.findByRole('list', { name: 'Bordereau' }, ATTENTE_UI),
-      );
-      fireEvent.click(liste.getByRole('checkbox', { name: 'Disponible' }));
-      await waitFor(
-        () => expect(dernierAppelListe().get('bordereau')).toBe('dispo'),
-        ATTENTE_UI,
-      );
-      fireEvent.click(liste.getByRole('checkbox', { name: 'Manquant' }));
-      await waitFor(
-        () => expect(dernierAppelListe().has('bordereau')).toBe(false),
-        ATTENTE_UI,
-      );
-      expect(liste.getByRole('checkbox', { name: 'Tous' })).toBeChecked();
+      expect(screen.queryByTestId('registre-bordereau')).toBeNull();
+      expect(screen.queryByRole('button', { name: /bordereaux/i })).toBeNull();
+      expect(dernierAppelListe().has('bordereau')).toBe(false);
     },
     ATTENTE_CAS_MS,
   );

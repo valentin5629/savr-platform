@@ -398,7 +398,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 - Le traiteur peut contester depuis son espace client (**délai : 48h après réception du rapport de collecte** — décision Val 2026-04-28)
 - La collecte **reste en statut `cloturee`** (pas de statut intermédiaire dédié) ; la contestation est tracée via `motif_incident` + une notification Admin
 - Admin Savr vérifie avec le prestataire logistique
-- Correction éventuelle → recalcul (force `realisee → cloturee` après correction des pesées, cf. §04 trigger taux_recyclage) → régénération du bordereau (`version` incrémentée) ; le rapport de recyclage, fabriqué à chaque téléchargement, reprend les pesées corrigées sans régénération (décision Val 2026-10-16)
+- Correction éventuelle → recalcul (force `realisee → cloturee` après correction des pesées, cf. §04 trigger taux_recyclage) → mise à jour de la ligne du bordereau (`version` incrémentée), sans PDF (décision Val 2026-11-13) ; le rapport de recyclage, fabriqué à chaque téléchargement, reprend les pesées corrigées sans régénération (décision Val 2026-10-16)
 - Si facturation déjà émise : émission d'un avoir + nouvelle facture
 
 ---
@@ -471,13 +471,13 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 **Action** :
 1. Passage toutes les 15 min (et juste après une saisie Admin) : sélectionne les collectes ZD réalisées ou clôturées dont les pesées sont là et non encore bordereautées ; refait le bordereau émis dont les pesées ont changé (décision Val 2026-11-04)
-2. Génération automatique du PDF bordereau depuis les données de la collecte
+2. Émission directe de la ligne `bordereaux_savr` (statut `emis`), sans PDF (décision Val 2026-11-13)
 3. **Snapshot** des données producteur, transporteur, exutoire dans `bordereaux_savr` (voir section 04)
 4. Numéro séquentiel global Savr attribué automatiquement (`BSAV-YYYY-NNNNN`)
-5. PDF stocké dans Cloudflare R2, URL enregistrée dans `bordereaux_savr.pdf_url`
-6. Disponible immédiatement dans l'espace client du traiteur concerné
+5. Aucun PDF n'est fabriqué ni stocké (décision Val 2026-11-13)
+6. Le numéro et la date d'émission sont repris par le rapport de recyclage, la fiche détail du registre et l'export CSV du registre (« Numéro de BSD »)
 
-**Correction** : si une pesée est corrigée post-émission (rare), l'Admin Savr peut régénérer le bordereau → `version` incrémentée, ancien PDF archivé, nouveau PDF remplace l'affichage espace client. **V2 (ajout audit cohérence 2026-07-06, arbitrage Val RC-M05-04)** : la même régénération est déclenchée **automatiquement** à réception d'un webhook S5 `type=correction` du TMS — toute source (ajustement Ops TMS **ou** pesée tardive DLQ rejouée, trigger `trg_pesee_tardive_s5_correction` §04 TMS) — mêmes effets + alerte Ops « Correction pesée reçue depuis TMS » (cf. [[08 - APIs et intégrations]] §1).
+**Correction** : si une pesée est corrigée post-émission (rare), la ligne du bordereau est mise à jour → même numéro, `version` incrémentée, sans rendu (plus de PDF ni de bouton « Régénérer », décision Val 2026-11-13). **V2 (ajout audit cohérence 2026-07-06, arbitrage Val RC-M05-04)** : la même régénération est déclenchée **automatiquement** à réception d'un webhook S5 `type=correction` du TMS — toute source (ajustement Ops TMS **ou** pesée tardive DLQ rejouée, trigger `trg_pesee_tardive_s5_correction` §04 TMS) — mêmes effets + alerte Ops « Correction pesée reçue depuis TMS » (cf. [[08 - APIs et intégrations]] §1).
 
 ### Attestation de don (AG)
 
@@ -504,7 +504,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 
 **Pas de régénération du rapport de recyclage** *(décision Val 2026-10-16, remplace la régénération manuelle du 2026-10-02)* : il est fabriqué à chaque téléchargement, depuis la fiche collecte, par tout utilisateur autorisé à le lire, avec ou sans le radar de comparaison ; une correction de pesée est donc reprise au téléchargement suivant.
 
-**Indicateur de mise à jour** (bordereau, attestation de don, rapport « sans excédent » — plus le rapport de recyclage, fabriqué au clic, décision Val 2026-10-16) : si le document est régénéré après sa première émission automatique, un picto ⟳ accompagné de la mention "Mis à jour le [date] à [heure]" (heure de Paris) est affiché dans l'espace client, partout où le document se télécharge : fiche collecte et fiche événement du gestionnaire, pour le rapport « sans excédent » et l'attestation de don (version > 1). Le bordereau n'a pas de bouton de téléchargement dans la fiche collecte client : la mention ne s'y affiche donc pas *(2026-10-28)*. Le bordereau et l'attestation de don portent en pied de page "Version mise à jour — générée le [date]" ; **le rapport de recyclage ne porte plus cette mention** *(décision Val 2026-10-02, cf. §12 §1.4)*. La traçabilité complète de chaque régénération est enregistrée dans `audit_log`.
+**Indicateur de mise à jour** (attestation de don, rapport « sans excédent » ; le bordereau n'a plus de PDF, décision Val 2026-11-13 — plus le rapport de recyclage, fabriqué au clic, décision Val 2026-10-16) : si le document est régénéré après sa première émission automatique, un picto ⟳ accompagné de la mention "Mis à jour le [date] à [heure]" (heure de Paris) est affiché dans l'espace client, partout où le document se télécharge : fiche collecte et fiche événement du gestionnaire, pour le rapport « sans excédent » et l'attestation de don (version > 1). L'attestation de don porte en pied de page "Version mise à jour — générée le [date]" ; **le rapport de recyclage ne porte plus cette mention** *(décision Val 2026-10-02, cf. §12 §1.4)*. La traçabilité complète de chaque régénération est enregistrée dans `audit_log`.
 
 **Partage (V1)** : pas de lien de partage public natif en V1. Le `traiteur_manager` télécharge le PDF et le transmet lui-même au client final par email. **Lien de partage public horodaté (90 jours) reporté V1.1** (revue sobriété §12 2026-06-03, A1 — aligné sur le QR code de vérification, lui aussi V1.1). Voir [[12 - Reporting et exports#1.2]].
 
@@ -1256,7 +1256,7 @@ END IF;
 - **Archivage** : aucune durée de conservation fixée en V1. Obligations légales min : 10 ans factures/bordereaux, 5 ans registre déchets
 - **Bordereau, attestation et rapport de recyclage** : émis dès que les poids sont là, refaits à chaque correction de poids, sans embargo (décision Val 2026-11-04).
 - : **supprimée V1 (décision Val 2026-06-15)** — type `alerte_ops_pesee_anormale` seedé mais jamais déclenché. V1.1 si besoin.
-- **Rapport de recyclage** : fabriqué au clic par tout utilisateur autorisé à le lire, avec ou sans radar ; ni régénération ni picto ⟳ (décision Val 2026-10-16). Bordereau et attestation de don : mention de régénération en pied de PDF, traçabilité dans `audit_log`.
+- **Rapport de recyclage** : fabriqué au clic par tout utilisateur autorisé à le lire, avec ou sans radar ; ni régénération ni picto ⟳ (décision Val 2026-10-16). Attestation de don : mention de régénération en pied de PDF, traçabilité dans `audit_log`. Bordereau : plus de PDF, ligne mise à jour à chaque correction de pesée (décision Val 2026-11-13).
 - **Export CSV** : disponible pour tous les profils, filtré par RLS (chaque profil exporte uniquement ses données)
 - **Seuil alerte pack AG bas** : ≤ 10% des crédits initiaux restants
 - **Pas de pénalité d'annulation** au-delà de la règle des 4h en V1

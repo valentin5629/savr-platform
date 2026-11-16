@@ -140,7 +140,7 @@ Scénario : batch_j1_genere_bordereau_et_rapport_rse
   Quand le batch automatique J+1 tourne à 6h00
   Alors une ligne `bordereaux_savr` est créée (statut "emis", numero séquence BSAV, detail_flux jsonb 5 flux, poids_total_kg = somme)
   Et `bordereaux_savr.date_collecte` = `collectes.date_collecte` (J-1, snapshot §04) et `date_emission` = jour du batch (J)
-  Et les payloads PDF du bordereau et du rapport portent date_collecte = J-1 au format JJ/MM/AAAA (mention « Intervention le … » si ≠ date_evenement, §12 §1.1) — jamais la date d'exécution du batch
+  Et le payload PDF du rapport porte date_collecte = J-1 au format JJ/MM/AAAA (le bordereau n'a plus de PDF, décision Val 2026-11-13) (mention « Intervention le … » si ≠ date_evenement, §12 §1.1) — jamais la date d'exécution du batch
   Et une ligne `rapports_rse` est créée avec genere_par="automatique", version=1, disponible_a = realisee_at + 24h
   Et l'email `rapport_disponible` est envoyé au traiteur avec taux_recyclage et co2_evite
 ```
@@ -536,10 +536,10 @@ Scénario : benchmark_collecte_inaccessible_exception
 # Couche : api
 # Priorité : P1-critique
 
-Scénario : regeneration_bordereau_et_attestation_interdites_traiteur
+Scénario : regeneration_attestation_interdite_traiteur
   Étant donné un traiteur_manager
-  Quand il tente de régénérer un bordereau de pesée §1.1, une attestation de don §1.3 ou un rapport sans excédent §1.3-bis
-  Alors les trois tentatives sont refusées (régénération admin_savr uniquement)
+  Quand il tente de régénérer une attestation de don §1.3 ou un rapport sans excédent §1.3-bis
+  Alors les deux tentatives sont refusées (régénération admin_savr uniquement ; le bordereau §1.1 n'a plus de PDF ni de régénération, décision Val 2026-11-13)
   Et le rapport de recyclage §1.2 ne se régénère pas non plus : il se télécharge, fabriqué au clic (décision Val 2026-10-16)
   Mais quand il dépose, remplace ou retire le logo du client de l'événement (programmateur ou traiteur opérationnel, hors règle D12), l'attestation et le rapport sans excédent déjà produits sont refaits automatiquement — seul le logo est relu (décision Val 2026-10-30)
 ```

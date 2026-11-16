@@ -331,7 +331,7 @@ describe('sources neutralisées à la construction', () => {
     const res = await regenerateCollecteDocument(
       admin as never,
       'collecte-1',
-      'bordereau-zd',
+      'attestation-don',
       { userId: 'u1', role: 'admin_savr' },
     );
     expect(res).toMatchObject({ ok: false, code: 'DB_ERROR' });

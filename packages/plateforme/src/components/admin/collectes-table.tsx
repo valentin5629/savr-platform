@@ -325,12 +325,14 @@ export function colonnesCollectesAdmin({
     {
       id: 'type',
       header: 'Type',
+      meta: { carteMobile: 'pastille' },
       accessorFn: (r) => r.type,
       cell: ({ row: { original: r } }) => <TypeCollecteBadge type={r.type} />,
     },
     {
       id: 'traiteur',
       header: 'Traiteur',
+      meta: { carteMobile: 'principal' },
       cell: ({ row: { original: r } }) => (
         <span className="whitespace-nowrap font-bold text-savr-neutral-900">
           {r.evenements.organisations.raison_sociale}
@@ -340,6 +342,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'lieu',
       header: 'Lieu',
+      meta: { carteMobile: 'principal' },
       cell: ({ row: { original: r } }) => {
         const l = r.evenements.lieux;
         const adresse = [
@@ -372,6 +375,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'statut',
       header: 'Statut',
+      meta: { carteMobile: 'pastille' },
       accessorFn: (r) => r.statut,
       // Mêmes libellés pour l'AG et la ZD : une AG pas encore attribuée est
       // « Créée » (décision Val 2026-11-12, ex-badge « À attribuer »).
@@ -382,6 +386,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'statut_tms',
       header: 'TMS',
+      meta: { carteMobile: 'secondaire' },
       accessorFn: (r) => r.statut_tms,
       cell: ({ row: { original: r } }) => {
         const tms = statutTmsDisplay(r.statut_tms);
@@ -395,7 +400,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'pax',
       header: 'Pax',
-      meta: { className: 'text-right tabular-nums' },
+      meta: { carteMobile: 'principal', className: 'text-right tabular-nums' },
       cell: ({ row: { original: r } }) => r.pax ?? <CelluleVide />,
     },
     {
@@ -412,6 +417,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'transporteur',
       header: 'Transporteur',
+      meta: { carteMobile: 'secondaire' },
       cell: ({ row: { original: r } }) => r.transporteur_nom ?? <CelluleVide />,
     },
     {
@@ -434,6 +440,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'indicateurs',
       header: 'Indicateurs',
+      meta: { carteMobile: 'principal' },
       cell: ({ row: { original: r } }) =>
         estTerminale(r) ? (
           <IndicateursHistorique row={r} />
@@ -444,7 +451,7 @@ export function colonnesCollectesAdmin({
     {
       id: 'montant',
       header: 'Montant',
-      meta: { className: 'text-right' },
+      meta: { carteMobile: 'secondaire', className: 'text-right' },
       cell: ({ row: { original: r } }) => {
         // Montant de la prestation, calculé par la route (Val 2026-11-03) ;
         // null (pax ou tarif introuvable) → « — ».

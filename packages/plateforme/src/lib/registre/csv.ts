@@ -157,8 +157,8 @@ function colonnesEtablissement(
   ];
 }
 
-// N° du bordereau ÉMIS seulement : un brouillon porte déjà un numéro, mais
-// l'écran le dit « manquant » tant qu'il n'est pas émis.
+// N° du bordereau ÉMIS seulement : un brouillon porte déjà un numéro, qui ne
+// sort pas tant qu'il n'est pas émis.
 function numeroBordereau(row: RegistreRow): string {
   return bordereauDisponible(row.bordereau_statut)
     ? (row.bordereau_numero ?? '')

@@ -30,7 +30,7 @@ const FilterChips = React.forwardRef<HTMLDivElement, FilterChipsProps>(
       ref={ref}
       role="group"
       aria-label={ariaLabel}
-      className={cn('flex flex-wrap gap-2', className)}
+      className={cn('flex flex-wrap gap-2 max-sm:gap-y-3.5', className)}
     >
       {chips.map((chip) => {
         const active = chip.key === activeKey;
@@ -42,6 +42,9 @@ const FilterChips = React.forwardRef<HTMLDivElement, FilterChipsProps>(
             onClick={() => onSelect(chip.key)}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-savr-full border px-3.5 py-1.5 text-xs font-bold transition-colors duration-savr-fast',
+              // Téléphone : la pilule garde sa taille, sa zone tactile fait
+              // 44 px de haut (DS §8).
+              "max-sm:relative max-sm:after:absolute max-sm:after:inset-x-0 max-sm:after:-inset-y-2 max-sm:after:content-['']",
               active
                 ? 'border-savr-primary-700 bg-savr-primary-700 text-savr-white'
                 : 'border-savr-neutral-300 bg-savr-white text-savr-neutral-600 hover:border-savr-primary-300',

@@ -34,6 +34,12 @@ describe('LogoClientRapport', () => {
     expect(screen.getByText('Retirer')).toBeInTheDocument();
   });
 
+  it('sous 640 px, le texte prend la ligne entière (aperçu et boutons dessous)', () => {
+    monter();
+    const texte = screen.getByText('Logo du client').parentElement!;
+    expect(texte.className).toContain('max-sm:basis-full');
+  });
+
   it(
     'dépôt : POST multipart sur la route de l’espace, puis aperçu rechargé',
     async () => {

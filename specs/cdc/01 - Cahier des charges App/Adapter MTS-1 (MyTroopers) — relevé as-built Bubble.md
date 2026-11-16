@@ -46,7 +46,7 @@
 - `dispatch { carrierShareableCode, transporterUserShareableCode, vehicleShareableCode }`
 
 ### Mapping remontée → Plateforme V1
-- **Pesées** : `tours.stops[].weight` (+ `quantityAfterPickup/Delivery`) → `collectes` / lignes de flux (pesées ZD). ⚠ **Mesuré en DEMO le 2026-10-13** : pas de champ `weight` sur l'arrêt ; sur le seul tour de déchets terminé du compte, les kilos sont dans `stops[].stuffs[].quantityAfterPickup`. Champ lu, sur l'arrêt d'enlèvement seul : `quantityAfterPickup` (décision Val 2026-10-13, cf. §08 §3bis.7).
+- **Pesées** : `tours.stops[].weight` (+ `quantityAfterPickup/Delivery`) → `collectes` / lignes de flux (pesées ZD). ⚠ **Mesuré en DEMO le 2026-10-13** : pas de champ `weight` sur l'arrêt ; sur le seul tour de déchets terminé du compte, les kilos sont dans `stops[].stuffs[].quantityAfterPickup`. Champ lu, sur l'arrêt d'enlèvement seul : `quantityAfterDelivery`, celui que lit Bubble (action « RetrieveWeightsFromTMS », relue le 2026-11-12 ; `quantityAfterPickup` vaut 1 pour chaque flux sur le tour mesuré le même jour), cf. §08 §3bis.7.
 - **Statut collecte** : `customerOrderStatus` / `customerOrderProgressionStatus` + `status{dispatch,payment,validation}` → `collectes.statut_tms` → trigger `fn_sync_statut_collecte_from_tms`.
 - **Photos** : URLs du payload → téléchargées (`GET {photo_URL}`) → ré-upload Storage Savr (persistance légale).
 - **Coût / km** : `summary` (info).

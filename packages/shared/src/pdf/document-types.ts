@@ -14,6 +14,9 @@
 
 /** Liste fermée des documents PDF générés en V1. 1 entrée = 1 template renderer. */
 export const PDF_DOCUMENT_TYPES = [
+  // Plus généré depuis le 2026-11-13 (décision Val : bordereau sans PDF) ; gardé
+  // pour les jobs historiques et le dossier R2. Retrait avec la migration du
+  // déclencheur trg_cerfa_debloque_siret.
   'bordereau-zd',
   'rapport-recyclage-zd',
   'attestation-don',

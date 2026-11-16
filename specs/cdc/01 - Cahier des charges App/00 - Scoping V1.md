@@ -18,7 +18,7 @@ Tous les modules documentés §01→§15, soit :
 - [ ] **Formulaire programmation collecte** : deux écrans puis une page de confirmation (refonte Val 2026-10-22), N collectes ZD et AG event-centrées, tarif ZD base+remises, vérif pack AG (§06.01)
 - [ ] **Machine à états collecte unifiée** ZD+AG : `programmee → validee → en_cours → realisee → cloturee` (§05)
 - [ ] **Intégration logistique V1** (voir MODIFY ci-dessous) : MTS-1 API V3 + Everest derrière l'abstraction `logistique_provider`
-- [ ] **Génération PDF** : bordereau pesée ZD, rapport recyclage ZD, attestation don AG, dès que les poids sont là, email à la clôture (48 h) (§06, §12)
+- [ ] **Génération PDF** : rapport recyclage ZD, attestation don AG, dès que les poids sont là, email à la clôture (48 h) (§06, §12). Bordereau ZD émis sans PDF (décision Val 2026-11-13)
 - [ ] **Pennylane v2** : brouillons factures ZD (par collecte + mensuel groupé) + AG, **polling J+1** (webhook → V1.1) (§08)
   - ⚠ **Go-live : facturation hors plateforme (décision Val 2026-10-22)**. Interrupteur `facturationPlateformeActive()` éteint : le batch J+1 ne prépare aucun brouillon ; le traiteur, l'agence et le gestionnaire de lieux ne voient ni leurs factures ni le badge « en attente de facturation » ; l'email `collecte_programmee` ne donne plus le tarif ZD. Back-office Admin inchangé. Retour sur la plateforme plus tard (échéance non fixée), après : date de départ du batch J+1, raccord de la numérotation avec les factures émises hors plateforme, correction du contrat Pennylane v2.
 - [ ] **Dashboards par rôle** : manager, commercial, gestionnaire lieux, agence, client organisateur (§11)
@@ -47,7 +47,7 @@ Tous les modules documentés §01→§15, soit :
 | Trackdéchets (BSD officiels) | §01, §15 | V2 | Registre interne V1, renvoi Veolia en audit |
 | Lien partage public rapport (90j) | §12, §15 | V1.1 | V1 : manager télécharge + transmet le PDF |
 | QR code vérification PDF | §15 | V1.1 | Page publique de validation |
-| Export PDF registre formaté | §06.03 | V1.1 | CSV + ZIP bordereaux couvrent R541-43 |
+| Export PDF registre formaté | §06.03 | V1.1 | CSV registre (numéro de bordereau en colonne) couvre R541-43 ; ZIP bordereaux retiré (décision Val 2026-11-13) |
 | UI édition templates emails + `version` | §06.02 | V1.1 | Templates en seed DB V1 |
 | Coûts Veolia (auto-import Gmail) | §03 | V2 | Saisie manuelle exclue V1, factures mensuelles trop lourdes |
 | Module scoring prestataires | §16 | V2 | Données collectées dès V1 |

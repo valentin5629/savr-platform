@@ -59,12 +59,12 @@ beforeEach(() => {
 });
 
 describe('fabrication des documents juste après une saisie Admin', () => {
-  it('ZD : batch des bordereaux pour cette collecte, puis rendu de son bordereau seul', async () => {
+  it('ZD : batch des bordereaux pour cette collecte, aucun rendu (bordereau sans PDF, Val 2026-11-13)', async () => {
     await fabriquer(client as never, 'col-1', 'zero_dechet');
     expect(runBatchPdfJ1).toHaveBeenCalledWith(client, { collecteId: 'col-1' });
     expect(runBatchPdfJ1Ag).not.toHaveBeenCalled();
-    expect(client.from).toHaveBeenCalledWith('bordereaux_savr');
-    expect(runPdfWorker).toHaveBeenCalledWith(client, { entityIds: ['doc-1'] });
+    expect(client.from).not.toHaveBeenCalled();
+    expect(runPdfWorker).not.toHaveBeenCalled();
   });
 
   it('AG : batch des attestations pour cette collecte, rendu de ses attestations', async () => {
@@ -84,7 +84,7 @@ describe('fabrication des documents juste après une saisie Admin', () => {
 
   it('un seul passage du rendu (borne de 60 s de la route)', async () => {
     runPdfWorker.mockResolvedValue({ processed: 5 });
-    await fabriquer(client as never, 'col-1', 'zero_dechet');
+    await fabriquer(client as never, 'col-ag', 'anti_gaspi');
     expect(runPdfWorker).toHaveBeenCalledTimes(1);
   });
 

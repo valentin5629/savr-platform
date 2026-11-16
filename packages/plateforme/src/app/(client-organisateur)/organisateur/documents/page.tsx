@@ -10,7 +10,7 @@ import { PageHero } from '@/components/ui/page-hero';
 import { enregistrerReponsePdf } from '@/lib/collectes/rapport-telechargement-client';
 
 interface DocItem {
-  type: 'rapport' | 'bordereau' | 'attestation';
+  type: 'rapport' | 'attestation';
   // Nom du document, décidé par la route (une collecte AG : « Rapport de don »).
   nom: string;
   id: string;
@@ -25,7 +25,7 @@ interface DocItem {
 /** Clé unique d'un document (les id ne sont uniques que par type). */
 const cle = (d: DocItem) => `${d.type}-${d.id}`;
 
-// §11 §7 — Accès lecture seule aux documents PDF (rapports RSE / bordereaux / rapports de don).
+// §11 §7 — Accès lecture seule aux documents PDF (rapports de recyclage / rapports de don).
 // Le téléchargement passe par une URL pré-signée R2 (embargo H+24 re-vérifié côté serveur).
 export default function ClientOrganisateurDocumentsPage() {
   const [items, setItems] = useState<DocItem[]>([]);
@@ -120,7 +120,7 @@ export default function ClientOrganisateurDocumentsPage() {
 
       {/* Data Table commune. Tri côté navigateur : la route renvoie la liste
           complète des documents (aucune pagination ni `.limit()`). Ordre
-          initial = celui de la route (rapports, bordereaux, attestations). */}
+          initial = celui de la route (rapports, attestations). */}
       <DataGrid
         columns={colonnes}
         data={items}

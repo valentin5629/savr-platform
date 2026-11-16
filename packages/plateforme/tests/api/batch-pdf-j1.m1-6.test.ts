@@ -1,5 +1,6 @@
 /**
- * M1.6 — Tests batch J+1 6h (sélection collectes → enqueue jobs_pdf)
+ * M1.6 — Tests batch des bordereaux ZD (sélection collectes → bordereau émis sans
+ * PDF, Val 2026-11-13 ; ligne rapports_rse posée)
  * Scénarios P1 : nominal, skip pesées vides, escalade R9 > 48h, idempotence, embargo.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -126,7 +127,7 @@ beforeEach(() => {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 describe('M1.6 / BatchPdfJ1 / Nominal', () => {
-  it('R-PDF1 : collecte ZD cloturee avec flux → bordereau mis en file ; le rapport naît sans PDF, fabriqué au clic (décision Val 2026-10-16)', async () => {
+  it('R-PDF1 : collecte ZD cloturee avec flux → bordereau émis sans PDF (Val 2026-11-13) ; le rapport naît sans PDF, fabriqué au clic (décision Val 2026-10-16)', async () => {
     const collecte = makeCollecte();
     const sb = makeSupabase([
       { data: [collecte], error: null }, // select collectes
@@ -151,7 +152,6 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
       { data: [{ id: 'bord-new' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
-      { data: null, error: null }, // insert job bordereau
     ]);
 
     const result = await runBatchPdfJ1(sb as never);
@@ -165,8 +165,17 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
     const types = insertCalls
       .map((c) => c[0].type_document)
       .filter(Boolean) as string[];
-    // Plus de rapport fabriqué automatiquement : seul le bordereau part au rendu.
-    expect(types).toEqual(['bordereau-zd']);
+    // Aucun PDF mis en file : ni rapport (fabriqué au clic) ni bordereau (sans
+    // PDF, Val 2026-11-13).
+    expect(types).toEqual([]);
+    // Le bordereau est émis avec son numéro, directement.
+    const updateCalls = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(updateCalls[0]![0]).toMatchObject({
+      numero: 'BSAV-2026-00001',
+      statut: 'emis',
+    });
+    expect(updateCalls[0]![0].genere_at).toEqual(expect.any(String));
 
     // La ligne rapports_rse est posée (fin d'embargo = rapport téléchargeable) ;
     // le batch ne lit rien du parc et ne fige aucun filtre de comparaison.
@@ -181,74 +190,12 @@ describe('M1.6 / BatchPdfJ1 / Nominal', () => {
     expect(rseInsert).not.toHaveProperty('filtres_benchmark');
     expect(rseInsert).not.toHaveProperty('genere_at');
 
-    // BL-P2-16 : le payload bordereau porte l'équivalent bacs.
-    const bordJob = insertCalls.find(
-      (c) => c[0].type_document === 'bordereau-zd',
+    // BL-P2-16 : les pesées figées du bordereau portent l'équivalent bacs.
+    const bordRow = insertCalls.find(
+      (c) => 'producteur_raison_sociale' in c[0],
     )?.[0];
-    const bordFlux = (bordJob!.payload as { flux: Array<{ nb_bacs: number }> })
-      .flux;
+    const bordFlux = bordRow!.detail_flux as Array<{ nb_bacs: number }>;
     expect(bordFlux[0]!.nb_bacs).toBe(3);
-  });
-});
-
-// Lot C2 (décision Val Q5 du 2026-10-24) : le bordereau imprime les convives de
-// LA collecte, jamais ceux de l'événement (tous jours et toutes collectes).
-describe('M1.6 / BatchPdfJ1 / Convives de la collecte', () => {
-  async function payloadBordereau(collecte: Record<string, unknown>) {
-    const sb = makeSupabase([
-      { data: [collecte], error: null }, // select collectes
-      { data: [], error: null }, // select bordereaux existants
-      { count: 1, error: null }, // count collecte_flux
-      {
-        data: [
-          {
-            flux_id: 'f1',
-            poids_reel_kg: 12,
-            nb_bacs: 3,
-            equivalent_roll: null,
-            flux: { nom: 'Biodéchets' },
-          },
-        ],
-      }, // select flux
-      { data: { nom: 'Strike Transport', siret: '98765432100011' } }, // prestataire
-      { data: { id: 'bord-new' }, error: null }, // insert bordereaux_savr
-      { data: 'BSAV-2026-00001', error: null }, // rpc numero
-      { data: [{ id: 'bord-new' }], error: null }, // numéro posé sur la ligne
-      { data: null, error: null }, // aucun rapports_rse existant
-      { data: { id: 'rse-new' }, error: null }, // insert rapports_rse
-      { data: null, error: null }, // insert job bordereau
-    ]);
-    await runBatchPdfJ1(sb as never);
-    const insertCalls = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
-      .calls as Array<[Record<string, unknown>]>;
-    const select = String(
-      (sb._chain.select as ReturnType<typeof vi.fn>).mock.calls[0]?.[0],
-    );
-    const job = insertCalls.find(
-      (c) => c[0].type_document === 'bordereau-zd',
-    )?.[0];
-    return { payload: job!.payload as Record<string, unknown>, select };
-  }
-  const evenement900 = {
-    ...(makeCollecte().evenements as Record<string, unknown>),
-    pax: 900,
-  };
-
-  it('bordereau : nb_pax = convives de LA collecte (300), pas ceux de l’événement (900)', async () => {
-    const { payload, select } = await payloadBordereau(
-      makeCollecte({ pax: 300, evenements: evenement900 }),
-    );
-    expect(payload.nb_pax).toBe(300);
-    const [colonnesCollecte, embedEvenement] = select.split('evenements (');
-    expect(colonnesCollecte).toMatch(/\bpax\b/);
-    expect(embedEvenement).not.toMatch(/\bpax\b/);
-  });
-
-  it('bordereau : collecte à 0 convive (inconnu, reprise Bubble) → nb_pax null, mention omise', async () => {
-    const { payload } = await payloadBordereau(
-      makeCollecte({ pax: 0, evenements: evenement900 }),
-    );
-    expect(payload.nb_pax).toBeNull();
   });
 });
 
@@ -296,7 +243,7 @@ describe('M1.6 / BatchPdfJ1 / Escalade R9', () => {
 });
 
 describe('M1.6 / BatchPdfJ1 / Idempotence', () => {
-  it('bordereau encore en brouillon (rendu en attente ou en échec) → aucun numéro BSAV tiré, rien recréé', async () => {
+  it('bordereau numéroté resté en brouillon (rendu en attente au passage sans PDF) → émis, aucun numéro BSAV tiré, rien recréé', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       {
@@ -319,6 +266,16 @@ describe('M1.6 / BatchPdfJ1 / Idempotence', () => {
     expect(result.errors).toHaveLength(0);
     expect(sb.rpc).not.toHaveBeenCalled();
     expect(sb._chain.insert).not.toHaveBeenCalled();
+    // Émis sans PDF (Val 2026-11-13), seulement s'il est encore en brouillon :
+    // la base garde en brouillon un producteur fantôme sans SIRET.
+    const updates = (sb._chain.update as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[Record<string, unknown>]>;
+    expect(updates).toHaveLength(1);
+    expect(updates[0]![0]).toMatchObject({ statut: 'emis' });
+    const inCalls = (sb._chain.in as ReturnType<typeof vi.fn>).mock.calls;
+    expect(inCalls).toContainEqual(['id', ['bord-1']]);
+    const eqCalls = (sb._chain.eq as ReturnType<typeof vi.fn>).mock.calls;
+    expect(eqCalls).toContainEqual(['statut', 'brouillon']);
   });
 
   it('collecte déjà traitée (bordereau emis) → already_done incrémenté, rien enqueué', async () => {
@@ -360,7 +317,6 @@ describe('M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04)', () => {
       { data: [{ id: 'bord-x' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-x' }, error: null },
-      { data: null, error: null },
     ]);
 
     const before = Date.now();
@@ -409,7 +365,6 @@ describe('M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04)', () => {
       { data: [{ id: 'bord-y' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-y' }, error: null },
-      { data: null, error: null },
     ]);
     const result = await runBatchPdfJ1(sb as never);
     expect(result.enqueued).toBe(1);
@@ -417,11 +372,11 @@ describe('M1.6 / BatchPdfJ1 / Sans embargo (Val 2026-11-04)', () => {
   });
 });
 
-// Val 2026-11-04 : une pesée corrigée refait le bordereau (même numéro, version
-// suivante), avant comme après la clôture quand l'Admin la saisit. Revu pour la
-// collecte nommée et pour toute collecte dont une pesée a été écrite dans les
-// 48 dernières heures (une correction tombée pendant un rendu est reprise).
-describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
+// Val 2026-11-04 : une pesée corrigée met le bordereau à jour (même numéro,
+// version suivante), avant comme après la clôture quand l'Admin la saisit. Revu
+// pour la collecte nommée et pour toute collecte dont une pesée a été écrite dans
+// les 48 dernières heures. Sans PDF depuis le 2026-11-13 : aucun rendu.
+describe('M1.6 / BatchPdfJ1 / Bordereau mis à jour sur pesées corrigées', () => {
   const emis = {
     id: 'bord-1',
     collecte_id: 'col-1',
@@ -432,9 +387,6 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
       { nom: 'Verre', poids_kg: 10, nb_bacs: null, equivalent_roll: null },
     ],
   };
-  const dernierRendu = {
-    payload: { numero: 'BSAV-2026-00009', date_emission: '01/11/2026' },
-  };
   const recente = { data: [{ collecte_id: 'col-1' }], error: null };
   const flux = (kg: number) => ({
     data: [{ flux_id: 'f1', poids_reel_kg: kg, flux: { nom: 'Verre' } }],
@@ -443,16 +395,15 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
     (sb._chain.update as ReturnType<typeof vi.fn>).mock.calls as Array<
       [Record<string, unknown>]
     >;
+  const tables = (sb: ReturnType<typeof makeSupabase>) =>
+    (sb.from as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
 
-  it('pesée récente changée, aucun rendu en attente → rendu mis en file avec les nouvelles pesées, version 2', async () => {
+  it('pesée récente changée → bordereau mis à jour (pesées, version 2), aucun rendu', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       { data: [emis], error: null },
       recente,
       flux(25),
-      { data: dernierRendu, error: null }, // dernier rendu
-      { data: [], error: null }, // aucun rendu en attente ou en échec
-      { data: null, error: null }, // insert job
       { data: null, error: null }, // update bordereau
     ]);
 
@@ -460,15 +411,10 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
 
     expect(result.refaits).toBe(1);
     expect(result.enqueued).toBe(0);
-    const insert = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
-      .calls[0]![0] as Record<string, unknown>;
-    expect(insert.type_document).toBe('bordereau-zd');
-    expect(insert.entity_id).toBe('bord-1');
-    const payload = insert.payload as Record<string, unknown>;
-    expect(payload.numero).toBe('BSAV-2026-00009');
-    expect(payload.poids_total_kg).toBe(25);
-    expect(payload.regenere_le).toBeDefined();
-    expect(updates(sb).at(-1)![0]).toMatchObject({
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+    expect(tables(sb)).not.toContain('jobs_pdf');
+    expect(updates(sb)).toHaveLength(1);
+    expect(updates(sb)[0]![0]).toMatchObject({
       poids_total_kg: 25,
       version: 2,
     });
@@ -501,15 +447,12 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
     expect(sb._chain.insert).not.toHaveBeenCalled();
   });
 
-  it('collecte clôturée, pesée corrigée récemment (rendu alors en cours) → reprise au passage planifié', async () => {
+  it('collecte clôturée, pesée corrigée récemment → mise à jour au passage planifié', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'cloturee' })], error: null },
       { data: [emis], error: null },
       recente,
       flux(30),
-      { data: dernierRendu, error: null },
-      { data: [], error: null },
-      { data: null, error: null },
       { data: null, error: null },
     ]);
     const result = await runBatchPdfJ1(sb as never);
@@ -521,9 +464,6 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
       { data: [makeCollecte({ statut: 'cloturee' })], error: null },
       { data: [emis], error: null },
       flux(30),
-      { data: dernierRendu, error: null },
-      { data: [], error: null },
-      { data: null, error: null },
       { data: null, error: null },
     ]);
     const result = await runBatchPdfJ1(sb as never, { collecteId: 'col-1' });
@@ -531,59 +471,31 @@ describe('M1.6 / BatchPdfJ1 / Bordereau refait sur pesées corrigées', () => {
     expect(sb._chain.gte).not.toHaveBeenCalled();
   });
 
-  it('rendu en attente ou en échec → il prend les nouvelles pesées, aucun rendu ajouté', async () => {
-    const sb = makeSupabase([
-      { data: [makeCollecte({ statut: 'realisee' })], error: null },
-      { data: [emis], error: null },
-      recente,
-      flux(25),
-      { data: dernierRendu, error: null },
-      { data: [{ id: 'job-attente' }], error: null }, // payload repris
-      { data: null, error: null }, // update bordereau
-    ]);
-    const result = await runBatchPdfJ1(sb as never);
-    expect(result.refaits).toBe(1);
-    expect(sb._chain.insert).not.toHaveBeenCalled();
-    const inCalls = (sb._chain.in as ReturnType<typeof vi.fn>).mock.calls;
-    expect(inCalls).toContainEqual(['statut', ['pending', 'failed']]);
-    expect(
-      (updates(sb)[0]![0].payload as Record<string, unknown>).poids_total_kg,
-    ).toBe(25);
-    expect(updates(sb)[1]![0]).toMatchObject({ version: 2 });
-  });
-
-  it('rendu en cours (anti-doublon) → bordereau laissé tel quel, repris au passage suivant', async () => {
-    const sb = makeSupabase([
-      { data: [makeCollecte({ statut: 'realisee' })], error: null },
-      { data: [emis], error: null },
-      recente,
-      flux(25),
-      { data: dernierRendu, error: null },
-      { data: [], error: null },
-      { data: null, error: { code: '23505', message: 'duplicate' } },
-    ]);
-    const result = await runBatchPdfJ1(sb as never);
-    expect(result.refaits).toBe(0);
-    // Seule la tentative de reprise du rendu : les pesées du bordereau ne
-    // bougent pas, l'écart reste visible au passage suivant.
-    expect(updates(sb)).toHaveLength(1);
-  });
-
-  it('bordereau numéroté encore en brouillon (1er rendu en attente) → rendu repris, version inchangée', async () => {
+  it('bordereau numéroté encore en brouillon (producteur sans SIRET) → pesées mises à jour, version inchangée', async () => {
     const sb = makeSupabase([
       { data: [makeCollecte({ statut: 'realisee' })], error: null },
       { data: [{ ...emis, statut: 'brouillon' }], error: null },
       recente,
       flux(25),
-      { data: dernierRendu, error: null },
-      { data: [{ id: 'job-attente' }], error: null },
       { data: null, error: null },
     ]);
     const result = await runBatchPdfJ1(sb as never);
     expect(result.refaits).toBe(1);
-    const payload = updates(sb)[0]![0].payload as Record<string, unknown>;
-    expect(payload.regenere_le).toBeUndefined();
-    expect(updates(sb)[1]![0]).not.toHaveProperty('version');
+    expect(updates(sb)[0]![0]).toMatchObject({ poids_total_kg: 25 });
+    expect(updates(sb)[0]![0]).not.toHaveProperty('version');
+  });
+
+  it('erreur à la mise à jour → comptée en erreur, pas en mise à jour', async () => {
+    const sb = makeSupabase([
+      { data: [makeCollecte({ statut: 'realisee' })], error: null },
+      { data: [emis], error: null },
+      recente,
+      flux(25),
+      { data: null, error: { code: 'XX000', message: 'panne' } },
+    ]);
+    const result = await runBatchPdfJ1(sb as never);
+    expect(result.refaits).toBe(0);
+    expect(result.errors).toHaveLength(1);
   });
 });
 
@@ -646,18 +558,21 @@ describe('M1.6 / BatchPdfJ1 / Numéro gapless jamais brûlé', () => {
       { data: 'BSAV-2026-00011', error: null }, // rpc numero
       { data: [{ id: 'bord-orphelin' }], error: null }, // numéro posé
       { data: { id: 'rse-deja' }, error: null }, // rapports_rse déjà là
-      { data: null, error: null }, // job
     ]);
     const result = await runBatchPdfJ1(sb as never);
     expect(result.enqueued).toBe(1);
-    const inserts = (sb._chain.insert as ReturnType<typeof vi.fn>).mock
+    // Ni bordereau ni rapports_rse recréés, aucun rendu : le numéro est posé et
+    // le bordereau émis sur la ligne reprise.
+    expect(sb._chain.insert).not.toHaveBeenCalled();
+    const updates = (sb._chain.update as ReturnType<typeof vi.fn>).mock
       .calls as Array<[Record<string, unknown>]>;
-    // Ni bordereau ni rapports_rse recréés : seul le rendu part.
-    expect(inserts.map((c) => c[0].type_document)).toEqual(['bordereau-zd']);
-    expect(inserts[0]![0].entity_id).toBe('bord-orphelin');
-    expect((inserts[0]![0].payload as Record<string, unknown>).numero).toBe(
-      'BSAV-2026-00011',
-    );
+    expect(updates[0]![0]).toMatchObject({
+      numero: 'BSAV-2026-00011',
+      statut: 'emis',
+    });
+    const eqCalls = (sb._chain.eq as ReturnType<typeof vi.fn>).mock
+      .calls as Array<[string, unknown]>;
+    expect(eqCalls).toContainEqual(['id', 'bord-orphelin']);
   });
 });
 
@@ -673,7 +588,7 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
     vi.useRealTimers();
   });
 
-  it('bordereau : date_collecte = date de la collecte, date_emission = jour du batch', async () => {
+  it('bordereau : date_collecte = date de la collecte, date_emission = jour du batch (ligne figée)', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(JOUR_BATCH);
 
@@ -704,7 +619,6 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
       { data: [{ id: 'bord-date' }], error: null }, // numéro posé sur la ligne
       { data: null, error: null }, // aucun rapports_rse existant
       { data: { id: 'rse-date' }, error: null }, // insert rapports_rse
-      { data: null, error: null }, // job bordereau
     ]);
 
     const result = await runBatchPdfJ1(sb as never);
@@ -727,14 +641,5 @@ describe('M1.6 / BatchPdfJ1 / Date d’intervention (§12 §1.1, §04 bordereaux
     expect(bordRow).toBeDefined();
     expect(bordRow!.date_collecte).toBe('2026-09-10');
     expect(bordRow!.date_emission).toBe('2026-10-01');
-
-    // Payload bordereau (rendu Railway) : « JJ/MM/AAAA ».
-    const bordJob = insertCalls.find(
-      (c) => c[0].type_document === 'bordereau-zd',
-    )?.[0];
-    const bordPayload = bordJob!.payload as Record<string, string>;
-    expect(bordPayload.date_collecte).toBe('10/09/2026');
-    expect(bordPayload.date_evenement).toBe('09/09/2026');
-    expect(bordPayload.date_emission).toBe('01/10/2026');
   });
 });

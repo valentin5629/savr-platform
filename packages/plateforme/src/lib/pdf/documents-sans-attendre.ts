@@ -1,6 +1,6 @@
 // Documents d'une collecte fabriqués juste après une saisie de poids par l'Admin
 // (Val 2026-11-04), sans attendre le passage planifié (toutes les 15 min, en
-// production seulement) : bordereau émis ou refait (ZD), attestation émise (AG,
+// production seulement) : bordereau émis ou mis à jour, sans PDF (ZD), attestation émise (AG,
 // sa correction est mise en file par trg_regenerer_attestation), puis rendu des
 // PDF de cette collecte seule.
 //
@@ -49,8 +49,6 @@ export async function fabriquer(
   collecteId: string,
   type: 'zero_dechet' | 'anti_gaspi',
 ): Promise<void> {
-  const table = type === 'zero_dechet' ? 'bordereaux_savr' : 'attestations_don';
-
   const batch =
     type === 'zero_dechet'
       ? await runBatchPdfJ1(supabase, { collecteId })
@@ -62,8 +60,11 @@ export async function fabriquer(
     });
   }
 
+  // Bordereau ZD sans PDF (Val 2026-11-13) : le batch l'émet, rien à rendre.
+  if (type === 'zero_dechet') return;
+
   const { data: documents, error } = await supabase
-    .from(table)
+    .from('attestations_don')
     .select('id')
     .eq('collecte_id', collecteId);
   if (error) throw erreurInterne(error, 'pdf.documents_sans_attendre.lecture');

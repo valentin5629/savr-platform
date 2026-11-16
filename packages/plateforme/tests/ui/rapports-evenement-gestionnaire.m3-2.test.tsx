@@ -2,7 +2,7 @@
  * M3.2 — fiche Événement du gestionnaire, onglet « Bilan & documents » :
  * rapports CUMULÉS sur l'événement et radar du bilan consolidé ZD (décision Val
  * 2026-10-26).
- *  - en tête des documents, « Rapport RSE de l'événement » (ZD) ou « Rapport de
+ *  - en tête des documents, « Rapport de recyclage de l'événement » (ZD) ou « Rapport de
  *    don de l'événement » (AG, récapitulatif sans valeur fiscale), fabriqué au
  *    clic dès qu'une collecte du type a ses résultats ;
  *  - radar ZD avec sa barre « Comparer avec », à l'écran ; la case « Inclure
@@ -263,11 +263,11 @@ describe('M3.2 / fiche Événement — radar pour tous les rôles (Val 2026-10-3
 
 describe('M3.2 / fiche Événement — rapports cumulés', () => {
   it(
-    'EVT/rapport_cumule_zd — ligne « Rapport RSE de l’événement » en tête, fabriqué au clic sans radar par défaut',
+    'EVT/rapport_cumule_zd — ligne « Rapport de recyclage de l’événement » en tête, fabriqué au clic sans radar par défaut',
     async () => {
       const mock = stubFetch(detail());
       const ligne = await ouvrirBilan();
-      expect(ligne).toHaveTextContent('Rapport RSE de l’événement');
+      expect(ligne).toHaveTextContent('Rapport de recyclage de l’événement');
       expect(ligne).toHaveTextContent('Cumul des collectes réalisées');
       // En tête : avant le rapport de chaque collecte, juste après la ligne du
       // logo du client (Val 2026-10-30).

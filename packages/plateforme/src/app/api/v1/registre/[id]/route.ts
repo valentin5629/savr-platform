@@ -145,9 +145,7 @@ export async function GET(
     flux,
     poids_total_kg: row.poids_total_kg,
     documents: {
-      bordereau_id: (bordereau as { id?: string } | null)?.id ?? null,
       numero: (bordereau as Record<string, unknown> | null)?.numero ?? null,
-      statut: (bordereau as Record<string, unknown> | null)?.statut ?? null,
       date_emission:
         (bordereau as Record<string, unknown> | null)?.date_emission ?? null,
       version: (bordereau as Record<string, unknown> | null)?.version ?? null,

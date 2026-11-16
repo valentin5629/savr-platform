@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
+import { CaretDownIcon, SlidersHorizontalIcon } from '@/components/ui/icones';
 
 // FilterBar — barre de filtres standard de toute page de liste (DS Claude
 // Design « FilterBar » + règle 7 « Mise en page des formulaires et filtres »).
@@ -19,6 +20,10 @@ import { BarreFiltres } from '@/components/ui/filtre-en-ligne';
 // liste = FilterBar complet (count + actif + onReset obligatoires) ; les
 // barres de dashboard (`DashboardFilterBar`, Revenus admin) ont la même carte
 // (décision Val 2026-11-01), `BenchmarkFilterBar` est un `encart`.
+// Téléphone (< 640 px) : la ligne de filtres est repliée derrière un bouton
+// « Filtres » (un point orange signale un filtre posé), pour que la liste
+// arrive tout de suite sous les onglets. Au-delà, elle est toujours affichée
+// et le bouton n'existe pas.
 export interface FilterBarProps {
   tabs?: React.ReactNode;
   toggle?: React.ReactNode;
@@ -65,13 +70,15 @@ function FilterBar({
 }: FilterBarProps) {
   const avecEntete = Boolean(tabs || toggle);
   const avecPied = count !== null && count !== undefined;
+  const [filtresOuverts, setFiltresOuverts] = React.useState(false);
+  const idFiltres = React.useId();
   return (
     <section
       aria-label="Filtres"
       data-testid={testId}
       className={cn(
         surface === 'carte' &&
-          'rounded-savr-xl border border-savr-neutral-200 bg-savr-white px-6 pb-6 pt-4',
+          'rounded-savr-xl border border-savr-neutral-200 bg-savr-white px-6 pb-6 pt-4 max-sm:px-4 max-sm:pb-4',
         className,
       )}
     >
@@ -85,18 +92,54 @@ function FilterBar({
           )}
         >
           <div className="min-w-0">{tabs}</div>
-          {toggle && <div className="pb-2">{toggle}</div>}
+          {toggle && <div className="pb-2 max-sm:w-full">{toggle}</div>}
         </div>
       )}
       {children && (
-        <BarreFiltres
-          intro={intro}
-          onReset={actif ? onReset : undefined}
-          resetLabel="Réinitialiser les filtres"
-          resetTestId={resetTestId ?? (testId ? `${testId}-reset` : undefined)}
-        >
-          {children}
-        </BarreFiltres>
+        <>
+          <button
+            type="button"
+            aria-expanded={filtresOuverts}
+            aria-controls={idFiltres}
+            onClick={() => setFiltresOuverts((v) => !v)}
+            className="flex h-11 w-full items-center justify-between gap-2 rounded-savr-md bg-savr-neutral-50 px-3 text-sm font-semibold text-savr-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-savr-primary-500 sm:hidden"
+          >
+            <span className="inline-flex items-center gap-2">
+              <SlidersHorizontalIcon className="h-4 w-4" />
+              Filtres
+              {actif && (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="h-2 w-2 rounded-savr-full bg-savr-accent-500"
+                  />
+                  <span className="sr-only">(au moins un filtre posé)</span>
+                </>
+              )}
+            </span>
+            <CaretDownIcon
+              className={cn(
+                'h-4 w-4 transition-transform duration-savr-fast',
+                filtresOuverts && 'rotate-180',
+              )}
+            />
+          </button>
+          <div
+            id={idFiltres}
+            className={cn('max-sm:mt-2', !filtresOuverts && 'max-sm:hidden')}
+          >
+            <BarreFiltres
+              intro={intro}
+              onReset={actif ? onReset : undefined}
+              resetLabel="Réinitialiser les filtres"
+              resetTestId={
+                resetTestId ?? (testId ? `${testId}-reset` : undefined)
+              }
+            >
+              {children}
+            </BarreFiltres>
+          </div>
+        </>
       )}
       {avecPied && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4">

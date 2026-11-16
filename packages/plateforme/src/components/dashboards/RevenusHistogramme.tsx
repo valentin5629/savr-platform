@@ -262,7 +262,18 @@ export function RevenusHistogramme({
                         les graphes cockpit (EvolutionZdChart) : ZD, AG et total
                         formatés selon la bascule montant/nombre. */}
                     <ChartTooltip
-                      className="bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap text-left opacity-0 transition-opacity duration-savr-fast group-hover:opacity-100"
+                      className={cn(
+                        'bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap text-left opacity-0 transition-opacity duration-savr-fast group-hover:opacity-100',
+                        // Téléphone : centrée sur une colonne du bord,
+                        // l'infobulle dépassait de l'écran et rendait la page
+                        // glissable sur le côté. Elle se cale sur le bord.
+                        // Bord gauche prioritaire : sur une période courte, une
+                        // colonne peut être des deux côtés.
+                        i < 4
+                          ? 'max-sm:left-0 max-sm:translate-x-0'
+                          : i >= moisSet.length - 4 &&
+                              'max-sm:left-auto max-sm:right-0 max-sm:translate-x-0',
+                      )}
                       role="tooltip"
                     >
                       <Text
@@ -372,12 +383,19 @@ export function RevenusHistogramme({
 
           {/* Libellés des mois — alignés sous les barres, hors surface traçante. */}
           <div className="mt-1 flex gap-1">
-            {moisSet.map((mois) => (
+            {moisSet.map((mois, i) => (
               <Text
                 as="span"
                 variant="hint"
                 size="3xs"
-                className="flex-1 text-center"
+                className={cn(
+                  'flex-1 text-center',
+                  // Téléphone : les libellés, plus larges que leur colonne,
+                  // poussaient la rangée hors de l'écran. Chacun reste centré
+                  // sous sa barre, un mois sur trois est affiché.
+                  'max-sm:flex max-sm:min-w-0 max-sm:justify-center max-sm:whitespace-nowrap',
+                  (moisSet.length - 1 - i) % 3 !== 0 && 'max-sm:invisible',
+                )}
                 key={mois}
               >
                 {new Date(mois).toLocaleDateString('fr-FR', {

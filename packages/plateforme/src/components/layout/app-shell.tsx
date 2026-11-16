@@ -45,7 +45,10 @@ const AppShell = ({
           className={cn(
             // Fond navy de la barre latérale : la barre bleu ciel du haut s'en
             // détache par un coin arrondi (Val 2026-11-03).
-            'flex h-screen overflow-hidden bg-savr-primary-700',
+            // Téléphone : hauteur de l'écran réellement visible (`dvh`). Avec
+            // `h-screen`, le cadre dépasse de la hauteur des barres du
+            // navigateur et la page défile derrière lui.
+            'flex h-screen overflow-hidden bg-savr-primary-700 max-sm:h-dvh',
             className,
           )}
         >
@@ -99,7 +102,7 @@ const AppShell = ({
                 par rapport à la page, dépassent sous l'écran et font défiler la
                 page entière derrière le cadre : une bande vide reste en bas. */}
               <main
-                className="relative flex-1 overflow-y-auto bg-savr-neutral-50 p-6 pt-4 pb-20 lg:pb-6"
+                className="relative flex-1 overflow-y-auto bg-savr-neutral-50 p-6 pt-4 pb-20 max-sm:px-4 lg:pb-6"
                 id="main-content"
                 tabIndex={-1}
               >

@@ -1,0 +1,90 @@
+{
+  "module": "M5.3",
+  "titre": "Migration Bubble — checks de réconciliation, remise à zéro, rapport",
+  "description": "Checks de réconciliation (familles A à E de 05 - Checks reconciliation) rejoués en SQL contre les exports bruts du staging, sans chiffre figé ; contrôles de complétion avant go-live séparés des contrôles bloquants ; remise à zéro qui retire les seules lignes importées, par la table de correspondance, dans l'ordre inverse des dépendances ; rapport de répétition écrit hors dépôt. Une répétition entière sur fixtures inventées (import, rejeu, checks, sabotage, remise à zéro) se joue contre la base locale jetable quand MIGRATION_BUBBLE_TEST_DATABASE_URL est posée.",
+  "fichiers_produits": [
+    "apps/migration-bubble/src/checks.ts",
+    "apps/migration-bubble/src/remise-a-zero.ts",
+    "apps/migration-bubble/src/rapport.ts",
+    "apps/migration-bubble/tests/m5-3-checks-remise-a-zero.test.ts"
+  ],
+  "scenarios": [],
+  "deliverables": [
+    {
+      "id": "M5.3-checks-familles",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/src/checks.ts",
+      "test": "M5.3 / checks de réconciliation — catalogue › chaque check a un code unique, un libellé et une nature",
+      "statut": "partial",
+      "libelle": "Checks de réconciliation A à E : comptages, cohérence financière, intégrité, fonctionnels. En CI, seul le catalogue est prouvé (codes, natures, lecture seule). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels. Chaque check bloquant y est allumé par un sabotage, sauf B3 et B4, que la base interdit elle-même."
+    },
+    {
+      "id": "M5.3-checks-attendus-relus-dans-les-exports",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/src/checks.ts",
+      "test": "M5.3 / checks de réconciliation — catalogue › les attendus sont relus dans les exports bruts, sans chiffre figé",
+      "statut": "implemented",
+      "libelle": "Attendus relus en SQL dans le staging brut, sans constante"
+    },
+    {
+      "id": "M5.3-checks-lecture-seule",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/src/checks.ts",
+      "test": "M5.3 / checks de réconciliation — catalogue › un check ne fait que lire : aucune écriture, aucun changement de schéma",
+      "statut": "implemented",
+      "libelle": "Un check ne fait que lire"
+    },
+    {
+      "id": "M5.3-checks-zero-ligne-vert",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/src/checks.ts",
+      "test": "M5.3 / checks de réconciliation — catalogue › 0 ligne = vert",
+      "statut": "partial",
+      "libelle": "0 ligne = vert, toute ligne = anomalie. En CI, prouvé sur un faux client. Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
+    },
+    {
+      "id": "M5.3-gates-go-live",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:100",
+      "artefact": "apps/migration-bubble/src/checks.ts",
+      "test": "M5.3 / checks de réconciliation — catalogue › les contrôles de complétion avant go-live ne bloquent pas une répétition",
+      "statut": "implemented",
+      "libelle": "Complétions attendues de l'Admin avant go-live, distinctes des contrôles bloquants"
+    },
+    {
+      "id": "M5.3-remise-a-zero",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/src/remise-a-zero.ts",
+      "test": "M5.3 / remise à zéro › retire les lignes importées dans l’ordre inverse des dépendances",
+      "statut": "implemented",
+      "libelle": "Remise à zéro : seules les lignes importées, ordre inverse des dépendances"
+    },
+    {
+      "id": "M5.3-remise-a-zero-declencheurs",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/src/remise-a-zero.ts",
+      "test": "M5.3 / remise à zéro › coupe les déclencheurs pendant le retrait, les rétablit, puis vide le staging",
+      "statut": "implemented",
+      "libelle": "Remise à zéro : déclencheurs coupés puis rétablis, staging vidé"
+    },
+    {
+      "id": "M5.3-rapport-repetition",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/src/rapport.ts",
+      "test": "M5.3 / rapport de répétition › donne, par passage, les écritures par table, les rejets par motif, les checks, les durées et les déclencheurs coupés",
+      "statut": "implemented",
+      "libelle": "Rapport : comptes par table, rejets par motif, checks, durées, déclencheurs coupés"
+    },
+    {
+      "id": "M5.3-repetition-sur-base-jetable",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:11",
+      "artefact": "apps/migration-bubble/tests/m5-3-checks-remise-a-zero.test.ts",
+      "test": null,
+      "statut": "partial",
+      "libelle": "Répétition entière sur fixtures inventées contre la base jetable (jouée localement, hors CI qui n'a pas de base) ; preuve d'ensemble = répétition n° 1 sur les exports réels, rapport hors dépôt"
+    }
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": "4c808a3c08c3185f1ab9a2bfd403d4bf75c47623b92d452166904ab663a656bc",
+    "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md": "10025603d399263c70770dd3aefcbaa59e926acd639ef1a6714f180e3014911a"
+  }
+}

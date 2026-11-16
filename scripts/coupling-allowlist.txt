@@ -319,3 +319,10 @@ apps/cron-dev/tests/*
 # tournées MTS-1 réinitialisées. Aucun appel HTTP : la fonction émet un event outbox,
 # l'adapter (packages/adapters/) le consomme. 'customerOrders' banni.
 supabase/migrations/20261113180000_plateforme_changer_association_ag.sql
+# apps/migration-bubble (2026-11-15, modules M5.1 → M5.3) — import de l'historique
+# Bubble. Un seul fichier nomme les logiciels de transport : la valeur « TmsType » de
+# l'export Bubble et la valeur de l'enum transporteurs.type_tms qui lui correspond,
+# plus le libellé des anciennes références gardées dans collectes.notes_internes.
+# Constantes de données : aucun appel réseau à un prestataire dans le paquet (son seul
+# appel sortant est le service public d'adresses, pour situer les lieux).
+apps/migration-bubble/src/referentiel-tms.ts

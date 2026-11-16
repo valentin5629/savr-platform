@@ -6,7 +6,6 @@ import { fmtKg } from '@/lib/format';
 import { use, useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/heading';
 import Link from 'next/link';
 import { PageHero } from '@/components/ui/page-hero';
@@ -61,9 +60,7 @@ interface RegistreDetail {
   flux: FluxDetail[];
   poids_total_kg: number | null;
   documents: {
-    bordereau_id: string | null;
     numero: string | null;
-    statut: string | null;
     date_emission: string | null;
     version: number | null;
   };
@@ -103,21 +100,9 @@ export default function RegistreDetailPage({
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function downloadBordereau(bid: string) {
-    const res = await fetch(
-      `/api/v1/registre/bordereaux/${encodeURIComponent(bid)}/download`,
-    );
-    if (!res.ok) return;
-    const j = (await res.json()) as { url?: string };
-    if (j.url) window.open(j.url, '_blank');
-  }
-
   if (loading) return <LoadingState className="p-4" />;
   if (notFound || !data)
     return <p className="p-4 text-sm">Collecte introuvable.</p>;
-
-  const dispo =
-    data.documents.statut === 'emis' || data.documents.statut === 'corrige';
 
   return (
     <div className="space-y-4">
@@ -133,22 +118,9 @@ export default function RegistreDetailPage({
         }
         title={`Collecte ZD — ${dateFr(data.evenement.date)} — ${data.lieu.nom ?? ''}`}
         actions={
-          <>
-            <Badge variant={dispo ? 'success' : 'neutral'}>
-              {dispo ? 'Bordereau disponible' : 'Bordereau manquant'}
-            </Badge>
-            {data.historique_partiel && (
-              <Badge variant="warning">Historique partiel</Badge>
-            )}
-            {data.documents.bordereau_id && dispo && (
-              <Button
-                variant="accent"
-                onClick={() => downloadBordereau(data.documents.bordereau_id!)}
-              >
-                Télécharger le bordereau
-              </Button>
-            )}
-          </>
+          data.historique_partiel && (
+            <Badge variant="warning">Historique partiel</Badge>
+          )
         }
       />
 

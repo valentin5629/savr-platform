@@ -12,8 +12,8 @@ export interface TraceParams {
   userId: string;
   organisationId: string | null;
   isStaff: boolean;
-  typeExport: 'registre_dechets' | 'bordereaux_batch';
-  format: 'csv' | 'zip';
+  typeExport: 'registre_dechets';
+  format: 'csv';
   nbLignes: number;
   filters: RegistreFilters;
   /** Dates des lignes exportées — sert à dériver la période si pas de filtre. */
@@ -45,7 +45,6 @@ export async function traceExport(
       lieu_ids: p.filters.lieuIds,
       traiteur_ids: p.filters.traiteurIds,
       flux_codes: p.filters.fluxCodes,
-      bordereau: p.filters.bordereauStatut ?? null,
     },
   });
 }

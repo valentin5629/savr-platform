@@ -37,7 +37,7 @@ const BottomNav = React.forwardRef<HTMLElement, BottomNavProps>(
               href={item.href}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors',
+                'flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors',
                 isActive
                   ? 'text-savr-primary-700'
                   : 'text-savr-neutral-500 hover:text-savr-neutral-900',
@@ -50,7 +50,11 @@ const BottomNav = React.forwardRef<HTMLElement, BottomNavProps>(
                 )}
                 aria-hidden="true"
               />
-              <span className="truncate max-w-[60px]">{item.label}</span>
+              {/* Deux lignes au plus : « Dashboard Admin » et « Dashboard
+                  Client » ne se distinguent pas, coupés à « Dashbo… ». */}
+              <span className="line-clamp-2 max-w-full px-1 text-center leading-tight">
+                {item.label}
+              </span>
             </Link>
           );
         })}

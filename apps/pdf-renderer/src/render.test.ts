@@ -1,9 +1,9 @@
 /**
- * M1.6 / M2.4 — Renderer PDF : dispatch type_document → HTML + attestation 2041-GE.
+ * M1.6 / M2.4 — Renderer PDF : dispatch type_document → HTML, et règles des gabarits.
  *
- * Couvre BL-P0-03 : le renderer ne renvoie plus 400 sur 'attestation-don' (les 3
- * type_document du contrat partagé rendent), un type inconnu lève (→ 400), et la
- * mention fiscale 2041-GE est conditionnée par habilitee_attestation_fiscale.
+ * Couvre BL-P0-03 : le renderer ne renvoie plus 400 sur 'attestation-don' (les
+ * type_document du contrat partagé rendent), un type inconnu lève (→ 400), et le
+ * rapport de don @5 n'imprime plus aucune mention fiscale (Val 2026-11-16).
  *
  * Exécuté UNIQUEMENT par le vitest racine (workspace complet). Exclu du build
  * Docker du renderer (cf. tsconfig.json exclude) car il importe vitest + @savr/shared.
@@ -37,9 +37,9 @@ const EXPECTED_TYPES = [
 const EXPECTED_VERSIONS: Record<string, string> = {
   'bordereau-zd': 'bordereau-zd@2',
   'rapport-recyclage-zd': 'rapport-recyclage-zd@4',
-  'attestation-don': 'attestation-don@4',
+  'attestation-don': 'attestation-don@5',
   'synthese-dashboard': 'synthese-dashboard@1',
-  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@2',
+  'rapport-evenement-sans-excedent': 'rapport-evenement-sans-excedent@3',
   facture: 'facture@1',
   'rapport-recyclage-evenement': 'rapport-recyclage-evenement@2',
   'rapport-don-evenement': 'rapport-don-evenement@1',
@@ -237,6 +237,7 @@ function attestationData(
     co2_evite_kg: 300,
     co2_km_voiture: 1376,
     co2_facteurs_version: 'FAO-2.5',
+    lieu_nom: 'Palais Brongniart',
     ...overrides,
   };
 }
@@ -384,22 +385,6 @@ const DATA_BY_TYPE: Record<string, unknown> = {
   },
 };
 
-/** Titre imprimé du document : le contenu de l'unique <h1>. */
-function titreImprime(html: string): string {
-  const titres = [...html.matchAll(/<h1>([^<]*)<\/h1>/g)].map((m) => m[1]);
-  expect(titres).toHaveLength(1);
-  return titres[0]!;
-}
-
-/** Sous-titre imprimé sous le titre (classe `sous-titre`), unique lui aussi. */
-function sousTitreImprime(html: string): string {
-  const sousTitres = [
-    ...html.matchAll(/<div class="sous-titre">([^<]*)<\/div>/g),
-  ].map((m) => m[1]);
-  expect(sousTitres).toHaveLength(1);
-  return sousTitres[0]!;
-}
-
 describe('M1.6 / renderer PDF — dispatch type_document', () => {
   it('les 3 type_document du contrat rendent un HTML non vide (plus de 400)', () => {
     expect([...RENDERER_DOCUMENT_TYPES].sort()).toEqual(EXPECTED_TYPES);
@@ -410,7 +395,7 @@ describe('M1.6 / renderer PDF — dispatch type_document', () => {
     }
     // Garantit spécifiquement que 'attestation-don' (ex-400) rend désormais.
     expect(renderByType('attestation-don', attestationData())).toContain(
-      'Attestation de don',
+      'RAPPORT DE DON',
     );
   });
 
@@ -426,169 +411,341 @@ describe('M1.6 / renderer PDF — dispatch type_document', () => {
   });
 });
 
-describe('M2.4 / attestation de don 2041-GE — mention fiscale conditionnelle', () => {
-  it('association habilitée → mention fiscale article 238 bis CGI présente', () => {
-    const html = renderByType(
-      'attestation-don',
-      attestationData({ mention_fiscale_2041ge: true }),
-    );
-    expect(html).toContain('238 bis');
-    expect(html).toContain('2041-GE');
-    expect(html).toContain('60 %');
+// Rapports de don illustrés (maquettes validées par Val le 2026-11-16) : gabarits
+// attestation-don@5 et rapport-evenement-sans-excedent@3. La fidélité visuelle
+// est prouvée par rapports-de-don-visuel.test.ts ; ici, les données et les règles.
+const LOGO_PNG = 'data:image/png;base64,iVBORw0KGgo=';
+
+/** Sur-titre imprimé dans le bandeau, au-dessus du nom de l'événement. */
+function surTitre(html: string): string {
+  const m = /letter-spacing: 0\.22em; color: #ffbd59;">([^<]*)<\/p>/.exec(html);
+  expect(m).not.toBeNull();
+  return m![1]!;
+}
+
+describe('M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG', () => {
+  it('les deux PDF : sur-titre « RAPPORT DE DON » et titre de document « Rapport de don »', () => {
+    for (const html of [
+      renderByType('attestation-don', attestationData()),
+      renderByType('rapport-evenement-sans-excedent', sansExcedentData()),
+    ]) {
+      expect(surTitre(html)).toBe('RAPPORT DE DON');
+      expect(html).toContain('<title>Rapport de don</title>');
+    }
   });
 
-  it('association non habilitée → mention neutre, aucune mention 238 bis', () => {
-    const html = renderByType(
-      'attestation-don',
-      attestationData({ mention_fiscale_2041ge: false }),
-    );
-    expect(html).not.toContain('238 bis');
-    expect(html).toContain('aucun avantage fiscal');
-  });
-
-  // §04 associations.numero_rup + §06.06 §5 : la mention RUP n'apparaît QUE si le
-  // n° est renseigné (instantané facultatif, arbitrage Val 2026-09-14).
-  it('n° RUP renseigné → mention RUP dans l’identité asso ET dans le bloc fiscal', () => {
-    const html = renderByType(
-      'attestation-don',
-      attestationData({
-        association_numero_rup: 'W751234567',
-        mention_fiscale_2041ge: true,
-      }),
-    );
-    expect(html).toContain('RUP W751234567');
-    expect(html).toContain("Association reconnue d'utilité publique");
-  });
-
-  it('n° RUP absent → aucune mention RUP (Cerfa émis sans)', () => {
-    const html = renderByType(
-      'attestation-don',
-      attestationData({
-        association_numero_rup: null,
-        mention_fiscale_2041ge: true,
-      }),
-    );
-    expect(html).not.toContain('RUP');
-    expect(html).not.toContain("reconnue d'utilité publique");
-    // Contrôle : le reste de la mention fiscale est bien là (pas d'effet de bord).
-    expect(html).toContain('238 bis');
-  });
-
-  it('contenu §12 §1.3 : adresse association + équivalence km voiture + méthodo FAO', () => {
+  it('bandeau : nom de l’événement en titre, lieu, date en toutes lettres, logo Savr à coin orange', () => {
     const html = renderByType('attestation-don', attestationData());
-    // Nom ET adresse de l'association bénéficiaire (CDC §12 l.154).
-    expect(html).toContain('12 rue de la Solidarité, 75011 Paris');
-    // CO₂e évité + équivalence km voiture + mention méthodo FAO (CDC §12 l.156).
-    expect(html).toContain('1376 km en voiture');
-    expect(html).toContain(
-      'Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage',
-    );
+    expect(html).toMatch(/<h1 [^>]*>Gala<\/h1>/);
+    expect(html).toContain('Palais Brongniart');
+    expect(html).toContain('1 juillet 2026');
+    expect(html).toContain('fill="#f5991d"');
+    expect(html).not.toContain('fill="#16a34a"');
   });
 });
 
-describe('attestation de don — logo du client dans l’en-tête (Val 2026-10-30)', () => {
-  const LOGO = 'data:image/png;base64,iVBORw0KGgo=';
+describe('M2.4 / rapport de don @5 — sans aucune mention fiscale (maquette Val 2026-11-16)', () => {
+  it('habilitée ou non : ni 2041-GE, ni 238 bis, ni RUP, ni 60 %, ni « reçu fiscal », ni donateur', () => {
+    for (const mention_fiscale_2041ge of [true, false]) {
+      const html = renderByType(
+        'attestation-don',
+        attestationData({ mention_fiscale_2041ge }),
+      );
+      for (const interdit of [
+        '2041',
+        '238 bis',
+        'RUP-001',
+        'utilité publique',
+        '60 %',
+        'reçu fiscal',
+        'habilitée',
+        '12345678900012',
+        'Traiteur SA',
+      ]) {
+        expect(html).not.toContain(interdit);
+      }
+    }
+  });
+});
 
-  it('avec un logo client : image à côté de « Savr »', () => {
+describe('M2.4 / rapport de don @5 — parcours du don et impact estimé', () => {
+  it('titre et frise : équivalents repas, poids collecté (une décimale si besoin)', () => {
     const html = renderByType(
       'attestation-don',
-      attestationData({ logo_client_url: LOGO }),
+      attestationData({ volume_repas: 310, poids_kg: 139.5 }),
     );
-    expect(html).toContain(`<img class="logo-client" src="${LOGO}"`);
-    expect(html).toContain('<div class="logo-savr">Savr</div>');
+    expect(html).toContain(
+      "Grâce à vous c'est l'équivalent de 310 repas qui ont été redistribués à des personnes dans le besoin",
+    );
+    expect(html).toContain('139,5 kg');
+    expect(html).toContain('>équivalents repas<');
+    expect(html).toContain("En fin d'événement");
+    expect(html).toContain("Livrés à<br>l'association");
   });
 
-  it('sans logo client : « Savr » seul, aucune image', () => {
-    const html = renderByType('attestation-don', attestationData());
-    expect(html).not.toContain('logo-client"');
-    expect(html).toContain('<div class="logo-savr">Savr</div>');
-  });
-
-  it('valeur du logo échappée (aucune sortie d’attribut)', () => {
+  it('un seul repas : accord au singulier', () => {
     const html = renderByType(
       'attestation-don',
-      attestationData({ logo_client_url: 'x" onerror="alert(1)' }),
+      attestationData({ volume_repas: 1, poids_kg: 0.45 }),
+    );
+    expect(html).toContain('qui a été redistribué à des personnes');
+    expect(html).toContain('>équivalent repas<');
+  });
+
+  it('CO₂e marqué « estimation » ; km au facteur voiture 0,256 kgCO₂e/km, jamais l’ancienne équivalence figée', () => {
+    const html = renderByType(
+      'attestation-don',
+      attestationData({ co2_evite_kg: 300, co2_km_voiture: 1376 }),
+    );
+    expect(html).toContain('300 kg');
+    expect(html).toContain('CO₂e évités (estimation)');
+    // 300 ÷ 0,256 = 1 171,9 → 1 172 km.
+    expect(html).toContain('≈ 1 172 km');
+    expect(html).not.toContain('1376');
+    expect(html).toContain('Voiture : 0,256 kgCO₂e/km (ADEME)');
+    expect(html).toContain('app.gosavr.io/methode-co2');
+    expect(html).not.toContain('Estimation FAO —');
+  });
+
+  it('facteur imprimé = celui de la collecte : 2,04 Base Carbone ; 2,5 estimation FAO ; aucun s’il manque', () => {
+    const bc = renderByType(
+      'attestation-don',
+      attestationData({ co2_facteur_repas_kg: 2.04 }),
+    );
+    expect(bc).toContain(
+      '2,04 kgCO₂e évités par équivalent repas (facteur moyen « Repas moyen », Base Carbone ADEME)',
+    );
+    const fao = renderByType(
+      'attestation-don',
+      attestationData({ co2_facteur_repas_kg: 2.5 }),
+    );
+    expect(fao).toContain(
+      '2,50 kgCO₂e évités par équivalent repas (estimation FAO, facteur en vigueur lors du calcul)',
+    );
+    const sans = renderByType(
+      'attestation-don',
+      attestationData({ co2_facteur_repas_kg: null }),
+    );
+    expect(sans).not.toContain('évités par équivalent repas');
+  });
+
+  it('sans CO₂e calculé : ni tuiles d’impact ni note de méthode', () => {
+    const html = renderByType(
+      'attestation-don',
+      attestationData({ co2_evite_kg: null }),
+    );
+    expect(html).not.toContain('aria-label="Impact"');
+    expect(html).not.toContain('aria-label="Méthode"');
+  });
+});
+
+describe('M2.4 / rapport de don @5 — association, photo et logos', () => {
+  it('association : nom, ville, logo, description ; sans logo, son initiale', () => {
+    const html = renderByType(
+      'attestation-don',
+      attestationData({
+        association_ville: 'Paris 11e',
+        association_logo_url: LOGO_PNG,
+        association_description: 'Repas chauds six soirs par semaine.',
+      }),
+    );
+    expect(html).toContain('Restos du Cœur');
+    expect(html).toContain('Paris 11e');
+    expect(html).toContain(`src="${LOGO_PNG}" alt="Logo de l'association"`);
+    expect(html).toContain('Repas chauds six soirs par semaine.');
+    const sansLogo = renderByType('attestation-don', attestationData());
+    expect(sansLogo).not.toContain('alt="Logo de l\'association"');
+    expect(sansLogo).toMatch(/line-height: 1;">R<\/span>/);
+  });
+
+  it('photo cochée : à droite de l’encadré ; sans photo, encadré pleine largeur', () => {
+    const avec = renderByType(
+      'attestation-don',
+      attestationData({ photo_url: LOGO_PNG }),
+    );
+    expect(avec).toContain('alt="Photo de la collecte"');
+    expect(avec).toContain('minmax(0, 1.8fr) minmax(0, 1fr)');
+    const sans = renderByType('attestation-don', attestationData());
+    expect(sans).not.toContain('alt="Photo de la collecte"');
+    expect(sans).not.toContain('minmax(0, 1.8fr)');
+  });
+
+  it('logos client et traiteur dans le bandeau ; aucune boîte vide sans logo', () => {
+    const deux = renderByType(
+      'attestation-don',
+      attestationData({
+        logo_client_url: LOGO_PNG,
+        logo_traiteur_url: 'data:image/png;base64,AAAA',
+      }),
+    );
+    expect(deux).toContain(`src="${LOGO_PNG}" alt=""`);
+    expect(deux).toContain('src="data:image/png;base64,AAAA" alt=""');
+    const aucun = renderByType('attestation-don', attestationData());
+    expect(aucun).not.toContain('alt=""');
+  });
+
+  it('toutes les valeurs du contenu sont échappées', () => {
+    const piege = 'x" onerror="alert(1)';
+    const html = renderByType(
+      'attestation-don',
+      attestationData({
+        nom_evenement: '<script>a</script>',
+        lieu_nom: piege,
+        association_nom: '<b>x</b>',
+        association_ville: piege,
+        association_description: '<img src=x>',
+        association_logo_url: piege,
+        photo_url: piege,
+        logo_client_url: piege,
+        logo_traiteur_url: piege,
+      }),
     );
     expect(html).not.toContain('onerror="alert');
+    expect(html).not.toContain('<script>a');
+    expect(html).not.toContain('<b>x</b>');
+    expect(html).not.toContain('<img src=x>');
   });
 });
 
-describe('M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02)', () => {
-  it('rend un HTML complet avec en-tête événement + titre dédié', () => {
+describe('M2.4 / rapport sans excédent @3 — mandat et associations proches (maquette Val 2026-11-16)', () => {
+  it('atteste le mandat donné à Savr par l’organisation de la collecte (traiteur à défaut)', () => {
     const html = renderByType(
       'rapport-evenement-sans-excedent',
-      sansExcedentData(),
+      sansExcedentData({ mandant_nom: 'Maison Exemple' }),
     );
-    expect(html).toContain('<!DOCTYPE html>');
-    expect(titreImprime(html)).toBe('Rapport de don');
-    expect(sousTitreImprime(html)).toBe('Événement sans excédent alimentaire');
-    expect(html).toContain('Cocktail Élysée');
-    expect(html).toContain('200 convives');
-    expect(html).toContain('Mairie de Paris');
-    expect(html).toContain('Traiteur SA');
-  });
-
-  it('bloc Constat : présentation chauffeur + nom + motif', () => {
-    const html = renderByType(
-      'rapport-evenement-sans-excedent',
-      sansExcedentData(),
-    );
-    expect(html).toContain('01/07/2026 20:30');
-    expect(html).toContain('Jean Vélo');
-    expect(html).toContain('Client absent / Marchandise refusée');
-  });
-
-  it('bloc Conséquences : mention fixe (pas de reçu fiscal, tarif normal) + réf facture', () => {
-    const html = renderByType(
-      'rapport-evenement-sans-excedent',
-      sansExcedentData(),
-    );
-    expect(html).toContain("Aucun repas n'a été collecté");
+    expect(html).toContain('Événement sans excédent alimentaire');
     expect(html).toContain(
-      "Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal.",
+      'Ce document atteste que <b style="font-weight: 700; color: #223870;">Maison Exemple</b> a bien mandaté Savr pour collecter et redistribuer les éventuels excédents à une association lors de votre événement',
     );
-    // Le document s'appelle « Rapport de don » : il ne dit plus qu'aucune
-    // « attestation de don » n'est générée (décision Val 2026-10-13).
-    expect(html).not.toContain('attestation de don');
-    expect(html).toContain('facturée au tarif normal au titre du déplacement');
-    expect(html).toContain('FAC-2026-00042');
+    const repli = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ mandant_nom: null }),
+    );
+    expect(repli).toContain('#223870;">Traiteur SA</b> a bien mandaté Savr');
   });
 
-  it('plaque affichée seulement si fournie (masquée par le batch si !controle_acces_requis)', () => {
-    const avec = renderByType(
-      'rapport-evenement-sans-excedent',
-      sansExcedentData({ plaque_immatriculation: 'AB-123-CD' }),
-    );
-    expect(avec).toContain('AB-123-CD');
-    const sans = renderByType(
-      'rapport-evenement-sans-excedent',
-      sansExcedentData({ plaque_immatriculation: null }),
-    );
-    expect(sans).not.toContain('AB-123-CD');
-    expect(sans).not.toContain('Véhicule');
-  });
-
-  it('texte seul : aucune photo, aucun watermark (V1.1)', () => {
-    // logo_url null → aucun <img> du tout (pas de photos §1.3-bis, pas de logo).
+  it('deux associations proches : nom, ville, logo ou initiale, description', () => {
     const html = renderByType(
       'rapport-evenement-sans-excedent',
-      sansExcedentData({ logo_url: null }),
+      sansExcedentData({
+        associations_proches: [
+          {
+            nom: 'Asso Une',
+            ville: 'Paris 11e',
+            logo_url: LOGO_PNG,
+            description: 'Desc une.',
+          },
+          {
+            nom: 'Épicerie Deux',
+            ville: 'Montreuil',
+            description: 'Desc deux.',
+          },
+          { nom: 'Troisième ignorée' },
+        ],
+      }),
     );
-    expect(html).not.toContain('<img');
-    expect(html.toLowerCase()).not.toContain('watermark');
+    expect(html).toContain('Vos excédents auraient profité à…');
+    expect(html).toContain(
+      "Les deux associations partenaires de Savr les plus proches du lieu de l'événement",
+    );
+    for (const t of [
+      'Asso Une',
+      'Paris 11e',
+      'Desc une.',
+      'Épicerie Deux',
+      'Montreuil',
+      'Desc deux.',
+    ]) {
+      expect(html).toContain(t);
+    }
+    expect(html).toContain(`src="${LOGO_PNG}" alt="Logo de l'association"`);
+    expect(html).toMatch(/line-height: 1;">É<\/span>/);
+    expect(html).not.toContain('Troisième ignorée');
   });
 
-  it('logo cascade §1.2 : logo client rendu en en-tête si fourni, sinon « Savr »', () => {
-    const avecLogo = renderByType(
+  it('une association : phrase au singulier ; aucune : ni section ni titre, le constat prend la place', () => {
+    const une = renderByType(
       'rapport-evenement-sans-excedent',
-      sansExcedentData({ logo_url: 'https://cdn/agence-logo.png' }),
+      sansExcedentData({ associations_proches: [{ nom: 'Asso Une' }] }),
     );
-    expect(avecLogo).toContain('https://cdn/agence-logo.png');
-    const sansLogo = renderByType(
+    expect(une).toContain(
+      "L'association partenaire de Savr la plus proche du lieu de l'événement",
+    );
+    const aucune = renderByType(
       'rapport-evenement-sans-excedent',
-      sansExcedentData({ logo_url: null }),
+      sansExcedentData({ associations_proches: [] }),
     );
-    expect(sansLogo).toContain('logo-savr');
+    expect(aucune).not.toContain('Vos excédents auraient profité');
+    expect(aucune).toContain('aria-label="Constat" style="flex: 1 1 auto;');
+  });
+
+  it('retirés à la demande de Val : passage du chauffeur, véhicule, remarque, facture, CO₂e', () => {
+    const html = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData(),
+    );
+    for (const retire of [
+      '01/07/2026 20:30',
+      'Jean Vélo',
+      'AB-123-CD',
+      'Client absent',
+      'FAC-2026-00042',
+      'CO₂',
+      'reçu fiscal',
+    ]) {
+      expect(html).not.toContain(retire);
+    }
+  });
+
+  it('logos du bandeau : client et traiteur ; le logo unique de l’ancien contenu sert de logo client', () => {
+    const deux = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({
+        logo_client_url: LOGO_PNG,
+        logo_traiteur_url: 'data:image/png;base64,AAAA',
+      }),
+    );
+    expect(deux).toContain(`src="${LOGO_PNG}" alt=""`);
+    expect(deux).toContain('src="data:image/png;base64,AAAA" alt=""');
+    const ancien = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({ logo_url: LOGO_PNG }),
+    );
+    expect(ancien).toContain(`src="${LOGO_PNG}" alt=""`);
+    // Contexte lu au rendu sans logo client : jamais le logo unique de l'ancien
+    // contenu (souvent celui du traiteur) en double à côté du logo traiteur.
+    const sansClient = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({
+        logo_url: LOGO_PNG,
+        logo_client_url: null,
+        logo_traiteur_url: LOGO_PNG,
+      }),
+    );
+    expect(sansClient.split(`src="${LOGO_PNG}" alt=""`)).toHaveLength(2);
+  });
+
+  it('toutes les valeurs du contenu sont échappées', () => {
+    const piege = 'x" onerror="alert(1)';
+    const html = renderByType(
+      'rapport-evenement-sans-excedent',
+      sansExcedentData({
+        mandant_nom: '<b>m</b>',
+        logo_client_url: piege,
+        associations_proches: [
+          {
+            nom: '<i>n</i>',
+            ville: piege,
+            logo_url: piege,
+            description: '<img src=x>',
+          },
+        ],
+      }),
+    );
+    expect(html).not.toContain('onerror="alert');
+    expect(html).not.toContain('<b>m</b>');
+    expect(html).not.toContain('<i>n</i>');
+    expect(html).not.toContain('<img src=x>');
   });
 
   it('mention de régénération présente uniquement si régénéré (§1.4)', () => {
@@ -993,54 +1150,6 @@ describe('M2.4 / renderer — rapport sans excédent : convives de la collecte',
         sansExcedentData({ nb_pax: null }),
       ),
     ).not.toContain('convives');
-  });
-});
-
-// §12 §1.3-bis, décision Val 2026-10-13 : le document d'une collecte AG s'appelle
-// « Rapport de don » jusque dans le titre imprimé de ses deux PDF.
-describe('M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG', () => {
-  it('attestation : titre « Rapport de don », « Attestation de don » en sous-titre', () => {
-    const html = renderByType('attestation-don', attestationData());
-    expect(titreImprime(html)).toBe('Rapport de don');
-    expect(sousTitreImprime(html)).toBe('Attestation de don');
-  });
-
-  it('attestation : la pièce fiscale garde son numéro et ses mentions légales', () => {
-    const numero = attestationData().numero;
-    const habilitee = renderByType(
-      'attestation-don',
-      attestationData({ mention_fiscale_2041ge: true }),
-    );
-    expect(habilitee).toContain(numero);
-    expect(habilitee).toContain(
-      'Reçu fiscal — article 238 bis du Code général des impôts',
-    );
-    expect(habilitee).toContain('Cerfa n° 2041-GE');
-    const nonHabilitee = renderByType(
-      'attestation-don',
-      attestationData({ mention_fiscale_2041ge: false }),
-    );
-    expect(nonHabilitee).toContain(numero);
-    expect(nonHabilitee).toContain('La présente attestation certifie');
-  });
-
-  it('rapport sans excédent : même titre, ancien titre en sous-titre', () => {
-    const html = renderByType(
-      'rapport-evenement-sans-excedent',
-      sansExcedentData(),
-    );
-    expect(titreImprime(html)).toBe('Rapport de don');
-    expect(sousTitreImprime(html)).toBe('Événement sans excédent alimentaire');
-  });
-
-  it('les deux PDF portent le même titre imprimé', () => {
-    expect(
-      titreImprime(renderByType('attestation-don', attestationData())),
-    ).toBe(
-      titreImprime(
-        renderByType('rapport-evenement-sans-excedent', sansExcedentData()),
-      ),
-    );
   });
 });
 

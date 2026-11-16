@@ -24,7 +24,8 @@ const MIME_BY_EXT: Record<string, string> = {
   svg: 'image/svg+xml',
 };
 
-// Plafond de taille du logo inliné. Le renderer Railway borne le corps JSON à 2 Mo
+// Plafond de taille du logo inliné. Le renderer Railway bornait le corps JSON à 2 Mo
+// (8 Mo depuis le rapport de don illustré, pour sa photo)
 // (apps/pdf-renderer/src/server.ts) ; la base64 gonfle de ~33 %. Au-delà de 1 Mo brut
 // (~1,33 Mo base64) on risque de dépasser la limite AVEC le reste du payload → on
 // retombe sur l'en-tête Savr (best-effort, jamais bloquant) plutôt que de faire échouer

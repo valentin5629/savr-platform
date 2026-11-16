@@ -1,175 +1,187 @@
-// Template PDF — Rapport « Événement sans excédent alimentaire » (§12 §1.3-bis).
+// Template PDF — « Rapport de don » d'une collecte anti-gaspi sans excédent
+// (`realisee_sans_collecte` : le chauffeur est passé, rien à collecter).
 //
-// Titre imprimé : « Rapport de don », le nom unique du document d'une collecte AG
-// (décision Val 2026-10-13) ; « Événement sans excédent alimentaire » en sous-titre.
+// Gabarit @3 (2026-11-16) : maquette illustrée validée par Val dans Claude Design,
+// copiée dans design/rapport-de-don/2026-11-16/RapportSansExcedent.dc.html.
+// Bandeau et encart Savr = ceux du rapport de recyclage @4, logo à coin orange.
+// La page atteste le mandat donné à Savr et montre les deux associations
+// partenaires les plus proches du lieu (décision Val 2026-11-16). Retirés à la
+// demande de Val : le déroulé du passage (heure, chauffeur, véhicule), la
+// remarque du chauffeur et sa photo, l'attestation de passage, la référence de
+// facture. Aucun don : aucune donnée CO₂e.
 //
-// Justificatif texte seul destiné aux collectes AG terminées en
-// `realisee_sans_collecte` (le chauffeur a déclaré « aucun repas à collecter »).
-// Aucune attestation 2041-GE n'est générée (pas de don à certifier) : ce PDF
-// documente la prestation. PAS de photos (décision Val 2026-05-04 — la photo lieu
-// reste côté TMS, accès Ops). PAS de watermark / QR (V1.1).
-//
-// Données = payload enqueué par le batch runBatchSansExcedent
-// (packages/plateforme/.../batch-pdf-sans-excedent.ts). Slug CDC =
-// rapport_evenement_sans_excedent ; pas de variante par flux (un seul flux AG).
+// Données : payload du lot runBatchSansExcedent (batch-pdf-sans-excedent.ts),
+// complété au rendu par le contexte visuel (logos, mandant, associations) :
+// lib/pdf/contexte-rapports-de-don.ts.
+
+import {
+  COIN_ANTI_GASPI,
+  CSS_RAPPORT_V4,
+  LOGO_DEFS,
+  bandeauRapportV4,
+  croix,
+  encartSavr,
+  esc,
+} from './rapport-recyclage-zd.js';
+import { mentionRegeneration } from './attestation-don.js';
 
 // Version figée du gabarit — doit rester égale à
 // TEMPLATE_VERSIONS['rapport-evenement-sans-excedent'] du contrat partagé (@savr/shared).
 // Vérifié par check:pdf-contract. Incrémenter @N à toute modif structurelle.
 // @2 : titre « Rapport de don », ancien titre en sous-titre, phrase « ne vaut pas
 // reçu fiscal » à la place de « Aucune attestation de don 2041-GE n'est générée ».
-export const TEMPLATE_VERSION = 'rapport-evenement-sans-excedent@2';
+// @3 : rapport illustré d'une page (maquette Val 2026-11-16).
+export const TEMPLATE_VERSION = 'rapport-evenement-sans-excedent@3';
+
+/** Association partenaire montrée sur le rapport (au plus deux). */
+export interface AssociationProche {
+  nom: string;
+  ville?: string | null;
+  /** Logo (data URI) ; absent : initiale du nom. */
+  logo_url?: string | null;
+  /** associations.description_rapport_impact. */
+  description?: string | null;
+}
 
 export interface RapportEvenementSansExcedentData {
-  // En-tête événement (§1.3-bis)
   nom_evenement: string;
-  /** Date de l'événement (référence client) — evenements.date_evenement. */
+  /** Date de l'événement (« JJ/MM/AAAA ») — evenements.date_evenement. */
   date_evenement: string;
   lieu_nom: string;
-  lieu_adresse: string;
+  lieu_adresse?: string | null;
   traiteur_nom: string;
+  /** Convives de la collecte (Val Q5 du 2026-10-24). */
   nb_pax?: number | null;
-  /** Client organisateur si renseigné (evenements.nom_client_organisateur). */
   client_organisateur_nom?: string | null;
 
-  // Logo client (cascade §1.2) — résolu par le batch, sinon en-tête Savr seul.
+  /** Logo unique de la cascade (gabarit @2) : repli du logo client du bandeau. */
   logo_url?: string | null;
+  /** Logos du bandeau (data URI) : client, puis traiteur. */
+  logo_client_url?: string | null;
+  logo_traiteur_url?: string | null;
 
-  // Bloc « Constat »
-  /** Date + heure de présentation chauffeur sur site (tournees.heure_debut_reelle, FR). */
+  /** Organisation qui a mandaté Savr (programmatrice de la collecte). */
+  mandant_nom?: string | null;
+  /** Les deux associations actives les plus proches du lieu (au plus deux). */
+  associations_proches?: AssociationProche[] | null;
+
+  // Champs du gabarit @2, encore reçus, plus imprimés depuis @3.
   presentation_datetime?: string | null;
   chauffeur_nom?: string | null;
-  /** Plaque véhicule — présente UNIQUEMENT si controle_acces_requis (masquée sinon). */
   plaque_immatriculation?: string | null;
-  /** Motif déclaré par le chauffeur (collectes.aucun_repas_motif). */
   motif?: string | null;
-
-  // Bloc « Conséquences »
-  /** Numéro de facture si déjà émise (référence dans les conséquences). */
   reference_facture?: string | null;
 
-  // Mention de régénération (§12 §1.4) — présente uniquement sur un document régénéré.
+  /** Mention de régénération (§12 §1.4) — présente uniquement sur un document régénéré. */
   regenere_le?: string | null;
+}
+
+/**
+ * Lignes au plus de la description d'une association : garde-fou mesuré sur la
+ * maquette (≈ 190 caractères tiennent quand le nom tient sur deux lignes,
+ * ≈ 230 sur une).
+ */
+export const LIGNES_DESCRIPTION_PROCHE = 5;
+
+function carte(a: AssociationProche): string {
+  const nom = a.nom?.trim() || 'Association partenaire';
+  const initiale = esc(
+    nom
+      .replace(/^association\s+/i, '')
+      .charAt(0)
+      .toUpperCase(),
+  );
+  const logo = a.logo_url
+    ? `<img src="${esc(a.logo_url)}" alt="Logo de l'association" style="max-width: 144px; max-height: 60px; object-fit: contain; display: block;">`
+    : `<span style="font-family: Archivo, Inter, sans-serif; font-size: 42px; font-weight: 800; color: #223870; line-height: 1;">${initiale}</span>`;
+  const description = a.description?.trim()
+    ? `<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3c4459; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: ${LIGNES_DESCRIPTION_PROCHE}; overflow: hidden;">${esc(a.description.trim())}</p>`
+    : '';
+  return `<div style="border: 1.5px solid #e3e7ef; border-radius: 16px; padding: 18px 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; background: #ffffff;">
+          <div style="height: 80px; border-radius: 12px; background: #fff4e0; display: flex; align-items: center; justify-content: center;">${logo}</div>
+          <div><div style="font-family: Archivo, Inter, sans-serif; font-size: 20px; font-weight: 800; color: #223870; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${esc(nom)}</div>${a.ville ? `<div style="margin-top: 4px; font-size: 14px; font-weight: 600; color: #515a72;">${esc(a.ville)}</div>` : ''}</div>
+          ${description}
+        </div>`;
 }
 
 export function renderRapportEvenementSansExcedent(
   data: RapportEvenementSansExcedentData,
 ): string {
-  const logoBlock = data.logo_url
-    ? `<img src="${esc(data.logo_url)}" alt="logo" style="max-height:40px;max-width:160px;object-fit:contain"/>`
-    : '<span class="logo-savr">Savr</span>';
+  const mandant = data.mandant_nom?.trim() || data.traiteur_nom?.trim() || '';
+  const phraseMandat = mandant
+    ? `Ce document atteste que <b style="font-weight: 700; color: #223870;">${esc(mandant)}</b> a bien mandaté Savr pour collecter et redistribuer les éventuels excédents à une association lors de votre événement`
+    : 'Ce document atteste que Savr a bien été mandaté pour collecter et redistribuer les éventuels excédents à une association lors de votre événement';
 
-  // Bloc « Constat » — chaque ligne conditionnelle. La plaque n'est rendue que si
-  // le batch l'a fournie (== controle_acces_requis true), sinon masquée (§1.3-bis).
-  const constatLignes = [
-    data.presentation_datetime
-      ? `<tr><td>Présentation sur site</td><td>${esc(data.presentation_datetime)}</td></tr>`
-      : '',
-    data.chauffeur_nom
-      ? `<tr><td>Chauffeur</td><td>${esc(data.chauffeur_nom)}</td></tr>`
-      : '',
-    data.plaque_immatriculation
-      ? `<tr><td>Véhicule</td><td>${esc(data.plaque_immatriculation)}</td></tr>`
-      : '',
-    data.motif
-      ? `<tr><td>Motif déclaré</td><td>${esc(data.motif)}</td></tr>`
-      : '',
-  ]
-    .filter(Boolean)
-    .join('');
-  const constatBloc = constatLignes
-    ? `<table class="constat"><tbody>${constatLignes}</tbody></table>`
-    : `<p class="constat-vide">Aucune information d'intervention n'a été remontée par le transporteur.</p>`;
+  const proches = (data.associations_proches ?? []).slice(0, 2);
+  const sousTitre =
+    proches.length === 1
+      ? "L'association partenaire de Savr la plus proche du lieu de l'événement, qui reçoit les excédents des événements."
+      : "Les deux associations partenaires de Savr les plus proches du lieu de l'événement, qui reçoivent les excédents des événements.";
+  const sectionAssociations = proches.length
+    ? `<div aria-hidden="true" style="flex: 1 1 0; min-height: 20px; max-height: 26px;"></div>
 
-  const refFactureBloc = data.reference_facture
-    ? `<p>Référence facture : <strong>${esc(data.reference_facture)}</strong></p>`
+    <section aria-label="Associations partenaires" style="flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;">
+      <h2 style="margin: 0; font-family: Archivo, Inter, sans-serif; font-size: 22px; font-weight: 800; color: #223870; letter-spacing: -0.01em; line-height: 1.15;">Vos excédents auraient profité à…</h2>
+      <p style="margin: 5px 0 0; font-size: 13px; line-height: 1.45; color: #515a72;">${sousTitre}</p>
+      <div style="flex: 1; min-height: 0; margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+        ${proches.map(carte).join('\n        ')}
+      </div>
+    </section>`
     : '';
 
-  const clientLigne = data.client_organisateur_nom
-    ? ` · Client organisateur : ${esc(data.client_organisateur_nom)}`
-    : '';
-  const paxLigne = data.nb_pax != null ? ` · ${data.nb_pax} convives` : '';
+  // Sans association à montrer, l'encadré du constat prend la page.
+  const hauteurConstat = proches.length
+    ? 'flex: none; height: 267px;'
+    : 'flex: 1 1 auto;';
+
+  const page = `<div class="pg-1">
+
+  ${croix(250, 'position: absolute; left: -80px; bottom: -70px; transform: rotate(-45deg);', '#fff4e0')}
+  ${croix(170, 'position: absolute; right: -55px; bottom: 130px; transform: rotate(-45deg);', '#eef1f7')}
+
+  ${bandeauRapportV4({
+    surTitre: 'RAPPORT DE DON',
+    nomEvenement: data.nom_evenement ?? '',
+    lieu: data.lieu_nom ?? '',
+    dateEvenement: data.date_evenement,
+    convives: data.nb_pax != null && data.nb_pax > 0 ? data.nb_pax : null,
+    // Le contexte lu au rendu pose toujours le champ (null = pas de logo client) ;
+    // seul un contenu sans contexte retombe sur le logo unique de la cascade @2.
+    logos: [
+      'logo_client_url' in data ? data.logo_client_url : data.logo_url,
+      data.logo_traiteur_url,
+    ],
+    coin: COIN_ANTI_GASPI,
+  })}
+
+  <main style="position: relative; flex: 1; min-height: 0; padding: 26px 48px 7px; display: flex; flex-direction: column;">
+
+    <section aria-label="Constat" style="${hauteurConstat} box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #fff4e0; border-radius: 20px; padding: 20px 48px;">
+      <span style="width: 100px; height: 100px; border-radius: 9999px; background: #ffe2b0; display: flex; align-items: center; justify-content: center;"><span style="width: 74px; height: 74px; border-radius: 9999px; background: #ff9b00; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span></span>
+      <h2 style="margin: 16px 0 0; font-family: Archivo, Inter, sans-serif; font-size: 32px; font-weight: 800; color: #223870; letter-spacing: -0.02em; line-height: 1.1; text-wrap: balance;">Événement sans excédent alimentaire</h2>
+      <p style="margin: 8px 0 0; max-width: 560px; font-size: 16px; line-height: 1.5; color: #3c4459; text-wrap: balance;">${phraseMandat}</p>
+    </section>
+
+    ${sectionAssociations}
+
+    ${encartSavr('margin-top: 12px; margin-bottom: 34px; ', COIN_ANTI_GASPI)}
+  </main>
+  ${data.regenere_le ? mentionRegeneration(data.regenere_le) : ''}
+
+</div>`;
 
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
+<title>Rapport de don</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1a1a1a; padding: 28px 32px; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #16a34a; padding-bottom: 14px; margin-bottom: 20px; }
-  .logo-savr { font-size: 22px; font-weight: 800; color: #16a34a; letter-spacing: -0.5px; }
-  .doc-title { text-align: right; }
-  .doc-title h1 { font-size: 15px; font-weight: 700; color: #1a1a1a; }
-  .doc-title .sous-titre { font-size: 12px; font-weight: 600; color: #374151; margin-top: 2px; }
-  .doc-title .sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
-  .event-banner { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 14px; margin-bottom: 18px; }
-  .event-banner strong { color: #15803d; }
-  .event-banner .meta { color: #374151; margin-top: 4px; display: block; }
-  .section { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; }
-  .section h2 { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #6b7280; letter-spacing: 0.5px; margin-bottom: 10px; }
-  table.constat { width: 100%; border-collapse: collapse; }
-  table.constat td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
-  table.constat td:first-child { color: #6b7280; width: 42%; }
-  .constat-vide { font-size: 11px; color: #6b7280; font-style: italic; }
-  .consequences { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; }
-  .consequences h2 { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #b45309; letter-spacing: 0.5px; margin-bottom: 8px; }
-  .consequences p { font-size: 11px; line-height: 1.5; margin-bottom: 6px; }
-  .consequences p:last-child { margin-bottom: 0; }
-  .methodo { font-size: 9px; color: #9ca3af; line-height: 1.5; border-top: 1px solid #e5e7eb; padding-top: 10px; margin-top: 10px; }
-  .regen-mention { font-size: 9px; color: #b45309; font-style: italic; margin-top: 10px; }
-  .footer { border-top: 1px solid #e5e7eb; padding-top: 12px; display: flex; justify-content: space-between; font-size: 9px; color: #9ca3af; margin-top: 16px; }
+${CSS_RAPPORT_V4}
 </style>
 </head>
 <body>
-  <div class="header">
-    <div>${logoBlock}</div>
-    <div class="doc-title">
-      <h1>Rapport de don</h1>
-      <div class="sous-titre">Événement sans excédent alimentaire</div>
-      <div class="sub">Anti-Gaspi · ${esc(data.date_evenement)}</div>
-    </div>
-  </div>
-
-  <div class="event-banner">
-    <strong>${esc(data.nom_evenement)}</strong>
-    <span class="meta">Événement du ${esc(data.date_evenement)} · ${esc(data.lieu_nom)}${paxLigne}${clientLigne}
-    <br/>Traiteur : ${esc(data.traiteur_nom)}</span>
-  </div>
-
-  <div class="section">
-    <h2>Constat</h2>
-    ${constatBloc}
-  </div>
-
-  <div class="consequences">
-    <h2>Conséquences</h2>
-    <p>Aucun repas n'a été collecté lors de cet événement. Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal. La prestation logistique reste facturée au tarif normal au titre du déplacement.</p>
-    ${refFactureBloc}
-  </div>
-
-  <div class="methodo">
-    Document établi par Savr à la suite d'une intervention sans excédent alimentaire à
-    collecter. Les informations d'intervention (horaire, chauffeur, motif) sont remontées
-    par le transporteur. Ce document est confidentiel et destiné exclusivement à
-    l'organisation productrice.
-  </div>
-
-  ${data.regenere_le ? `<div class="regen-mention">Version mise à jour — générée le ${esc(data.regenere_le)}</div>` : ''}
-
-  <div class="footer">
-    <span>Document confidentiel · ${esc(data.traiteur_nom)}</span>
-    <span>Savr · gosavr.io</span>
-  </div>
+${LOGO_DEFS}
+${page}
 </body>
 </html>`;
-}
-
-function esc(s: string | undefined | null): string {
-  if (s == null) return '';
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }

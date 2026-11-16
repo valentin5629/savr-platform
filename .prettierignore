@@ -36,3 +36,6 @@ packages/plateforme/design-system-sync/dist/
 # Maquettes validées du rapport de recyclage (Claude Design), copiées octet pour
 # octet : elles servent d'étalon au test de régression visuelle du gabarit.
 design/rapport-recyclage/
+
+# Maquettes validées des rapports de don (étalon du test visuel, copie octet pour octet)
+design/rapport-de-don/

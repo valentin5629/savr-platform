@@ -66,9 +66,11 @@ export function createApp(
   });
 
   // Auth AVANT le parsing JSON : un appelant non authentifié ne fait pas lire
-  // son corps (2 Mo max) et reçoit 401, jamais une erreur de parsing.
+  // son corps (8 Mo max) et reçoit 401, jamais une erreur de parsing.
+  // 8 Mo : le rapport de don embarque la photo de la collecte (≈ 3,3 Mo en base64)
+  // en plus des logos du bandeau et de l'association (contexte-rapports-de-don).
   app.use(requireInternalToken(secret));
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '8mb' }));
 
   app.post('/generate-pdf', async (req: Request, res: Response) => {
     const { type, data } = (req.body ?? {}) as { type: string; data: unknown };
@@ -97,7 +99,7 @@ export function createApp(
     }
   });
 
-  // Erreurs levées par express.json (JSON invalide, corps > 2 Mo) : pas de page
+  // Erreurs levées par express.json (JSON invalide, corps > 8 Mo) : pas de page
   // d'erreur HTML ni de stack, un code court.
   app.use(
     (

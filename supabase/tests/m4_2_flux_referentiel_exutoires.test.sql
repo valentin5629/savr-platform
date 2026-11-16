@@ -1,7 +1,8 @@
 -- pgTAP M4.2 — Référentiel des flux ZD lu par l'export du registre (§06.03) :
--- exutoire final, code déchet, code de traitement, filière (migration
--- 20261004203000). L'export sort une ligne par flux et tire trois colonnes de
--- l'adresse de l'exutoire : elle doit suivre « voie, code postal ville »
+-- exutoire final, code déchet, code de traitement, filière (migrations
+-- 20261004203000 et 20261116180000, noms courts de Val du 2026-11-16).
+-- L'export sort une ligne par flux et tire trois colonnes de l'adresse de
+-- l'exutoire : elle doit suivre « voie, code postal ville »
 -- (lib/registre/csv.ts, decouperAdresse). Le CSV est produit sous le JWT de
 -- l'utilisateur : la colonne ajoutée doit rester lisible par un rôle client.
 -- Unité de mesure : les 5 flux V1 sont en kg (§04 « Valeurs initiales ») — le
@@ -24,19 +25,19 @@ SELECT results_eq(
       FROM plateforme.flux_dechets WHERE actif ORDER BY code$$,
   $$VALUES
       ('biodechet', '20 01 08', 'R3', 'methanisation',
-       'GENERIS VSG DCDT',
-       'ZI des Graviers, 6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges'),
-      ('carton', '15 01 01', 'R3', 'recyclage',
-       'TAIS VILLENEUVE LE ROI TDI',
+       'Generis Veolia',
+       '6 avenue Winston Churchill, 94190 Villeneuve-Saint-Georges'),
+      ('carton', '15 01 01', 'R5', 'recyclage',
+       'Veolia Tais',
        '6 rue des Vœux Saint-Georges, 94290 Villeneuve-le-Roi'),
       ('dechet_residuel', '20 03 01', 'R1', 'valorisation_energetique',
-       'NOVAZUR ARGENTEUIL UVEND',
+       'SUVE',
        '2 rue du Chemin Vert, 95100 Argenteuil'),
       ('emballage', '15 01 06', 'R3/R5', 'recyclage',
-       'CENTRE DE TRI SELECTIF PAPREC TRIVALO 93',
+       'Paprec Trivalo 93',
        '10 rue de la Victoire, 93150 Le Blanc-Mesnil'),
-      ('verre', '15 01 07', 'R5', 'recyclage',
-       'REVIVAL GENNEVILLIERS TRSFT',
+      ('verre', '15 01 07', 'R13', 'recyclage',
+       'Revival',
        '9 route du Môle Central, 92230 Gennevilliers')$$,
   'flux_referentiel_codes — codes, filières, exutoires et adresses des 5 flux');
 

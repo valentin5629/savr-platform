@@ -3,7 +3,8 @@
 -- =============================================================================
 -- Décision Val 2026-07-15 (réintroduction V1). Vérifie :
 --   · fn_infos_acces_marquer_si_complet : NULL si incomplet / non requis / déjà
---     envoyé ; payload + stamp atomique quand complet (nom + tel par tournée) ;
+--     envoyé ; payload + stamp atomique quand complet (nom + plaque, à défaut
+--     de plaque nom + tel, par tournée — Val 2026-11-16) ;
 --     dédup au 2e appel.
 --   · RLS : la ligne de `tournees` suit la policy `t_select` (cloisonnement par
 --     collecte) — aucune fuite inter-org. Les colonnes chauffeur/accompagnant, elles,
@@ -14,7 +15,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(11);
+SELECT plan(13);
 
 -- ─── Helpers JWT (pattern canonique repo) ────────────────────────────────────
 CREATE OR REPLACE FUNCTION test_set_jwt(
@@ -158,6 +159,28 @@ SELECT is(
   plateforme.fn_infos_acces_marquer_si_complet('ac600000-0000-0000-0000-0000000000b2'::uuid),
   NULL,
   'RPC : NULL quand controle_acces_requis = false (rien à envoyer)'
+);
+
+-- Nom + plaque suffisent, sans téléphone (décision Val 2026-11-16 : MTS-1 ne
+-- fournit pas le téléphone du chauffeur). Collecte C, 1 camion, contrôle
+-- d'accès requis.
+INSERT INTO plateforme.collectes (id, evenement_id, type, statut, statut_tms, date_collecte, heure_collecte, controle_acces_requis, nb_camions_demande) VALUES
+  ('ac600000-0000-0000-0000-0000000000c3'::uuid, 'ac500000-0000-0000-0000-0000000000a1'::uuid, 'zero_dechet', 'validee', 'non_envoye', '2026-09-12', '10:00', true, 1);
+INSERT INTO plateforme.tournees (id, reference_interne, date_tournee, creneau, prestataire_logistique_id, statut, chauffeur_nom) VALUES
+  ('ac700000-0000-0000-0000-0000000000c3'::uuid, 'T-AC-C1', '2026-09-12', 'matin', '90a00000-0000-0000-0000-0000000000a1'::uuid, 'planifiee', 'Yann Test');
+INSERT INTO plateforme.collecte_tournees (collecte_id, tournee_id, rang) VALUES
+  ('ac600000-0000-0000-0000-0000000000c3'::uuid, 'ac700000-0000-0000-0000-0000000000c3'::uuid, 1);
+SELECT is(
+  plateforme.fn_infos_acces_marquer_si_complet('ac600000-0000-0000-0000-0000000000c3'::uuid),
+  NULL,
+  'RPC : NULL quand le chauffeur a un nom mais ni plaque ni téléphone'
+);
+UPDATE plateforme.tournees SET plaque_immatriculation = 'FS-000-XX'
+ WHERE id = 'ac700000-0000-0000-0000-0000000000c3'::uuid;
+SELECT is(
+  (plateforme.fn_infos_acces_marquer_si_complet('ac600000-0000-0000-0000-0000000000c3'::uuid) -> 'chauffeurs' -> 0 ->> 'plaque'),
+  'FS-000-XX',
+  'RPC : complet avec nom + plaque sans téléphone (payload rendu, plaque transmise)'
 );
 
 -- ═══ 2. RLS : cloisonnement de la ligne, colonnes chauffeur hors privilège ═══

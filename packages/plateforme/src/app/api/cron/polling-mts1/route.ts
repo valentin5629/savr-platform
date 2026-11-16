@@ -8,7 +8,11 @@ import {
   type TypeTms,
 } from '@savr/adapters/src/index.js';
 
+import { logger } from '@savr/shared/src/logger/index.js';
+import { jourParis } from '@savr/shared/src/temps/index.js';
+
 import { withCronObservability } from '@/lib/cron-observabilite.js';
+import { envoyerInfosAccesCompletes } from '@/lib/infos-acces/notify.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,13 +91,30 @@ export const POST = withCronObservability(
       }
     }
 
+    // Email « Accès chauffeur » : le chauffeur et la plaque viennent d'être
+    // relus chez le transporteur (décision Val 2026-11-16). Jamais bloquant
+    // pour la relève : une collecte non évaluée l'est au passage suivant.
+    let infosAcces = { evaluees: 0, envoyes: 0 };
+    try {
+      infosAcces = await envoyerInfosAccesCompletes(
+        supabase,
+        jourParis(maintenant),
+      );
+    } catch (err) {
+      logger.error('infos_acces.passage_echec', { error: String(err) });
+    }
+
     if (errors.length > 0) {
       // Échec du job critique → job.cron.failed + alerte eleve agrégée (§07/03) + 500.
       throw new Error(
         `polling MTS-1 : ${errors.length} relève(s) en échec — ${errors.join('; ')}`,
       );
     }
-    return { synced, nb_traite: synced };
+    return {
+      synced,
+      nb_traite: synced,
+      infos_acces_envoyes: infosAcces.envoyes,
+    };
   },
   { canalOnFailure: 'eleve' },
 );

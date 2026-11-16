@@ -9,6 +9,7 @@ import {
   type BaseEnMemoire,
 } from '@/test-utils/base-en-memoire';
 import {
+  envoyerInfosAccesCompletes,
   evaluerInfosAccesEtEnvoyer,
   renderChauffeursBloc,
   type InfosAccesChauffeur,
@@ -200,6 +201,23 @@ describe('M0.6 / infos accès — renderChauffeursBloc', () => {
     expect(bloc).toContain('Accompagnant : Luc Bernard');
   });
 
+  // Décision Val 2026-11-16 : MTS-1 ne fournit pas le téléphone, l'email part
+  // sur nom + plaque — jamais de tiret orphelin à la place du numéro.
+  it('sans téléphone → « Chauffeur : nom » seul, plaque affichée', () => {
+    const bloc = renderChauffeursBloc([
+      {
+        rang: 1,
+        chauffeur_nom: 'Jean Dupont',
+        chauffeur_telephone: null,
+        plaque: '12ABC23',
+        accompagnant_nom: null,
+        accompagnant_telephone: null,
+      },
+    ]);
+    expect(bloc).toContain('<li>Chauffeur : Jean Dupont</li>');
+    expect(bloc).toContain('<li>Plaque : 12ABC23</li>');
+  });
+
   it('échappe le HTML des valeurs saisies (anti-injection)', () => {
     const bloc = renderChauffeursBloc([
       {
@@ -213,5 +231,127 @@ describe('M0.6 / infos accès — renderChauffeursBloc', () => {
     ]);
     expect(bloc).not.toContain('<script>');
     expect(bloc).toContain('&lt;script&gt;');
+  });
+});
+
+// Décision Val 2026-11-16 : le chauffeur et la plaque arrivent par la relève
+// des transporteurs, sans saisie Admin ; la relève évalue donc elle-même les
+// collectes à contrôle d'accès encore à venir.
+describe('M0.6 / infos accès — passage après la relève (envoyerInfosAccesCompletes)', () => {
+  let emails: CapturedEmail[] = [];
+  beforeEach(() => {
+    emails = [];
+    setEmailCaptureSink((e) => emails.push(e));
+  });
+  afterEach(() => setEmailCaptureSink(null));
+
+  const ligne = (id: string, surcharge: Record<string, unknown> = {}) => ({
+    id,
+    controle_acces_requis: true,
+    infos_acces_email_envoye_at: null,
+    statut: 'validee',
+    date_collecte: '2026-11-17',
+    ...surcharge,
+  });
+
+  it('n’évalue que les collectes à contrôle d’accès, à venir, sans email réservé', async () => {
+    const b = creerBaseEnMemoire({
+      collectes: [
+        ligne('a-evaluer'),
+        ligne('deja-envoyee', { infos_acces_email_envoye_at: TAMPON }),
+        ligne('sans-controle', { controle_acces_requis: false }),
+        ligne('passee', { date_collecte: '2026-11-15' }),
+        ligne('realisee', { statut: 'realisee' }),
+        ligne('brouillon', { statut: 'brouillon' }),
+      ],
+      alertes_admin: [],
+    });
+    const evaluees: unknown[] = [];
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = (args) => {
+      evaluees.push(args['p_collecte_id']);
+      return PAYLOAD_COMPLET;
+    };
+
+    const r = await envoyerInfosAccesCompletes(client(b), '2026-11-16');
+
+    expect(evaluees).toEqual(['a-evaluer']);
+    expect(r).toEqual({ evaluees: 1, envoyes: 1 });
+    expect(emails).toHaveLength(1);
+  });
+
+  it('fenêtre J à J+7 : une collecte au-delà n’est pas évaluée', async () => {
+    const b = creerBaseEnMemoire({
+      collectes: [
+        ligne('j7', { date_collecte: '2026-11-23' }),
+        ligne('j8', { date_collecte: '2026-11-24' }),
+      ],
+      alertes_admin: [],
+    });
+    const evaluees: unknown[] = [];
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = (args) => {
+      evaluees.push(args['p_collecte_id']);
+      return null;
+    };
+
+    await envoyerInfosAccesCompletes(client(b), '2026-11-16');
+
+    expect(evaluees).toEqual(['j7']);
+  });
+
+  it('30 collectes incomplètes plus proches ne cachent pas une collecte complète', async () => {
+    const incompletes = Array.from({ length: 30 }, (_, i) =>
+      ligne(`incomplete-${i}`, { date_collecte: '2026-11-17' }),
+    );
+    const b = creerBaseEnMemoire({
+      collectes: [
+        ...incompletes,
+        ligne('complete', { date_collecte: '2026-11-20' }),
+      ],
+      alertes_admin: [],
+    });
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = (args) =>
+      args['p_collecte_id'] === 'complete' ? PAYLOAD_COMPLET : null;
+
+    const r = await envoyerInfosAccesCompletes(client(b), '2026-11-16');
+
+    expect(r).toEqual({ evaluees: 31, envoyes: 1 });
+    expect(emails).toHaveLength(1);
+  });
+
+  it('budget de temps dépassé : plus aucune collecte n’est commencée', async () => {
+    const b = creerBaseEnMemoire({
+      collectes: [ligne('premiere'), ligne('seconde')],
+      alertes_admin: [],
+    });
+    const evaluees: unknown[] = [];
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = (args) => {
+      evaluees.push(args['p_collecte_id']);
+      return null;
+    };
+    // 0 au départ, puis 10 s, puis 30 s : la seconde collecte dépasse les 25 s.
+    const instants = [0, 10_000, 30_000];
+    const horloge = () => instants.shift() ?? 30_000;
+
+    const r = await envoyerInfosAccesCompletes(
+      client(b),
+      '2026-11-16',
+      horloge,
+    );
+
+    expect(evaluees).toEqual(['premiere']);
+    expect(r.evaluees).toBe(1);
+  });
+
+  it('collecte incomplète (la fonction SQL ne réserve rien) → aucun email', async () => {
+    const b = creerBaseEnMemoire({
+      collectes: [ligne('incomplete')],
+      alertes_admin: [],
+    });
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = () => null;
+
+    const r = await envoyerInfosAccesCompletes(client(b), '2026-11-16');
+
+    expect(r).toEqual({ evaluees: 1, envoyes: 0 });
+    expect(emails).toHaveLength(0);
   });
 });

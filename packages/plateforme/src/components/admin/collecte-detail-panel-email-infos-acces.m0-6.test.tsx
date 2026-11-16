@@ -284,7 +284,15 @@ describe('M0.6 — fiche collecte Admin : état réel de l’email « infos d’
           infos_acces_email_envoye_at: null,
           infos_acces_email: suivi({ etat: 'a_envoyer', date: null }),
           collecte_tournees: [
-            { rang: 1, tournees: tournee({ chauffeur_telephone: null }) },
+            // Ni plaque ni téléphone : incomplet (nom + plaque suffisent,
+            // décision Val 2026-11-16).
+            {
+              rang: 1,
+              tournees: tournee({
+                chauffeur_telephone: null,
+                plaque_immatriculation: null,
+              }),
+            },
           ],
         }),
       );
@@ -315,7 +323,7 @@ describe('M0.6 — fiche collecte Admin : état réel de l’email « infos d’
   );
 
   it(
-    'deux camions demandés dont un sans téléphone → coordonnées incomplètes, pas de bouton',
+    'deux camions demandés dont un sans plaque ni téléphone → coordonnées incomplètes, pas de bouton',
     async () => {
       await afficher(
         collecte({
@@ -326,12 +334,37 @@ describe('M0.6 — fiche collecte Admin : état réel de l’email « infos d’
             { rang: 1, tournees: tournee() },
             {
               rang: 2,
-              tournees: tournee({ id: 'tour-2', chauffeur_telephone: '  ' }),
+              tournees: tournee({
+                id: 'tour-2',
+                chauffeur_telephone: '  ',
+                plaque_immatriculation: ' ',
+              }),
             },
           ],
         }),
       );
       expect(boutonRenvoi('Envoyer l’email')).not.toBeInTheDocument();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'nom + plaque sans téléphone → coordonnées complètes, « Envoyer l’email » proposé (Val 2026-11-16)',
+    async () => {
+      await afficher(
+        collecte({
+          infos_acces_email_envoye_at: null,
+          infos_acces_email: suivi({ etat: 'a_envoyer', date: null }),
+          collecte_tournees: [
+            { rang: 1, tournees: tournee({ chauffeur_telephone: null }) },
+          ],
+        }),
+      );
+      // Le texte du bloc Chauffeur dit la règle de l'envoi.
+      expect(document.body).toHaveTextContent(
+        'nom du chauffeur et plaque (à défaut de plaque, téléphone)',
+      );
+      expect(boutonRenvoi('Envoyer l’email')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,
   );

@@ -44,6 +44,13 @@ const { sync, getLogistiqueProvider } = vi.hoisted(() => {
 });
 vi.mock('@savr/adapters/src/index.js', () => ({ getLogistiqueProvider }));
 
+const { envoyerInfosAccesCompletes } = vi.hoisted(() => ({
+  envoyerInfosAccesCompletes: vi
+    .fn()
+    .mockResolvedValue({ evaluees: 0, envoyes: 0 }),
+}));
+vi.mock('@/lib/infos-acces/notify.js', () => ({ envoyerInfosAccesCompletes }));
+
 function appel(): Request {
   return new Request('http://localhost/api/cron/polling-mts1', {
     method: 'POST',
@@ -89,5 +96,21 @@ describe('M1.5b / cron polling-mts1 — fenêtre et relèves', () => {
       ),
     ).toEqual(['mts1', 'a_toutes']);
     expect(sync).toHaveBeenCalledTimes(2);
+  });
+  // Décision Val 2026-11-16 : le chauffeur et la plaque arrivent par la relève ;
+  // les emails « Accès chauffeur » complets partent juste après, jour de Paris.
+  it('après la relève, le passage des emails « Accès chauffeur » part avec le jour de Paris ; son échec ne fait pas échouer la relève', async () => {
+    const { POST } = await import('@/app/api/cron/polling-mts1/route.js');
+    const res = await POST(appel());
+    expect(res.status).toBe(200);
+    // 2026-10-13T23:30Z = 14 octobre, 1 h 30 à Paris.
+    expect(envoyerInfosAccesCompletes).toHaveBeenCalledWith(
+      expect.anything(),
+      '2026-10-14',
+    );
+
+    envoyerInfosAccesCompletes.mockRejectedValueOnce(new Error('panne'));
+    const res2 = await POST(appel());
+    expect(res2.status).toBe(200);
   });
 });

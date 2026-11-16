@@ -17,7 +17,7 @@
       "id": "M5.2-statuts-collectes",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:47",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
-      "test": "M5.2 / collectes — statuts, événement, lieu › statut Bubble → statut cible : terminée, sans excédent, annulée, à venir, jamais soldée",
+      "test": "M5.2 / collectes — statuts, événement, lieu › statut Bubble → statut cible : terminée avec ou sans poids, sans excédent, annulée, à venir, jamais soldée",
       "statut": "implemented",
       "libelle": "Statuts Bubble → statuts cibles, historique complet"
     },
@@ -81,17 +81,33 @@
       "id": "M5.2-attributions-anti-gaspi",
       "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
-      "test": "M5.2 / collectes — pesées, attribution, historique partiel › attribution anti-gaspi créée seulement si association ET transporteur sont retrouvés",
+      "test": "M5.2 / collectes — pesées, attribution, historique partiel › attribution de tout don clôturé : association et transporteur de Bubble, sinon les fiches inactives « historique non renseigné »",
       "statut": "implemented",
-      "libelle": "Attribution anti-gaspi (association, transporteur, poids, repas) marquée migration_bubble (fiche du Vault 08 §5)"
+      "libelle": "Attribution de tout don clôturé (association, transporteur, poids, repas) marquée migration_bubble (fiche du Vault 08 §5)"
     },
     {
       "id": "M5.2-historique-partiel",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:55",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
-      "test": "M5.2 / collectes — pesées, attribution, historique partiel › « historique partiel » : convives absents, don sans association, transporteur ou poids",
+      "test": "M5.2 / collectes — pesées, attribution, historique partiel › « historique partiel » : convives absents, don sans association ou transporteur",
       "statut": "implemented",
       "libelle": "Flag collectes.historique_partiel sur les cas incomplets"
+    },
+    {
+      "id": "M5.2-dons-fiches-historiques",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:53",
+      "artefact": "apps/migration-bubble/src/transformations/referentiels.ts",
+      "test": "M5.2 / collectes — pesées, attribution, historique partiel › attribution de tout don clôturé : association et transporteur de Bubble, sinon les fiches inactives « historique non renseigné »",
+      "statut": "implemented",
+      "libelle": "Don dont Bubble ne dit pas l'association ou le transporteur : porté par une fiche inactive « historique non renseigné », listé et marqué historique partiel (décision Val 2026-11-16)"
+    },
+    {
+      "id": "M5.2-anti-gaspi-sans-poids",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:47",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — statuts, événement, lieu › statut Bubble → statut cible : terminée avec ou sans poids, sans excédent, annulée, à venir, jamais soldée",
+      "statut": "implemented",
+      "libelle": "Anti-gaspi terminée sans poids ni mention « pas d'excédents » : importée « réalisée sans collecte », motif dédié, listée (décision Val 2026-11-16)"
     },
     {
       "id": "M5.2-contacts-portes-par-la-collecte",

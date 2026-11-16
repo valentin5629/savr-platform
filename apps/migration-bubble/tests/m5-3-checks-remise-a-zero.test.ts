@@ -21,6 +21,11 @@ import { ecrireRapport, redigerRapport } from '../src/rapport';
 import { TMS_BUBBLE_CAMION, TMS_BUBBLE_VELO } from '../src/referentiel-tms';
 import { remettreAZero } from '../src/remise-a-zero';
 import { CATALOGUE, type TypeSource } from '../src/sources';
+import { MOTIF_SANS_POIDS } from '../src/transformations/collectes';
+import {
+  NOM_ASSOCIATION_HISTORIQUE,
+  NOM_TRANSPORTEUR_HISTORIQUE,
+} from '../src/transformations/referentiels';
 import {
   abonnement,
   agence,
@@ -401,8 +406,11 @@ function exportsInventes(): Record<TypeSource, Ligne[]> {
       'Heure du pickup': 'Mar 3, 2020 6:00 pm',
       'Instruction lieu': 'Demander Alex',
     }),
+    // Don sans association ni transporteur dans Bubble : porté par les fiches historiques.
     collecte({ 'Poids total': '7', 'Nombre de convives': '' }),
     collecte({ 'Heure du pickup': 'illisible' }),
+    // Terminée sans poids ni mention « pas d'excédents » : importée « sans excédent ».
+    collecte({ ...don, Identifiant: 'SANS-POIDS' }),
   ];
   p['Collectes liées'] = `${ag[0]!['unique id']} , ${ag[2]!['unique id']}`;
   return {
@@ -488,18 +496,21 @@ describe.skipIf(!ADRESSE_TEST)(
           premier.ecritures.map((e) => [e.table.replace('plateforme.', ''), e]),
         );
         expect(ecrit.collectes).toMatchObject({
-          lues: 9,
-          inserees: 9,
+          lues: 10,
+          inserees: 10,
           modifiees: 0,
         });
-        expect(ecrit.evenements!.inserees).toBe(9);
+        expect(ecrit.evenements!.inserees).toBe(10);
         expect(ecrit.collecte_flux!.inserees).toBe(3);
-        expect(ecrit.attributions_antgaspi!.inserees).toBe(3);
+        // Les 4 dons clôturés, dont celui que portent les deux fiches historiques.
+        expect(ecrit.attributions_antgaspi!.inserees).toBe(4);
+        expect(ecrit.associations!.inserees).toBe(2);
+        expect(ecrit.transporteurs!.inserees).toBe(3);
         // Recopiées par le déclencheur de la base à l'insertion des collectes : identiques au plan.
         expect(ecrit.collecte_contacts).toMatchObject({
           inserees: 0,
           modifiees: 0,
-          inchangees: 9,
+          inchangees: 10,
         });
         expect(premier.rejets).toMatchObject({
           'collecte — date de collecte illisible': 1,
@@ -575,6 +586,48 @@ describe.skipIf(!ADRESSE_TEST)(
           rows.filter((r) => r.type === 'zero_dechet').map((r) => r.taux),
         ).toEqual([true, false]);
         expect(rows.find((r) => r.statut === 'annulee')!.jour).toBeNull();
+        // Sans poids dans Bubble : « sans excédent », motif dédié, aucune attribution.
+        expect(
+          (
+            await client.query(
+              `SELECT c.statut::text, c.aucun_repas_motif, c.co2_evite_kg,
+                      (SELECT count(*)::int FROM plateforme.attributions_antgaspi a WHERE a.collecte_id = c.id) AS attributions
+                 FROM plateforme.collectes c JOIN plateforme.evenements e ON e.id = c.evenement_id
+                WHERE e.reference_affaire = 'SANS-POIDS'`,
+            )
+          ).rows,
+        ).toEqual([
+          {
+            statut: 'realisee_sans_collecte',
+            aucun_repas_motif: MOTIF_SANS_POIDS,
+            co2_evite_kg: null,
+            attributions: 0,
+          },
+        ]);
+        // Le don de 7 kg sans association ni transporteur : attribué aux deux fiches inactives.
+        expect(
+          (
+            await client.query(
+              `SELECT s.nom AS association, s.actif AS association_active,
+                      t.nom AS transporteur, t.actif AS transporteur_actif,
+                      t.prestataire_logistique_id IS NULL AS sans_prestataire,
+                      a.volume_repas_realise
+                 FROM plateforme.attributions_antgaspi a
+                 JOIN plateforme.associations s ON s.id = a.association_id
+                 JOIN plateforme.transporteurs t ON t.id = a.transporteur_id
+                WHERE a.poids_repas_kg = 7`,
+            )
+          ).rows,
+        ).toEqual([
+          {
+            association: NOM_ASSOCIATION_HISTORIQUE,
+            association_active: false,
+            transporteur: NOM_TRANSPORTEUR_HISTORIQUE,
+            transporteur_actif: false,
+            sans_prestataire: true,
+            volume_repas_realise: 16,
+          },
+        ]);
         const pack = (
           await client.query(
             `SELECT credits_consommes, credits_restants, statut::text FROM plateforme.packs_antgaspi WHERE type_pack = 'pack_10'`,
@@ -647,7 +700,44 @@ describe.skipIf(!ADRESSE_TEST)(
           await rouges(
             `UPDATE plateforme.collectes SET historique_partiel = false`,
           ),
-        ).toEqual(['C8', 'C9', 'E4']);
+        ).toEqual(['C8', 'E4']);
+        // Un don clôturé sans son attribution : poids manquant, attribution manquante, CO₂ faux.
+        expect(
+          await rouges(
+            `DELETE FROM plateforme.attributions_antgaspi WHERE poids_repas_kg = 7`,
+          ),
+        ).toEqual(['B6', 'C9', 'E7']);
+        // Une anti-gaspi sans poids laissée « clôturée » au lieu de « sans excédent ».
+        expect(
+          await rouges(
+            `UPDATE plateforme.collectes SET statut = 'cloturee' WHERE aucun_repas_motif = '${MOTIF_SANS_POIDS}'`,
+          ),
+        ).toEqual(['A8', 'C9', 'E7']);
+        // Fiches historiques : jamais actives, jamais à la place d'une fiche que l'export désigne.
+        expect(
+          await rouges(
+            `UPDATE plateforme.associations SET actif = true WHERE nom = '${NOM_ASSOCIATION_HISTORIQUE}'`,
+          ),
+        ).toEqual(['E11']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.transporteurs SET actif = true WHERE nom = '${NOM_TRANSPORTEUR_HISTORIQUE}'`,
+          ),
+        ).toEqual(['E11']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.attributions_antgaspi
+                SET association_id = (SELECT id FROM plateforme.associations WHERE nom = '${NOM_ASSOCIATION_HISTORIQUE}')
+              WHERE poids_repas_kg = 4`,
+          ),
+        ).toEqual(['E11']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.attributions_antgaspi
+                SET transporteur_id = (SELECT id FROM plateforme.transporteurs WHERE nom = '${NOM_TRANSPORTEUR_HISTORIQUE}')
+              WHERE poids_repas_kg = 4`,
+          ),
+        ).toEqual(['E11']);
         expect(
           await rouges(
             `UPDATE plateforme.collectes SET co2_evite_kg = NULL WHERE type = 'anti_gaspi'`,
@@ -735,17 +825,17 @@ describe.skipIf(!ADRESSE_TEST)(
         ).toEqual(['E10']);
 
         // Emails gardés à part pour la réattribution : un par événement, ici celui de contact du traiteur.
-        expect(await compter(client, 'migration.auteurs_evenements')).toBe(9);
+        expect(await compter(client, 'migration.auteurs_evenements')).toBe(10);
         expect(
           await compter(
             client,
             `migration.auteurs_evenements WHERE provenance = 'contact_traiteur'`,
           ),
-        ).toBe(9);
+        ).toBe(10);
         expect(premier.auteurs).toEqual({
-          evenements: 9,
+          evenements: 10,
           avecEmailCommercial: 0,
-          avecEmailContactSeul: 9,
+          avecEmailContactSeul: 10,
           sansEmail: 0,
           emailsDistincts: 2,
           emailsSurDomainePublic: 0,
@@ -757,11 +847,11 @@ describe.skipIf(!ADRESSE_TEST)(
             client,
             `plateforme.collectes WHERE origine = 'migration_bubble'`,
           ),
-        ).toBe(9);
+        ).toBe(10);
 
         // 6. Remise à zéro : plus aucune ligne importée, référentiels intacts.
         const retirees = await remettreAZero(client);
-        expect(retirees['plateforme.collectes']).toBe(9);
+        expect(retirees['plateforme.collectes']).toBe(10);
         expect(retirees['shared.prestataires']).toBe(2);
         for (const table of TABLES_CIBLES)
           expect([table, await compter(client, `plateforme.${table}`)]).toEqual(

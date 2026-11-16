@@ -3,13 +3,13 @@
   "titre": "PDF AG (attestation 2041-GE) + Paramètres CO2",
   "description": "Attestation de don AG : template PDF (mention fiscale 2041-GE conditionnée par associations.habilitee_attestation_fiscale) + branche renderer alignée sur l'union des type_document enqueués. Écrans paramètres CO2 (BL-P0-06) alignés sur les colonnes réelles + RPC SECURITY DEFINER d'audit-write (commentaire + auteur tracés en history) en R3 — taux-recyclage inclus (arbitrage Val 2026-06-24, divergence M2.4_20260624). Seed OMR (BL-P2-26) reste partial. BL-P0-03 implémenté en R2 (feat/r2-pdf-preuves).",
   "scenarios": [
-    "association habilitée → mention fiscale article 238 bis CGI présente",
-    "association non habilitée → mention neutre, aucune mention 238 bis",
-    "contenu §12 §1.3 : adresse association + équivalence km voiture + méthodo FAO",
+    "habilitée ou non : ni 2041-GE, ni 238 bis, ni RUP, ni 60 %, ni « reçu fiscal », ni donateur",
+    "CO₂e marqué « estimation » ; km au facteur voiture 0,256 kgCO₂e/km, jamais l’ancienne équivalence figée",
+    "facteur imprimé = celui de la collecte : 2,04 Base Carbone ; 2,5 estimation FAO ; aucun s’il manque",
     "rapport RSE AG = attestation standalone",
     "mention pied de page présente uniquement si régénérée",
     "batch sans-excédent — génération (BL-P1-RPT-02)",
-    "rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02)",
+    "M2.4 / rapport sans excédent @3 — mandat et associations proches (maquette Val 2026-11-16)",
     "download rapport sans-excédent (BL-P1-RPT-02)",
     "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
     "association SANS n° RUP : instantané NULL, émission sans mention"
@@ -17,11 +17,12 @@
   "deliverables": [
     {
       "id": "BL-P0-03",
+      "ref_divergence": "_Divergences/M2.4_20261116_rapports-de-don-illustres.md",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:147",
       "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts",
-      "test": "association habilitée → mention fiscale article 238 bis CGI présente",
+      "test": "habilitée ou non : ni 2041-GE, ni 238 bis, ni RUP, ni 60 %, ni « reçu fiscal », ni donateur ; M2.4 / rapport de don @5 — parcours du don et impact estimé ; M2.4 / rapport de don @5 — association, photo et logos ; M2.4 / rapports de don illustrés — identiques aux maquettes validées (régression visuelle)",
       "statut": "implemented",
-      "libelle": "template attestation 2041-GE + branche renderer : contenu §12 §1.3 (donateur, nom+adresse association, repas+poids, CO₂ évité + km voiture + méthodo FAO) + mention fiscale conditionnelle (habilitee_attestation_fiscale) ; titre imprimé « Rapport de don », « Attestation de don » en sous-titre (gabarit @3, livrable M2.4-rapport-de-don-titre-pdf) ; la méthode imprimée reste « Estimation FAO — 2,5 » alors que le CDC dit Base Carbone ADEME 2,04 depuis le 2026-11-06 (livrable partial M2.4-co2-methode-pdf-base-carbone)"
+      "libelle": "Rapport de don d'une collecte AG avec excédents, gabarit @5 (maquette illustrée validée par Val le 2026-11-16, copiée dans design/rapport-de-don/2026-11-16/RapportDon.dc.html) : une page, bandeau et encart Savr du rapport de recyclage @4 (logo à coin orange, logos du client et du traiteur), parcours du don (poids collecté, équivalents repas), association bénéficiaire (nom, ville, logo, description) et photo cochée par Savr, CO₂e évité marqué « estimation », km au facteur voiture 0,256 kgCO₂e/km, note de méthode avec le facteur de la collecte. Plus aucune mention fiscale imprimée (Cerfa 2041-GE, article 238 bis, n° RUP, donateur) ni page 2 (attestation de collecte et de remise reportée, Val 2026-11-16). Contexte visuel lu au rendu : packages/plateforme/src/lib/pdf/contexte-rapports-de-don.ts."
     },
     {
       "id": "BL-P0-06",
@@ -99,9 +100,9 @@
       "id": "BL-P1-RPT-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:163",
       "artefact": "apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (type rapport-evenement-sans-excedent) + apps/pdf-renderer/src/render.ts + packages/plateforme/src/lib/pdf/batch-pdf-sans-excedent.ts (runBatchSansExcedent) + packages/plateforme/src/app/api/cron/batch-pdf-j1/route.ts + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/rapport-rse/download/route.ts (branche realisee_sans_collecte) + packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts (rapport_rse_disponible) + packages/plateforme/src/lib/pdf/regenerate.ts (DOC_ENTITY rapport-evenement-sans-excedent + regenere_at/version) + packages/plateforme/src/app/api/v1/admin/collectes/[id]/documents/[type]/regenerate/route.ts (régén Admin)",
-      "test": "M2.4 / batch sans-excédent — génération (BL-P1-RPT-02) ; M2.4 / renderer — rapport « Événement sans excédent » §1.3-bis (BL-P1-RPT-02) ; M2.4 / download rapport sans-excédent (BL-P1-RPT-02) ; M2.4 / fiche collecte GET — disponibilité sans-excédent (BL-P1-RPT-02) ; M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)",
+      "test": "M2.4 / batch sans-excédent — génération (BL-P1-RPT-02) ; M2.4 / rapport sans excédent @3 — mandat et associations proches (maquette Val 2026-11-16) ; M2.4 / download rapport sans-excédent (BL-P1-RPT-02) ; M2.4 / fiche collecte GET — disponibilité sans-excédent (BL-P1-RPT-02) ; M2.4 / régénération Admin rapport sans-excédent (BL-P1-RPT-02)",
       "statut": "implemented",
-      "libelle": "Rapport « Événement sans excédent alimentaire » §1.3-bis (AG realisee_sans_collecte) : nouveau type PDF `rapport-evenement-sans-excedent` texte seul (sans photos, sans watermark V1.1) — en-tête événement + logo cascade §1.2, bloc Constat (heure_debut_reelle + chauffeur + plaque si controle_acces_requis + motif), bloc Conséquences (mention fixe « Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal », tarif normal + réf facture — phrase arbitrée par Val le 2026-10-13, CDC patché au sync du 2026-10-20 : cf. _Divergences/M2.4_20261013_rapport-de-don-pdf-fichier-email-cgu.md) ; titre imprimé « Rapport de don », « Événement sans excédent alimentaire » en sous-titre (gabarit @2, livrable M2.4-rapport-de-don-titre-pdf). Génération : batch dédié nightly runBatchSansExcedent (décision Val 2026-07-07 : archi V1 batch vs CDC « immédiat » → cf. _Divergences M2.4_20260707_declencheur) SANS embargo H+24 (disponible_a=genere_at), porté par rapports_rse standard (pas de colonne discriminante) + shared.fichiers entity_type='plateforme.rapports_rse'. Download/dispo traiteur servent le rapport (pas d'attestation). Régénération Admin uniquement (§1.3-bis l.198, DOC_ENTITY regenerate.ts + regenere_at/version ; traiteur exclu 403). CDC cite tournees.heure_reelle_arrivee inexistant → heure_debut_reelle (cf. _Divergences M2.4_20260707_heure)."
+      "libelle": "Rapport « Événement sans excédent alimentaire » §1.3-bis (AG realisee_sans_collecte) : type PDF `rapport-evenement-sans-excedent`, gabarit @3 (maquette illustrée validée par Val le 2026-11-16, design/rapport-de-don/2026-11-16/RapportSansExcedent.dc.html) : bandeau et encart Savr du rapport de recyclage @4, constat « Événement sans excédent alimentaire » et mandat donné à Savr par l'organisation de la collecte, les deux associations actives les plus proches du lieu (région du lieu à défaut de coordonnées ; contexte lu au rendu, lib/pdf/contexte-rapports-de-don.ts). Retirés à la demande de Val : blocs Constat (heure, chauffeur, plaque, motif) et Conséquences (réf. facture) — leurs données restent dans le contenu figé, non imprimées (cf. _Divergences/M2.4_20261116_rapports-de-don-illustres.md). Génération : batch dédié nightly runBatchSansExcedent (décision Val 2026-07-07 : archi V1 batch vs CDC « immédiat » → cf. _Divergences M2.4_20260707_declencheur) SANS embargo H+24 (disponible_a=genere_at), porté par rapports_rse standard (pas de colonne discriminante) + shared.fichiers entity_type='plateforme.rapports_rse'. Download/dispo traiteur servent le rapport (pas d'attestation). Régénération Admin uniquement (§1.3-bis l.198, DOC_ENTITY regenerate.ts + regenere_at/version ; traiteur exclu 403). CDC cite tournees.heure_reelle_arrivee inexistant → heure_debut_reelle (cf. _Divergences M2.4_20260707_heure)."
     },
     {
       "id": "BL-P1-RM-10",
@@ -114,8 +115,8 @@
     {
       "id": "M2.4-poids-ag-saisie-fiche-admin",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:190",
-      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique : ligne « Poids collecté », bouton « Modifier », fenêtre de saisie branchée sur PATCH /api/v1/admin/attributions-ag/[collecteId]/poids) ; poids_repas_kg lu par GET /api/v1/admin/collectes/[id] ; poids corrigé imprimé sur le rapport de don refait : packages/plateforme/src/lib/pdf/logo-rapport-de-don.ts (completerLogoAttestation relit attestations_don.poids_kg)",
-      "test": "M0.6/poids_ag_saisie_admin, M0.6/poids_ag_correction_admin, M0.6/poids_ag_erreur_route (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx) ; « poids corrigé » (packages/plateforme/tests/lib/logo-rapport-de-don.test.ts)",
+      "artefact": "packages/plateforme/src/components/admin/collecte-detail-panel.tsx (onglet Logistique : ligne « Poids collecté », bouton « Modifier », fenêtre de saisie branchée sur PATCH /api/v1/admin/attributions-ag/[collecteId]/poids) ; poids_repas_kg lu par GET /api/v1/admin/collectes/[id] ; poids corrigé imprimé sur le rapport de don refait : packages/plateforme/src/lib/pdf/contexte-rapports-de-don.ts (completerRapportDeDon relit attestations_don.poids_kg)",
+      "test": "M0.6/poids_ag_saisie_admin, M0.6/poids_ag_correction_admin, M0.6/poids_ag_erreur_route (packages/plateforme/src/components/admin/collecte-detail-panel.m0-6.test.tsx) ; « poids corrigé » (packages/plateforme/tests/lib/contexte-rapports-de-don.test.ts)",
       "statut": "implemented",
       "libelle": "Saisie manuelle du poids des denrées AG par l'équipe Savr depuis la fiche collecte Admin (collecte réalisée ou clôturée, hors « sans excédent ») : poids en kg, motif ≥ 10 caractères pour corriger un poids déjà posé (règle de la route /poids, BL-P1-RM-10) ; le nombre de repas réalisés en est calculé par trg_calc_volume_repas_realise (ceil(poids / poids_par_repas_kg)) et affiché en lecture seule ; rapport de don émis refait et CO₂e recalculé par trg_regenerer_attestation. Le rapport refait imprime le poids corrigé (le trigger reprenait celui de la version précédente dans le contenu du PDF)."
     },
@@ -146,10 +147,10 @@
     {
       "id": "M2.4-rapport-de-don-titre-pdf",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:165",
-      "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts + apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (TEMPLATE_VERSIONS : attestation-don@3, rapport-evenement-sans-excedent@2)",
-      "test": "M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG ; apps/pdf-renderer/src/render.test.ts « bloc Conséquences : mention fixe (pas de reçu fiscal, tarif normal) »",
+      "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts + apps/pdf-renderer/src/templates/rapport-evenement-sans-excedent.ts + packages/shared/src/pdf/document-types.ts (TEMPLATE_VERSIONS : attestation-don@5, rapport-evenement-sans-excedent@3)",
+      "test": "M2.4 / renderer — titre imprimé « Rapport de don » des deux PDF AG",
       "statut": "implemented",
-      "libelle": "Titre imprimé des deux PDF d'une collecte AG : « Rapport de don » (décision Val 2026-10-13). Sous-titre « Attestation de don » sur la pièce fiscale, qui garde son numéro ATT-DON et ses mentions fiscales ; sous-titre « Événement sans excédent alimentaire » sur le rapport d'une collecte sans excédent, dont la phrase « Aucune attestation de don 2041-GE n'est générée » devient « Aucun don n'ayant eu lieu, ce rapport ne vaut pas reçu fiscal ». Les documents déjà produits ne sont pas régénérés (« Régénérer » au cas par cas depuis la fiche Admin)."
+      "libelle": "Titre des deux PDF d'une collecte AG : « Rapport de don » (décision Val 2026-10-13), imprimé en sur-titre « RAPPORT DE DON » du bandeau et en titre du document, depuis les gabarits illustrés attestation-don@5 et rapport-evenement-sans-excedent@3 (Val 2026-11-16) ; le nom de l'événement est le titre du bandeau. Les documents déjà produits ne sont pas régénérés (« Régénérer » au cas par cas depuis la fiche Admin)."
     },
     {
       "id": "M2.4-rapport-de-don-nom-fichier",
@@ -188,11 +189,11 @@
     {
       "id": "M2.4-co2-methode-pdf-base-carbone",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:149",
-      "artefact": null,
-      "test": null,
+      "artefact": "apps/pdf-renderer/src/templates/attestation-don.ts (ligneFacteur : facteur de la collecte, source Base Carbone ou FAO)",
+      "test": "facteur imprimé = celui de la collecte : 2,04 Base Carbone ; 2,5 estimation FAO ; aucun s’il manque",
       "statut": "partial",
       "ref_divergence": "_Divergences/M4.3_20261106_facteurs-co2-base-carbone.md",
-      "libelle": "Mention de méthode du CO₂e évité sur l'attestation et le Rapport de don AG : facteur Base Carbone ADEME, 2,04 kgCO₂e par repas (Val 2026-11-06, §12 l.153). CDC en avance : apps/pdf-renderer/src/templates/attestation-don.ts et rapport-don-evenement.ts impriment encore « Estimation FAO — 2,5 kgCO₂e par repas sauvé du gaspillage ». Reste à trancher avec le code : la mention d'une collecte dont le CO₂e a été calculé au facteur FAO, avant le 2026-11-06."
+      "libelle": "Mention de méthode du CO₂e évité sur le Rapport de don AG : facteur de la collecte imprimé avec sa source, 2,04 kgCO₂e par équivalent repas « Repas moyen », Base Carbone ADEME (Val 2026-11-06, §12 l.153), ou 2,5 « estimation FAO, facteur en vigueur lors du calcul » pour une collecte calculée avant le 2026-11-06 (fait sur attestation-don@5, Val 2026-11-16). Reste : apps/pdf-renderer/src/templates/rapport-don-evenement.ts (récap de don d'un événement) imprime encore « Estimation FAO — 2,5 »."
     }
   ],
   "cdc_source_hash": {

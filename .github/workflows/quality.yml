@@ -405,12 +405,13 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
       - if: steps.perimetre.outputs.build != 'false'
         run: pnpm exec playwright install --with-deps chromium
-      # Seul job où Chromium est installé : le rapport de recyclage @4 y est
-      # comparé pixel à pixel aux maquettes validées (design/rapport-recyclage/).
-      # Ailleurs ce test est sauté faute de navigateur ; ici il doit tourner.
+      # Seul job où Chromium est installé : le rapport de recyclage @4 et les deux
+      # rapports de don y sont comparés pixel à pixel aux maquettes validées
+      # (design/rapport-recyclage/, design/rapport-de-don/). Ailleurs ces tests
+      # sont sautés faute de navigateur ; ici ils doivent tourner.
       - if: steps.perimetre.outputs.build != 'false'
-        name: Rapport de recyclage identique aux maquettes (régression visuelle)
-        run: pnpm exec vitest run apps/pdf-renderer/src/rapport-recyclage-visuel.test.ts
+        name: Rapports de recyclage et de don identiques aux maquettes (régression visuelle)
+        run: pnpm exec vitest run apps/pdf-renderer/src/rapport-recyclage-visuel.test.ts apps/pdf-renderer/src/rapports-de-don-visuel.test.ts
         env:
           RAPPORT_VISUEL_OBLIGATOIRE: '1'
           RAPPORT_VISUEL_DOSSIER: ${{ runner.temp }}/rapport-visuel

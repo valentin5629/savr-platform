@@ -443,30 +443,41 @@ const kgAnnexe = (n: number) => {
 
 // Tracé limité à x 1-550, y 1-148 (le logo s'arrête avant) : dans le PDF, le
 // bord de l'image-masque se lissait en un filet visible sous le logo.
-const LOGO_V4_COIN = `<rect x="1" y="1" width="549" height="147" fill="#ffffff" mask="url(#rz-logo-masque)"/><g clip-path="url(#rz-logo-coin)"><rect x="1" y="1" width="549" height="147" fill="#16a34a" mask="url(#rz-logo-masque)"/></g>`;
+const logoV4Coin = (coin: string) =>
+  `<rect x="1" y="1" width="549" height="147" fill="#ffffff" mask="url(#rz-logo-masque)"/><g clip-path="url(#rz-logo-coin)"><rect x="1" y="1" width="549" height="147" fill="${coin}" mask="url(#rz-logo-masque)"/></g>`;
 
-/** Logo « + savr » complet, blanc à coin vert (celui de la maquette). */
+/** Coin du logo Savr : vert pour le zéro déchet, orange pour l'anti-gaspi. */
+const COIN_ZERO_DECHET = '#16a34a';
+export const COIN_ANTI_GASPI = '#f5991d';
+
+/** Logo « + savr » complet, blanc à coin vert (zéro déchet) ou orange (anti-gaspi). */
 export function logoSavrComplet(
   largeur: number,
   hauteur: number,
   style: string,
+  coin: string = COIN_ZERO_DECHET,
 ) {
-  return `<svg viewBox="0 0 551 150" width="${largeur}" height="${hauteur}" preserveAspectRatio="none" role="img" aria-label="Savr" style="${style}">${LOGO_V4_COIN}</svg>`;
+  return `<svg viewBox="0 0 551 150" width="${largeur}" height="${hauteur}" preserveAspectRatio="none" role="img" aria-label="Savr" style="${style}">${logoV4Coin(coin)}</svg>`;
 }
 
 const CROIX_DECOR =
   'M-47 47V-99A47 47 0 0 1 47 -99V-47H99A47 47 0 0 1 99 47Z M-47 -47H-99A47 47 0 0 0 -99 47H-47Z M-47 47V99A47 47 0 0 0 47 99V47Z';
-const croix = (taille: number, style: string, couleur: string) =>
+export const croix = (taille: number, style: string, couleur: string) =>
   `<svg aria-hidden="true" viewBox="-150 -150 300 300" width="${taille}" height="${taille}" style="${style}"><path fill="${couleur}" d="${CROIX_DECOR}"></path></svg>`;
 
 const H2_P1 =
   'margin: 0; font-family: Archivo, Inter, sans-serif; font-size: 22px; font-weight: 800; color: #223870; letter-spacing: -0.01em;';
 
 const ENCART_SAVR = `<section aria-label="Présentation de Savr" style="__MARGE__display: flex; gap: 22px; align-items: center; background: #223870; border-radius: 12px; padding: 16px 24px;">
-      ${logoSavrComplet(118, 32, 'display: block; flex-shrink: 0;')}
+      __LOGO__
       <div style="display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 1.45; color: #dde4f5;"><b style="color: #ffffff; font-weight: 800; font-size: 13px;">Savr, deux services distincts pour vos événements, clé en main.</b><span style="display: flex; gap: 8px;"><span style="display: inline-block; min-width: 84px; font-weight: 800; color: #ffbd59; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;">Zéro déchet</span><span>Vos déchets triés, pesés et envoyés en filières de valorisation agréées.</span></span><span style="display: flex; gap: 8px;"><span style="display: inline-block; min-width: 84px; font-weight: 800; color: #ffbd59; font-size: 11px; letter-spacing: .04em; text-transform: uppercase;">Anti-gaspi</span><span>Vos repas non servis donnés à des associations d'aide alimentaire.</span></span><span>Aucune logistique à gérer, des données traçables pour votre reporting CSRD et AGEC.</span></div>
     </section>`;
-const encartSavr = (marge: string) => ENCART_SAVR.replace('__MARGE__', marge);
+/** Encart « Savr, deux services distincts… » du bas de page, commun aux rapports. */
+export const encartSavr = (marge: string, coin: string = COIN_ZERO_DECHET) =>
+  ENCART_SAVR.replace('__MARGE__', marge).replace(
+    '__LOGO__',
+    logoSavrComplet(118, 32, 'display: block; flex-shrink: 0;', coin),
+  );
 
 /**
  * Numéro de la page 1, dans la marge sous l'encart, aligné à droite comme le
@@ -482,6 +493,51 @@ export const MENTIONS_EMETTEUR =
   'Émetteur et transporteur : Savr, 50 rue des Moines, 75017 Paris · RCS Paris 879 642 890';
 export const MENTION_RECEPISSE =
   'Récépissé de déclaration de transport de déchets n° T 26-011, Préfecture de police, 27/04/2026';
+
+/** Ce que le bandeau navy du haut de page imprime. */
+export interface BandeauRapportV4 {
+  surTitre: string;
+  nomEvenement: string;
+  lieu: string;
+  /** « JJ/MM/AAAA », imprimée en toutes lettres. */
+  dateEvenement: string;
+  convives: number | null;
+  /** Logos client puis traiteur (data URI) ; un emplacement vide n'est pas rendu. */
+  logos: (string | null | undefined)[];
+  coin?: string;
+}
+
+/** Bandeau navy du haut de page, commun aux rapports illustrés (recyclage, don). */
+export function bandeauRapportV4(params: BandeauRapportV4): string {
+  const boiteLogo = (url: string) =>
+    `<div style="width: 120px; height: 120px; border-radius: 12px; background: #ffffff; box-sizing: border-box; padding: 12px; display: flex; align-items: center; justify-content: center;"><img src="${esc(url)}" alt="" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block;"></div>`;
+  const logos = params.logos
+    .filter((u): u is string => typeof u === 'string' && u.length > 0)
+    .map(boiteLogo)
+    .join('');
+  const pilule = (icone: string, texte: string) =>
+    `<span style="display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid rgba(255,255,255,0.35); border-radius: 9999px; padding: 5px 13px; font-size: 12px; font-weight: 700;">${icone}${texte}</span>`;
+  const iconeDate =
+    '<svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffbd59" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>';
+  const iconeConvives =
+    '<svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffbd59" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.2.6 3.5 2.8 3.5 6"></path></svg>';
+
+  return `<header style="position: relative; flex-shrink: 0; overflow: hidden; background: #223870; color: #ffffff; padding: 24px 48px 26px; border-bottom-right-radius: 44px;">
+    ${croix(280, 'position: absolute; right: -70px; top: -120px; transform: rotate(-45deg);', '#2b4a91')}
+    ${croix(160, 'position: absolute; right: 170px; bottom: -95px; transform: rotate(-45deg);', '#1d5c63')}
+    <div style="position: relative; min-height: 52px; display: flex; justify-content: space-between; align-items: flex-start;">
+      ${logoSavrComplet(140, 38, 'display: block;', params.coin)}
+      ${logos ? `<div style="position: absolute; right: 0; top: 0; display: flex; gap: 10px;">${logos}</div>` : ''}
+    </div>
+    <p style="position: relative; margin: 2px 0 0; font-size: 12px; font-weight: 800; letter-spacing: 0.22em; color: #ffbd59;">${esc(params.surTitre)}</p>
+    <h1 style="position: relative; margin: 2px 0 0; max-width: 440px; font-family: Archivo, Inter, sans-serif; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.08;${TITRE_DEUX_LIGNES}">${esc(params.nomEvenement)}</h1>
+    <p style="position: relative; margin: 4px 0 0; font-size: 16px; font-weight: 600; color: #dde4f5;${UNE_LIGNE}">${esc(params.lieu)}</p>
+    <div style="position: relative; display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px;">
+      ${pilule(iconeDate, esc(dateLongue(params.dateEvenement)))}
+      ${params.convives ? pilule(iconeConvives, `${entier(params.convives)} convives`) : ''}
+    </div>
+  </header>`;
+}
 
 export const CSS_RAPPORT_V4 = `@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400 800; src: url(data:font/woff2;base64,${INTER_LATIN_WOFF2_BASE64}) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400 800; src: url(data:font/woff2;base64,${INTER_GREC_WOFF2_BASE64}) format('woff2'); unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF; }
@@ -579,40 +635,15 @@ export function renderRapportRecyclageZd(
   });
   const avecRadar = data.options?.benchmark === true && comparables.length > 0;
 
-  const nom = esc(data.nom_evenement);
-  const lieu = esc(data.lieu_nom);
-  const date = esc(dateLongue(data.date_evenement));
-  const convives = pax ? `${entier(pax)} convives` : '';
-
   // ── Page 1 : bandeau ───────────────────────────────────────────────────────
-  const boiteLogo = (url: string) =>
-    `<div style="width: 120px; height: 120px; border-radius: 12px; background: #ffffff; box-sizing: border-box; padding: 12px; display: flex; align-items: center; justify-content: center;"><img src="${esc(url)}" alt="" style="max-width: 100%; max-height: 100%; object-fit: contain; display: block;"></div>`;
-  const logos = [data.logo_client_url, data.logo_traiteur_url]
-    .filter((u): u is string => typeof u === 'string' && u.length > 0)
-    .map(boiteLogo)
-    .join('');
-  const pilule = (icone: string, texte: string) =>
-    `<span style="display: inline-flex; align-items: center; gap: 7px; border: 1.5px solid rgba(255,255,255,0.35); border-radius: 9999px; padding: 5px 13px; font-size: 12px; font-weight: 700;">${icone}${texte}</span>`;
-  const iconeDate =
-    '<svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffbd59" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>';
-  const iconeConvives =
-    '<svg aria-hidden="true" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#ffbd59" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2.2.6 3.5 2.8 3.5 6"></path></svg>';
-
-  const bandeau = `<header style="position: relative; flex-shrink: 0; overflow: hidden; background: #223870; color: #ffffff; padding: 24px 48px 26px; border-bottom-right-radius: 44px;">
-    ${croix(280, 'position: absolute; right: -70px; top: -120px; transform: rotate(-45deg);', '#2b4a91')}
-    ${croix(160, 'position: absolute; right: 170px; bottom: -95px; transform: rotate(-45deg);', '#1d5c63')}
-    <div style="position: relative; min-height: 52px; display: flex; justify-content: space-between; align-items: flex-start;">
-      ${logoSavrComplet(140, 38, 'display: block;')}
-      ${logos ? `<div style="position: absolute; right: 0; top: 0; display: flex; gap: 10px;">${logos}</div>` : ''}
-    </div>
-    <p style="position: relative; margin: 2px 0 0; font-size: 12px; font-weight: 800; letter-spacing: 0.22em; color: #ffbd59;">${esc(variante.surTitre)}</p>
-    <h1 style="position: relative; margin: 2px 0 0; max-width: 440px; font-family: Archivo, Inter, sans-serif; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.08;${TITRE_DEUX_LIGNES}">${nom}</h1>
-    <p style="position: relative; margin: 4px 0 0; font-size: 16px; font-weight: 600; color: #dde4f5;${UNE_LIGNE}">${lieu}</p>
-    <div style="position: relative; display: flex; flex-wrap: wrap; gap: 9px; margin-top: 12px;">
-      ${pilule(iconeDate, date)}
-      ${convives ? pilule(iconeConvives, convives) : ''}
-    </div>
-  </header>`;
+  const bandeau = bandeauRapportV4({
+    surTitre: variante.surTitre,
+    nomEvenement: data.nom_evenement,
+    lieu: data.lieu_nom,
+    dateEvenement: data.date_evenement,
+    convives: pax,
+    logos: [data.logo_client_url, data.logo_traiteur_url],
+  });
 
   // ── Page 1 : tuiles des flux ───────────────────────────────────────────────
   const tuiles = flux

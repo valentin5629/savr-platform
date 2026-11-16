@@ -13,7 +13,10 @@ import { logger } from '@savr/shared/src/logger/index.js';
 
 import { generatePdf } from './railway-client.js';
 import { uploadPdf } from './r2-client.js';
-import { completerLogoAttestation } from './logo-rapport-de-don.js';
+import {
+  completerRapportDeDon,
+  completerRapportSansExcedent,
+} from './contexte-rapports-de-don.js';
 
 const MAX_ATTEMPTS = 16;
 const RETRY_INTERVAL_MS = 15 * 60 * 1000;
@@ -104,12 +107,18 @@ export async function runPdfWorker(
         throw new Error(`type_document inconnu : ${job.type_document}`);
       }
       const pdfType: PdfDocumentType = job.type_document;
-      // Attestation mise en file sans logo (correction de volume) : logo
-      // du client résolu au rendu.
+      // Rapports de don : contexte visuel (lieu, logos, association, photo,
+      // associations proches) lu au rendu, quel que soit le chemin du contenu.
       const payload =
         pdfType === 'attestation-don'
-          ? await completerLogoAttestation(supabase, job.entity_id, job.payload)
-          : job.payload;
+          ? await completerRapportDeDon(supabase, job.entity_id, job.payload)
+          : pdfType === 'rapport-evenement-sans-excedent'
+            ? await completerRapportSansExcedent(
+                supabase,
+                job.entity_id,
+                job.payload,
+              )
+            : job.payload;
       const { pdfBuffer } = await generatePdf(pdfType, payload);
 
       // Bucket = celui de l'environnement (rendu par l'upload) ; la nature du

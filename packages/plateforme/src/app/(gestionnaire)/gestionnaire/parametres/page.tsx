@@ -1,4 +1,5 @@
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
+import { LiensLegaux } from '@/components/layout/liens-legaux';
 import { ParametresGestionnaireClient } from './parametres-client';
 
 // Paramètres gestionnaire = ex « Mon organisation » (§06.05 §Navigation 8) + ex
@@ -19,6 +20,7 @@ export default async function ParametresPage({
       monProfil={
         <>
           <RgpdComptePanel />
+          <LiensLegaux nouvelOnglet className="pt-2 text-center" />
         </>
       }
     />

@@ -3,6 +3,7 @@ import { facturationPlateformeActive } from '@/lib/facturation-plateforme';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
+import { LiensLegaux } from '@/components/layout/liens-legaux';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
 import {
   ParametresOnglets,
@@ -62,6 +63,7 @@ export default async function ParametresAgencePage({
             </CardContent>
           </Card>
           <RgpdComptePanel />
+          <LiensLegaux nouvelOnglet className="pt-2 text-center" />
         </>
       ),
     },

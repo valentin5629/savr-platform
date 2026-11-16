@@ -13,8 +13,6 @@ import {
   CaretRightIcon,
   CaretUpDownIcon,
   GearIcon,
-  LockSimpleIcon,
-  ScalesIcon,
   SignOutIcon,
 } from '@/components/ui/icones';
 import {
@@ -322,29 +320,10 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                     </Link>
                   </DropdownItem>
                 )}
-                {/* Politique de confidentialité (CDC §15, 3.4), dans un nouvel
-                    onglet pour ne pas quitter l'écran en cours. */}
-                <DropdownItem asChild className="min-h-11">
-                  <Link
-                    href={ROUTES.confidentialite}
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    <LockSimpleIcon aria-hidden="true" />
-                    Confidentialité
-                  </Link>
-                </DropdownItem>
-                <DropdownItem asChild className="min-h-11">
-                  <Link
-                    href={ROUTES.mentionsLegales}
-                    target="_blank"
-                    rel="noopener"
-                  >
-                    <ScalesIcon aria-hidden="true" />
-                    Mentions légales
-                  </Link>
-                </DropdownItem>
-                <DropdownSeparator />
+                {/* Mentions légales et confidentialité : en bas de l'onglet
+                    « Mon profil », plus dans ce menu (Val 2026-11-16). Le
+                    séparateur ne suit que « Paramètres » (Admin : aucun). */}
+                {hrefParametres && <DropdownSeparator />}
                 <DropdownItem
                   className="min-h-11"
                   disabled={loggingOut}

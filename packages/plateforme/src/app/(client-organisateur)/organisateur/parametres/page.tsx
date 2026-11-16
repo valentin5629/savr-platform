@@ -1,6 +1,7 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
+import { LiensLegaux } from '@/components/layout/liens-legaux';
 import { InfosLegalesOrganisation } from '@/components/organisation/infos-legales-card';
 import { ParametresOnglets } from '@/components/parametres/parametres-onglets';
 import { ONGLET_ORGANISATION, ONGLET_PROFIL } from '@/lib/routes';
@@ -45,6 +46,7 @@ export default async function ParametresOrganisateurPage({
                 </CardContent>
               </Card>
               <RgpdComptePanel />
+              <LiensLegaux nouvelOnglet className="pt-2 text-center" />
             </>
           ),
         },

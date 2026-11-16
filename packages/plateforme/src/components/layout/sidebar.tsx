@@ -321,8 +321,9 @@ const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
                   </DropdownItem>
                 )}
                 {/* Mentions légales et confidentialité : en bas de l'onglet
-                    « Mon profil », plus dans ce menu (Val 2026-11-16). */}
-                <DropdownSeparator />
+                    « Mon profil », plus dans ce menu (Val 2026-11-16). Le
+                    séparateur ne suit que « Paramètres » (Admin : aucun). */}
+                {hrefParametres && <DropdownSeparator />}
                 <DropdownItem
                   className="min-h-11"
                   disabled={loggingOut}

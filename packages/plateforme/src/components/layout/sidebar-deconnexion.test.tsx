@@ -136,6 +136,8 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
       'Se déconnecter',
     ]);
+    // Pas de trait orphelin en tête de menu.
+    expect(screen.queryByRole('separator')).toBeNull();
   });
 
   it('page Paramètres ouverte : le bouton du menu porte la marque active', () => {

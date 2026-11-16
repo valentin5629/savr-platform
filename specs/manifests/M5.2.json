@@ -1,0 +1,246 @@
+{
+  "module": "M5.2",
+  "titre": "Migration Bubble — transformation des collectes et import idempotent",
+  "description": "Transformation de l'historique des collectes (1 collecte Bubble = 1 événement à 1 collecte), des pesées, des attributions anti-gaspi et des packs, puis écriture dans la base : une seule transaction, déclencheurs à effets coupés par leur nom puis rétablis, écriture qui ne crée rien en double (mise à jour des lignes qui diffèrent, insertion des absentes), contrôle de fin positif, CO₂ calculé par les fonctions de la base. L'import refuse toute base qui n'est pas la base locale jetable (hôte local + marqueur). Aucun fichier dans supabase/migrations/ : le schéma technique « migration » est créé par le script dans la base jetable seulement.",
+  "fichiers_produits": [
+    "apps/migration-bubble/src/transformations/collectes.ts",
+    "apps/migration-bubble/src/transformations/packs.ts",
+    "apps/migration-bubble/src/base.ts",
+    "apps/migration-bubble/src/importer.ts",
+    "apps/migration-bubble/src/cli.ts",
+    "apps/migration-bubble/base-jetable.sh",
+    "apps/migration-bubble/tests/m5-2-transformation-import.test.ts"
+  ],
+  "scenarios": [],
+  "deliverables": [
+    {
+      "id": "M5.2-statuts-collectes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:47",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — statuts, événement, lieu › statut Bubble → statut cible : terminée, sans excédent, annulée, à venir, jamais soldée",
+      "statut": "implemented",
+      "libelle": "Statuts Bubble → statuts cibles, historique complet"
+    },
+    {
+      "id": "M5.2-un-evenement-par-collecte",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — statuts, événement, lieu › 1 collecte Bubble = 1 événement à 1 collecte, nommé « Client - Lieu »",
+      "statut": "implemented",
+      "libelle": "1 collecte Bubble = 1 événement à 1 collecte, nommé « Client - Lieu » (décision Val 2026-10-30, fiche du Vault 08 §2)"
+    },
+    {
+      "id": "M5.2-type-evenement-autre",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:110",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — statuts, événement, lieu › 1 collecte Bubble = 1 événement à 1 collecte, nommé « Client - Lieu »",
+      "statut": "implemented",
+      "libelle": "Type d'événement « autre » pour tout l'historique"
+    },
+    {
+      "id": "M5.2-agence-traiteur-operationnel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:47",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — statuts, événement, lieu › collecte passée par une agence : l’agence porte l’événement",
+      "statut": "implemented",
+      "libelle": "Collecte d'agence : l'agence porte l'événement, le traiteur est opérationnel"
+    },
+    {
+      "id": "M5.2-statut-tms-non-envoye",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — statuts, événement, lieu › historique jamais transmis : statut prestataire « non_envoye », aucun prestataire",
+      "statut": "implemented",
+      "libelle": "statut_tms = non_envoye, aucun prestataire, pas de référence d'ancien logiciel sur une collecte à venir"
+    },
+    {
+      "id": "M5.2-collectes-marquees",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — données personnelles › toute collecte importée porte la marque « migration_bubble »",
+      "statut": "implemented",
+      "libelle": "Toute collecte importée porte l'origine « migration_bubble » (décision Val 2026-11-15) ; la colonne est posée par le script dans la base jetable, la migration du dépôt est un lot produit à part"
+    },
+    {
+      "id": "M5.2-rejets-traces",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:54",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — statuts, événement, lieu › lignes illisibles rejetées avec leur motif, jamais abandonnées en silence",
+      "statut": "implemented",
+      "libelle": "Lignes illisibles rejetées avec leur motif"
+    },
+    {
+      "id": "M5.2-flux-zero-dechet",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — pesées, attribution, historique partiel › flux Bubble → référentiel : DIB = déchet résiduel, plastique = emballage",
+      "statut": "implemented",
+      "libelle": "Pesées : DIB → dechet_residuel, plastique → emballage (décision Val 2026-11-02, fiche du Vault 08 §4)"
+    },
+    {
+      "id": "M5.2-attributions-anti-gaspi",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — pesées, attribution, historique partiel › attribution anti-gaspi créée seulement si association ET transporteur sont retrouvés",
+      "statut": "implemented",
+      "libelle": "Attribution anti-gaspi (association, transporteur, poids, repas) marquée migration_bubble (fiche du Vault 08 §5)"
+    },
+    {
+      "id": "M5.2-historique-partiel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:55",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — pesées, attribution, historique partiel › « historique partiel » : convives absents, don sans association, transporteur ou poids",
+      "statut": "implemented",
+      "libelle": "Flag collectes.historique_partiel sur les cas incomplets"
+    },
+    {
+      "id": "M5.2-contacts-portes-par-la-collecte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:47",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — données personnelles › contacts sur place portés par la collecte et recopiés sur l’événement",
+      "statut": "implemented",
+      "libelle": "Contacts portés par la collecte, copie tenue sur l'événement"
+    },
+    {
+      "id": "M5.2-donnees-personnelles-5-ans",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:106",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — données personnelles › collecte de plus de 5 ans : ni nom de contact, ni commercial, ni consigne libre",
+      "statut": "implemented",
+      "libelle": "Collectes de plus de 5 ans : aucun nom, téléphone ni email de contact repris"
+    },
+    {
+      "id": "M5.2-emails-des-commerciaux-gardes-a-part",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/transformations/collectes.ts",
+      "test": "M5.2 / collectes — données personnelles › email gardé à part, par événement, pour rendre son historique au commercial",
+      "statut": "implemented",
+      "libelle": "Email gardé par événement dans le schéma technique (celui du commercial Bubble, sinon le contact du traiteur, avec sa provenance), pour lui rendre son historique à son inscription (décision Val 2026-11-15) ; l'auteur importé reste le compte système"
+    },
+    {
+      "id": "M5.2-bornes-de-la-base",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/normalisation.ts",
+      "test": "M5.2 / collectes — données personnelles › bornes de la base respectées avant écriture",
+      "statut": "implemented",
+      "libelle": "Bornes de longueur et de caractères tenues avant l'écriture (contraintes CHECK du schéma)"
+    },
+    {
+      "id": "M5.2-packs-credits-recomptes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:84",
+      "artefact": "apps/migration-bubble/src/transformations/packs.ts",
+      "test": "M5.2 / packs — crédits recomptés, jamais débités par déclencheur › taille → type et crédits ; crédits consommés = collectes rattachées et débitées",
+      "statut": "implemented",
+      "libelle": "Packs : crédits consommés recomptés depuis les collectes rattachées"
+    },
+    {
+      "id": "M5.2-packs-un-seul-actif",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:44",
+      "artefact": "apps/migration-bubble/src/transformations/packs.ts",
+      "test": "M5.2 / packs — crédits recomptés, jamais débités par déclencheur › un seul pack actif par organisation : le plus récent le reste",
+      "statut": "implemented",
+      "libelle": "Un seul pack actif par organisation"
+    },
+    {
+      "id": "M5.2-abonnements-packs-historiques",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:44",
+      "artefact": "apps/migration-bubble/src/transformations/packs.ts",
+      "test": "M5.2 / packs — crédits recomptés, jamais débités par déclencheur › abonnements = packs historiques : terminé → épuisé par convention",
+      "statut": "implemented",
+      "libelle": "Abonnements importés comme packs historiques"
+    },
+    {
+      "id": "M5.2-garde-base-locale",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / garde — l’import ne tourne que sur la base locale jetable › refuse : projet hébergé",
+      "statut": "implemented",
+      "libelle": "L'import refuse toute base qui n'est pas locale (décision Val 2026-10-28, fiche du Vault 03)"
+    },
+    {
+      "id": "M5.2-garde-base-jetable",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; aucune sortie dans le dépôt › base sans marqueur : une seule requête (la lecture du marqueur), puis connexion fermée",
+      "statut": "implemented",
+      "libelle": "L'import exige le marqueur de la base jetable, lu avant toute autre requête (décision Val 2026-10-28)"
+    },
+    {
+      "id": "M5.2-aucune-sortie-dans-le-depot",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; aucune sortie dans le dépôt › refuse un dossier de travail placé dans le dépôt, accepte un dossier voisin ou extérieur",
+      "statut": "implemented",
+      "libelle": "Le dossier de travail (cache, fichiers à valider, rapports, données réelles) est refusé s'il est dans le dépôt, qui est public"
+    },
+    {
+      "id": "M5.2-import-idempotent",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / écriture idempotente › rejeu : rien d’inséré, rien de modifié",
+      "statut": "partial",
+      "libelle": "Import rejouable : rien créé en double. En CI, seul le texte SQL de l'écriture est prouvé (faux client). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
+    },
+    {
+      "id": "M5.2-controle-de-fin-positif",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / écriture idempotente › contrôle de fin positif : une écriture filtrée en silence fait échouer",
+      "statut": "partial",
+      "libelle": "Contrôle de fin positif après chaque écriture. En CI, seule la lecture de la réponse est prouvée (faux client). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
+    },
+    {
+      "id": "M5.2-declencheurs-coupes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:16",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / déclencheurs — coupés par leur nom, rétablis, inventaire fermé › coupe les déclencheurs qui débitent un pack, écrivent un ordre, un document ou une alerte",
+      "statut": "implemented",
+      "libelle": "Déclencheurs à effets coupés pendant l'import, puis rétablis"
+    },
+    {
+      "id": "M5.2-declencheurs-inventaire-ferme",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:16",
+      "artefact": "apps/migration-bubble/src/base.ts",
+      "test": "M5.2 / déclencheurs — coupés par leur nom, rétablis, inventaire fermé › s’arrête si la base porte un déclencheur non classé, ou s’il en manque un",
+      "statut": "implemented",
+      "libelle": "Arrêt si un déclencheur des tables cibles n'est pas classé"
+    },
+    {
+      "id": "M5.2-transaction-sans-effet-de-bord",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:16",
+      "artefact": "apps/migration-bubble/src/importer.ts",
+      "test": "M5.2 / import — une transaction, aucun effet de bord › annule tout si une table d’ordres, de documents ou d’emails a reçu une ligne",
+      "statut": "implemented",
+      "libelle": "Une transaction ; annulation si un ordre, un document, un email ou une alerte est écrit"
+    },
+    {
+      "id": "M5.2-co2-par-les-fonctions-de-la-base",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
+      "artefact": "apps/migration-bubble/src/importer.ts",
+      "test": "M5.2 / import — une transaction, aucun effet de bord › écrit les tables dans l’ordre des dépendances, déclencheurs coupés puis rétablis, et valide",
+      "statut": "partial",
+      "libelle": "CO₂, taux de recyclage et repas recalculés à l'import par les fonctions de la base, une fois par collecte clôturée (fiches du Vault 03 étape 13 et 04 §10). En CI, seul l'ordre des appels est prouvé (faux client). Preuve complète : répétition sur base jetable (« M5.3 / répétition sur base jetable », jouée localement avec MIGRATION_BUBBLE_TEST_DATABASE_URL, sautée en CI qui n'a pas de base) et répétition n° 1 sur les exports réels."
+    },
+    {
+      "id": "M5.2-factures-et-documents-non-migres",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:48",
+      "artefact": "apps/migration-bubble/src/importer.ts",
+      "test": "M5.2 / import — une transaction, aucun effet de bord › aucune facture, aucun document, aucun fichier dans le plan",
+      "statut": "implemented",
+      "libelle": "Aucune facture, aucun document, aucun logo envoyé"
+    },
+    {
+      "id": "M5.2-brouillons-non-migres",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:60",
+      "artefact": null,
+      "test": null,
+      "statut": "partial",
+      "libelle": "« Brouillons non migrés » : le statut Bubble « Créée » est importé (à venir) ou annulé (passé) selon la fiche de mapping 08 — contradiction avec le §13, soumise à Val"
+    }
+  ],
+  "cdc_source_hash": {
+    "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md": "4c808a3c08c3185f1ab9a2bfd403d4bf75c47623b92d452166904ab663a656bc",
+    "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "aaa3e673259e71204c1108d6ddb42a4f9895a16f3d3749511e99a36c0c74d958",
+    "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md": "10025603d399263c70770dd3aefcbaa59e926acd639ef1a6714f180e3014911a"
+  }
+}

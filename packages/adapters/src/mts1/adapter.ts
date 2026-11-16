@@ -61,6 +61,7 @@ import { estIdentifiantMts1, Mts1Client } from './client.js';
 import type { Mts1CustomerOrder, Mts1Tour, Mts1TourStop } from './mock.js';
 import { decalerJour, jourParis } from '@savr/shared/src/temps/index.js';
 import { uneLigne } from '../infos-acces.js';
+import { VEHICULE_LABEL } from '@savr/shared/src/vehicules/index.js';
 
 // `collectes.lieu_overrides` — jsonb libre porté par la collecte (§06.01).
 interface CollecteLieuOverridesRow {
@@ -115,23 +116,36 @@ const FLUX_STUFFS_ZD = [
   'Verre (en kg)',
 ];
 
-// Mapping libellés MTS-1 → codes flux_dechets (entrant)
-// '_ignore' = pas un flux de déchets, jamais une pesée :
-//   - le stuff « camion » ;
-//   - le don d'une collecte AG, que buildOrderPayload crée lui-même : ce n'est
-//     pas un flux de déchets, son poids est lu à part (`poidsDuDon`,
-//     `releverPoidsDon`, décision Val 2026-11-13).
-const STUFF_DON = 'Don alimentaire';
+// Don d'une collecte AG : le nom de l'article chez Bubble, relevé le 2026-11-16
+// sur les commandes du compte de prod (décision Val du même jour). Ancien nom
+// envoyé par la plateforme : encore lu, pour les commandes déjà passées.
+const STUFF_DON = 'Excédents alimentaires (en kg)';
+const STUFFS_DON = new Set([STUFF_DON, 'Don alimentaire']);
 
-const STUFF_TO_FLUX: Record<string, string | '_ignore'> = {
+// Mapping libellés MTS-1 → codes flux_dechets (entrant). Tout autre article
+// (camion, don d'une collecte AG) n'est pas un flux de déchets, jamais une
+// pesée : le don est lu à part (`poidsDuDon`, `releverPoidsDon`, décision Val
+// 2026-11-13), le camion ne porte que le véhicule (`articleHorsFlux`).
+const STUFF_TO_FLUX: Record<string, string> = {
   'Bio-déchets (en kg)': 'biodechet',
   'Carton (en kg)': 'carton',
   'D.I.B (en kg)': 'dechet_residuel',
   'Film plastique (en kg)': 'emballage',
   'Verre (en kg)': 'verre',
-  '<volume_du_camion>': '_ignore',
-  [STUFF_DON]: '_ignore',
 };
+
+// Articles connus qui ne sont pas des flux : jamais tracés en « stuff inconnu ».
+// Camion : le libellé du véhicule choisi par l'Admin (`VEHICULE_LABEL`), le
+// texte `<volume_du_camion>` envoyé jusqu'au 2026-11-16, ou le volume des
+// commandes Bubble (« 3m3 », « 6m3 », relevés le 2026-11-16).
+function articleHorsFlux(nom: string): boolean {
+  return (
+    STUFFS_DON.has(nom) ||
+    nom === '<volume_du_camion>' ||
+    Object.values(VEHICULE_LABEL).includes(nom) ||
+    /^\d+ ?m3$/.test(nom)
+  );
+}
 
 // Statuts de collecte où le poids du don lu chez MTS-1 est écrit. Ni clôturée
 // (même règle que les pesées ZD, R7), ni annulée, ni « sans excédent ».
@@ -351,12 +365,12 @@ function arretEnlevement(
 }
 
 // Poids du don d'une collecte AG saisi par le chauffeur sur l'arrêt d'enlèvement :
-// `quantityAfterDelivery` du stuff « Don alimentaire », en kg, comme les flux ZD
+// `quantityAfterDelivery` du stuff du don (`STUFFS_DON`), en kg, comme les flux ZD
 // (mesuré le 2026-11-13 sur le compte de démonstration : `quantityAfterPickup` à
 // 1, `quantityAfterDelivery` à 56 pour 56 kg saisis). `null` : rien de saisi
 // (absent, 0 ou non numérique), comme un flux ZD non pesé.
 function poidsDuDon(stop: Mts1TourStop): number | null {
-  const don = (stop.stuffs ?? []).find((s) => s?.name === STUFF_DON);
+  const don = (stop.stuffs ?? []).find((s) => s && STUFFS_DON.has(s.name));
   const poids = don?.quantityAfterDelivery;
   return typeof poids === 'number' && poids > 0 ? poids : null;
 }
@@ -1340,6 +1354,11 @@ export class AdapterMts1 implements LogistiqueProvider {
     // creux) et vide pour un tour sans commande : dans les deux cas aucun arrêt
     // ne sert la commande, rien n'est lu et le traitement du statut continue.
     const enlevement = arretEnlevement(tour, customerOrderId);
+    const missionTerminee = (enlevement?.customerOrders ?? []).some(
+      (c) =>
+        c?.customerOrderId === customerOrderId &&
+        c.customerOrderProgressionStatus === 'FINISHED',
+    );
     const peseesModifiees = enlevement
       ? await this.relevePesees(
           enlevement,
@@ -1348,16 +1367,13 @@ export class AdapterMts1 implements LogistiqueProvider {
           collecteStatut,
           fluxById,
           seuils,
+          missionTerminee,
         )
       : false;
 
     return {
       tour,
-      missionTerminee: (enlevement?.customerOrders ?? []).some(
-        (c) =>
-          c?.customerOrderId === customerOrderId &&
-          c.customerOrderProgressionStatus === 'FINISHED',
-      ),
+      missionTerminee,
       peseesModifiees,
       poidsDon: enlevement ? poidsDuDon(enlevement) : null,
     };
@@ -1388,6 +1404,7 @@ export class AdapterMts1 implements LogistiqueProvider {
     collecteStatut: string,
     fluxById: Map<string, string>,
     seuils: { min: number; max: number },
+    missionTerminee: boolean,
   ): Promise<boolean> {
     const stopId = enlevement.stopId;
     // Par flux : un même flux répété sur l'arrêt (jamais mesuré, Savr n'envoie
@@ -1400,25 +1417,43 @@ export class AdapterMts1 implements LogistiqueProvider {
     for (const stuff of enlevement.stuffs ?? []) {
       if (!stuff) continue;
       const fluxCode = STUFF_TO_FLUX[stuff.name];
-
-      // Camion, don alimentaire → ignorer silencieusement
-      if (fluxCode === '_ignore') continue;
-
-      // Stuff inconnu → trace
       if (fluxCode === undefined) {
-        await this.logEntrantError(
-          'STUFF_INCONNU',
-          `tournee=${tourneeId} stop=${stopId} stuff="${stuff.name}"`,
-        );
+        // Camion, don alimentaire → ignorer silencieusement ; inconnu → trace
+        if (!articleHorsFlux(stuff.name)) {
+          await this.logEntrantError(
+            'STUFF_INCONNU',
+            `tournee=${tourneeId} stop=${stopId} stuff="${stuff.name}"`,
+          );
+        }
         continue;
       }
 
       const fluxId = fluxById.get(fluxCode);
-      const poids = stuff.quantityAfterDelivery;
-      if (!fluxId || typeof poids !== 'number' || !(poids > 0)) continue;
+      if (!fluxId) continue;
+      const saisi = stuff.quantityAfterDelivery;
+      const poids = typeof saisi === 'number' && saisi > 0 ? saisi : 0;
       lues.set(fluxId, { fluxId, fluxCode, poids });
     }
-    if (lues.size === 0) return false;
+    // Flux non pesé = 0 kg, il n'y en avait pas (décision Val 2026-11-16) —
+    // mais seulement si le chauffeur a pesé au moins un flux de l'arrêt. Rien de
+    // pesé du tout : aucune ligne, jamais de bordereau à 0 kg ; mission finie,
+    // l'équipe Savr est prévenue (même décision).
+    const fluxPeses = [...lues.values()].filter((l) => l.poids > 0);
+    if (fluxPeses.length === 0) {
+      if (lues.size > 0 && missionTerminee) {
+        const cle = `mts1:pesees_absentes:${tourneeId}:${stopId}`;
+        if (await this.premiereFois('pesees_absentes', cle)) {
+          await this.supabase.rpc('f_upsert_alerte_admin', {
+            p_code: 'pesees_absentes',
+            p_titre: 'Aucun poids saisi',
+            p_message: `Mission terminée sans aucun poids saisi par le chauffeur — tournée ${tourneeId} stop ${stopId}. Aucun document n'est fabriqué tant qu'un poids manque : le demander au transporteur ou le saisir dans la fiche.`,
+            p_entity_type: 'collectes',
+            p_entity_id: collecteId,
+          });
+        }
+      }
+      return false;
+    }
 
     const { data: existantes, error: erreurLecture } = await this.supabase
       .from('pesees_tournees')
@@ -1486,8 +1521,9 @@ export class AdapterMts1 implements LogistiqueProvider {
       }
       modifiees = true;
 
-      // Alerte in-app si pesée hors seuil (pas d'email, pas de Slack — §13 CLAUDE.md)
-      if (poids < seuils.min || poids > seuils.max) {
+      // Alerte in-app si pesée hors seuil (pas d'email, pas de Slack — §13
+      // CLAUDE.md). Un flux à 0 kg n'a pas été pesé : jamais hors seuil.
+      if (poids > 0 && (poids < seuils.min || poids > seuils.max)) {
         await this.supabase.rpc('f_upsert_alerte_admin', {
           p_code: 'pesee_hors_seuil',
           p_titre: 'Pesée hors seuil',
@@ -2933,8 +2969,16 @@ export class AdapterMts1 implements LogistiqueProvider {
       : {};
 
     // Marchandise transportée (pesée plus tard → quantity 0), chaque stuff portant le
-    // point B (relatedAddress). ZD = 5 flux + volume du camion ; AG = le don
+    // point B (relatedAddress). ZD = 5 flux + le camion ; AG = le don
     // alimentaire (poids/photos remontés ensuite par le polling, comme les pesées ZD).
+    // Camion (décision Val 2026-11-16) : un article au libellé du véhicule choisi
+    // par l'Admin (« 20 m³ simple »), quantité 1, comme le volume des commandes
+    // Bubble. L'envoi d'une ZD sans véhicule est refusé en amont (route
+    // d'envoi) ; un ordre plus ancien qui n'en a pas part sans article camion,
+    // jamais avec un texte à remplir.
+    const camion = collecte.type_vehicule_souhaite
+      ? VEHICULE_LABEL[collecte.type_vehicule_souhaite]
+      : undefined;
     return isZd
       ? [
           ...FLUX_STUFFS_ZD.map((name) => ({
@@ -2943,16 +2987,13 @@ export class AdapterMts1 implements LogistiqueProvider {
             quantity: 0,
             ...relatedAddress,
           })),
-          {
-            name: '<volume_du_camion>',
-            task: 'PICKUP',
-            quantity: 1,
-            ...relatedAddress,
-          },
+          ...(camion
+            ? [{ name: camion, task: 'PICKUP', quantity: 1, ...relatedAddress }]
+            : []),
         ]
       : [
           {
-            name: 'Don alimentaire',
+            name: STUFF_DON,
             task: 'PICKUP',
             quantity: 0,
             ...relatedAddress,

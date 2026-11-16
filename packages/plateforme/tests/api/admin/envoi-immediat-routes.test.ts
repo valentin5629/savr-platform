@@ -196,6 +196,7 @@ const collecteZd = (over: Record<string, unknown> = {}) => ({
     date_collecte: '2027-01-20',
     dirty_tms: false,
     prestataire_logistique_id: 'prest-strike',
+    type_vehicule_souhaite: 'camion_20m3_simple',
     ...over,
   },
   error: null,

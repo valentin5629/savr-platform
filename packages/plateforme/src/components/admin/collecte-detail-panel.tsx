@@ -2138,12 +2138,18 @@ export function CollecteDetailPanel({
     tentative: null,
     motif: null,
   };
-  // Même règle que l'envoi automatique : nom + téléphone pour chaque camion.
+  // Même règle que l'envoi automatique (fn_infos_acces_marquer_si_complet) :
+  // nom + plaque pour chaque camion, à défaut de plaque un téléphone (vélo
+  // cargo) — décision Val 2026-11-16, MTS-1 ne fournit pas le téléphone.
   const coordonneesCompletes =
     rangsChauffeur.length > 0 &&
     rangsChauffeur.every((rang) => {
       const t = tourneeParRang.get(rang)?.tournees;
-      return !!t?.chauffeur_nom?.trim() && !!t?.chauffeur_telephone?.trim();
+      return (
+        !!t?.chauffeur_nom?.trim() &&
+        (!!t?.plaque_immatriculation?.trim() ||
+          !!t?.chauffeur_telephone?.trim())
+      );
     });
   // Contrôle d'accès demandé, collecte encore à réaliser, coordonnées
   // incomplètes : le bloc « Chauffeur » est encadré (décision Val 2026-10-27).

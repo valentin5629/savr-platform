@@ -16,7 +16,7 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
  *
  * Décision Val 2026-07-15 (réintroduction V1 d'un workflow descopé Q10 M05) :
  * pour toute collecte `controle_acces_requis`, dès que TOUTES ses tournées ont
- * nom + téléphone chauffeur, on envoie UN email récapitulatif au programmateur
+ * nom + plaque (à défaut de plaque, téléphone — vélo cargo) — Val 2026-11-16 —, on envoie UN email récapitulatif au programmateur
  * (`evenements.created_by`) listant tous les chauffeurs (multi-camions → 1 email).
  *
  * Le claim (stamp `infos_acces_email_envoye_at`) + la lecture des données sont
@@ -72,10 +72,12 @@ export function renderChauffeursBloc(
       const titre = multi ? `<p><strong>Camion ${c.rang}</strong></p>` : '';
       const lignes: string[] = [];
       const nom = c.chauffeur_nom ? escapeHtml(c.chauffeur_nom) : '—';
-      const tel = c.chauffeur_telephone
-        ? escapeHtml(c.chauffeur_telephone)
-        : '—';
-      lignes.push(`<li>Chauffeur : ${nom} — ${tel}</li>`);
+      // Téléphone seulement s'il est connu : MTS-1 ne le fournit pas, l'email
+      // part sur nom + plaque (décision Val 2026-11-16).
+      const tel = c.chauffeur_telephone?.trim()
+        ? ` — ${escapeHtml(c.chauffeur_telephone)}`
+        : '';
+      lignes.push(`<li>Chauffeur : ${nom}${tel}</li>`);
       if (c.plaque) lignes.push(`<li>Plaque : ${escapeHtml(c.plaque)}</li>`);
       if (c.accompagnant_nom) {
         const aNom = escapeHtml(c.accompagnant_nom);
@@ -255,3 +257,45 @@ async function adresseComplete(
 
 const un = <T>(v: T | T[] | null | undefined): T | undefined =>
   Array.isArray(v) ? v[0] : (v ?? undefined);
+
+// Collectes encore à réaliser, seules à recevoir l'email (une collecte réalisée
+// ou annulée n'a plus d'accès à préparer).
+const STATUTS_A_VENIR = ['programmee', 'validee', 'en_cours'];
+// Borne d'un passage : l'envoi de chaque email attend Resend, la relève vit
+// sous la limite de 60 s de sa fonction.
+const MAX_PAR_PASSAGE = 20;
+
+/**
+ * Passe des emails « Accès chauffeur » après la relève des transporteurs
+ * (décision Val 2026-11-16) : le chauffeur et la plaque arrivent de MTS-1 par
+ * la relève, sans saisie Admin, et rien ne déclenchait alors l'email. Chaque
+ * collecte à contrôle d'accès, à venir et sans email réservé est évaluée ; la
+ * fonction SQL ne réserve et ne renvoie de quoi écrire que si tous ses camions
+ * sont complets, sous verrou de la collecte (jamais deux emails).
+ */
+export async function envoyerInfosAccesCompletes(
+  supabase: AdminSupabase,
+  aujourdhui: string,
+): Promise<{ evaluees: number; envoyes: number }> {
+  const { data, error } = await supabase
+    .from('collectes')
+    .select('id')
+    .eq('controle_acces_requis', true)
+    .is('infos_acces_email_envoye_at', null)
+    .in('statut', STATUTS_A_VENIR)
+    .gte('date_collecte', aujourdhui)
+    .order('date_collecte', { ascending: true })
+    .limit(MAX_PAR_PASSAGE);
+  if (error) {
+    logger.error('infos_acces.passage_lecture_echec', {
+      error_code: (error as { code?: string }).code ?? 'UNKNOWN',
+    });
+    return { evaluees: 0, envoyes: 0 };
+  }
+  let envoyes = 0;
+  for (const { id } of (data ?? []) as Array<{ id: string }>) {
+    const { envoye } = await evaluerInfosAccesEtEnvoyer(supabase, id);
+    if (envoye) envoyes++;
+  }
+  return { evaluees: data?.length ?? 0, envoyes };
+}

@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
+  interpolate,
   setEmailCaptureSink,
   type CapturedEmail,
 } from '@savr/shared/src/email/index.js';
@@ -111,6 +114,34 @@ describe('M0.6 / infos accès — email récap (evaluerInfosAccesEtEnvoyer)', ()
     expect(bloc).toContain('0611111111');
     expect(bloc).toContain('Marie Martin');
     expect(bloc).toContain('Luc Bernard');
+  });
+
+  it('phrase au singulier pour un camion, au pluriel pour plusieurs (Val 2026-11-16)', async () => {
+    const un = creerBase({
+      data: { ...PAYLOAD_COMPLET, chauffeurs: [PAYLOAD_COMPLET.chauffeurs[0]] },
+    });
+    await evaluerInfosAccesEtEnvoyer(client(un), 'coll-1');
+    const deux = creerBase({ data: PAYLOAD_COMPLET });
+    await evaluerInfosAccesEtEnvoyer(client(deux), 'coll-1');
+
+    const corps = gabaritEnBase();
+    const [seul, plusieurs] = emails.map((e) =>
+      interpolate(corps, e.variables),
+    );
+    expect(seul).toContain(
+      "Voici le nom et la plaque d'immatriculation du chauffeur qui interviendra sur votre événement",
+    );
+    expect(seul).not.toContain('des chauffeurs');
+    expect(plusieurs).toContain(
+      "Voici les noms et les plaques d'immatriculation des chauffeurs qui interviendront sur votre événement",
+    );
+    expect(plusieurs).not.toContain('du chauffeur qui');
+    for (const html of [seul, plusieurs]) {
+      expect(html).toContain(
+        'Si ces informations étaient amenées à changer, nous vous enverrons un nouvel email dans les plus brefs délais.',
+      );
+      expect(html).not.toContain('{{');
+    }
   });
 
   it('email parti → claim conservé, et l’alerte « non remis » ouverte pour la collecte est close', async () => {
@@ -355,3 +386,22 @@ describe('M0.6 / infos accès — passage après la relève (envoyerInfosAccesCo
     expect(emails).toHaveLength(0);
   });
 });
+
+/** Corps du gabarit `infos_acces_collecte` tel que posé par la dernière migration qui le réécrit. */
+function gabaritEnBase(): string {
+  const dossier = resolve(__dirname, '../../../../../supabase/migrations');
+  const corps = readdirSync(dossier)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .flatMap((f) =>
+      readFileSync(resolve(dossier, f), 'utf8').split(
+        'UPDATE plateforme.email_templates',
+      ),
+    )
+    .filter((bloc) => bloc.includes("WHERE code = 'infos_acces_collecte'"))
+    .map((bloc) => /corps_html = \$tpl\$([\s\S]*?)\$tpl\$/.exec(bloc)?.[1])
+    .filter((c): c is string => !!c)
+    .at(-1);
+  if (!corps) throw new Error('gabarit infos_acces_collecte introuvable');
+  return corps;
+}

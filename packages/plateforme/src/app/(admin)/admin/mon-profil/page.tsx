@@ -2,6 +2,7 @@ import { requireStaffPage } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChangerMotDePassePanel } from '@/components/compte/changer-mot-de-passe-panel';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
+import { LiensLegaux } from '@/components/layout/liens-legaux';
 import { PageHero } from '@/components/ui/page-hero';
 import { UserCircleIcon } from '@/components/ui/icones';
 
@@ -38,6 +39,8 @@ export default async function MonProfilAdminPage() {
       <ChangerMotDePassePanel />
 
       <RgpdComptePanel avecSuppression={false} />
+
+      <LiensLegaux nouvelOnglet className="pt-2 text-center" />
     </div>
   );
 }

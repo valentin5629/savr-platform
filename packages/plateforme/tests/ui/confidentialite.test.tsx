@@ -96,7 +96,7 @@ describe('écrans d’authentification : lien vers la politique', () => {
       </AuthPage>,
     );
     expect(
-      screen.getByRole('link', { name: 'Politique de confidentialité' }),
+      screen.getByRole('link', { name: 'Confidentialité' }),
     ).toHaveAttribute('href', '/confidentialite');
   });
 });

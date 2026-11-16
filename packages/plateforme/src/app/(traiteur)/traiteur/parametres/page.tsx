@@ -1,6 +1,7 @@
 import { requirePageSession } from '@/lib/page-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RgpdComptePanel } from '@/components/compte/rgpd-compte-panel';
+import { LiensLegaux } from '@/components/layout/liens-legaux';
 import { ChangerMotDePassePanel } from '@/components/compte/changer-mot-de-passe-panel';
 import { ParametresTraiteurClient } from './parametres-client';
 
@@ -48,6 +49,7 @@ export default async function ParametresTraiteurPage({
           </Card>
           <ChangerMotDePassePanel />
           <RgpdComptePanel />
+          <LiensLegaux nouvelOnglet className="pt-2 text-center" />
         </>
       }
     />

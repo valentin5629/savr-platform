@@ -26,8 +26,14 @@ import { TMS_BUBBLE_CAMION } from '../src/referentiel-tms';
 import {
   BRANCHE_MIGRATION,
   CONTACT_INCONNU,
+  MOTIF_PAS_D_EXCEDENTS,
+  MOTIF_SANS_POIDS,
   TELEPHONE_INCONNU,
 } from '../src/transformations/collectes';
+import {
+  NOM_ASSOCIATION_HISTORIQUE,
+  NOM_TRANSPORTEUR_HISTORIQUE,
+} from '../src/transformations/referentiels';
 import {
   LIEU_SITUE,
   abonnement,
@@ -47,11 +53,13 @@ import {
 const ASSO = 'PARIS / Association Epsilon';
 
 describe('M5.2 / collectes — statuts, événement, lieu', () => {
-  it('statut Bubble → statut cible : terminée, sans excédent, annulée, à venir, jamais soldée', () => {
+  it('statut Bubble → statut cible : terminée avec ou sans poids, sans excédent, annulée, à venir, jamais soldée', () => {
     const plan = monde({
       collectes_ag: [
-        collecte({ Identifiant: 'A' }),
+        collecte({ Identifiant: 'A', 'Poids total': '5' }),
         collecte({ Identifiant: 'B', "Pas d'excédents": 'oui' }),
+        collecte({ Identifiant: 'G' }),
+        collecte({ Identifiant: 'H', 'Poids total': '0' }),
         collecte({ Identifiant: 'C', Statut: 'Annulée' }),
         collecte({
           Identifiant: 'D',
@@ -84,6 +92,9 @@ describe('M5.2 / collectes — statuts, événement, lieu', () => {
     expect(statuts).toEqual({
       A: ['anti_gaspi', 'cloturee', null],
       B: ['anti_gaspi', 'realisee_sans_collecte', null],
+      // Terminée sans poids ni mention « pas d'excédents » : « sans excédent » (Val 2026-11-16).
+      G: ['anti_gaspi', 'realisee_sans_collecte', null],
+      H: ['anti_gaspi', 'realisee_sans_collecte', null],
       C: [
         'anti_gaspi',
         'annulee',
@@ -96,11 +107,26 @@ describe('M5.2 / collectes — statuts, événement, lieu', () => {
     expect(
       plan.listings['collectes-non-soldees']!.map((l) => l.identifiant),
     ).toEqual(['E']);
-    const sansExcedent = plan.tables.collectes.find(
-      (c) => c.statut === 'realisee_sans_collecte',
-    )!;
-    expect(sansExcedent.aucun_repas_motif).toBe(
-      'Migration Bubble — pas d’excédents',
+    // Le motif dit d'où vient le « sans excédent » : la mention Bubble, ou le poids manquant.
+    expect(
+      Object.fromEntries(
+        plan.tables.collectes
+          .filter((c) => c.aucun_repas_motif !== null)
+          .map((c) => [parRef.get(c.evenement_id), c.aucun_repas_motif]),
+      ),
+    ).toEqual({
+      B: MOTIF_PAS_D_EXCEDENTS,
+      G: MOTIF_SANS_POIDS,
+      H: MOTIF_SANS_POIDS,
+    });
+    expect(MOTIF_PAS_D_EXCEDENTS).toBe('Migration Bubble — pas d’excédents');
+    expect(plan.listings['ag-sans-poids']!.map((l) => l.identifiant)).toEqual([
+      'G',
+      'H',
+    ]);
+    // Aucune attribution, donc aucune fiche « historique non renseigné », sans poids.
+    expect(plan.tables.attributions_antgaspi.map((a) => a.collecte_id)).toEqual(
+      [plan.tables.collectes[0]!.id],
     );
   });
 
@@ -261,7 +287,7 @@ describe('M5.2 / collectes — pesées, attribution, historique partiel', () => 
     expect(plan.listings['poids-non-repris']).toHaveLength(1);
   });
 
-  it('attribution anti-gaspi créée seulement si association ET transporteur sont retrouvés ; repas = poids ÷ 0,45 arrondi au supérieur', () => {
+  it('attribution de tout don clôturé : association et transporteur de Bubble, sinon les fiches inactives « historique non renseigné » ; repas = poids ÷ 0,45 arrondi au supérieur', () => {
     const t = transporteur();
     const complete = collecte({
       Transporteur: t['unique id']!,
@@ -275,21 +301,75 @@ describe('M5.2 / collectes — pesées, attribution, historique partiel', () => 
     const exutoire = collecte({
       Transporteur: t['unique id']!,
       'Point de dépot': 'Exutoire Lambda',
+      'Poids total': '3',
     });
-    const plan = monde({
+    const sansRien = collecte({ 'Poids total': '2' });
+    const sansPoids = collecte({
+      Transporteur: t['unique id']!,
+      'Point de dépot': ASSO,
+    });
+    const lignes = {
       transporteurs: [t],
       points_depot: [
         pointDepot(),
         pointDepot({ Nom: 'Exutoire Lambda', Type: '' }),
       ],
-      collectes_ag: [complete, sansTransporteur, exutoire],
+    };
+    // Rien ne manque : aucune fiche historique n'est créée.
+    const sansManque = monde({ ...lignes, collectes_ag: [complete] });
+    expect(sansManque.tables.associations).toHaveLength(1);
+    expect(sansManque.tables.transporteurs).toHaveLength(1);
+    expect(sansManque.listings['ag-attribution-historique']).toBeUndefined();
+
+    const plan = monde({
+      ...lignes,
+      collectes_ag: [complete, sansTransporteur, exutoire, sansRien, sansPoids],
     });
-    const attribution = seule(plan.tables.attributions_antgaspi);
+    // Une seule fiche historique de chaque sorte, inactive, quel que soit le nombre de dons portés.
+    const [association, associationHistorique] = plan.tables.associations;
+    const [transporteurBubble, transporteurHistorique] =
+      plan.tables.transporteurs;
+    expect(plan.tables.associations).toHaveLength(2);
+    expect(plan.tables.transporteurs).toHaveLength(2);
+    expect(associationHistorique).toMatchObject({
+      id: identifiantCible('association', 'historique-non-renseignee'),
+      nom: NOM_ASSOCIATION_HISTORIQUE,
+      actif: false,
+      habilitee_attestation_fiscale: false,
+    });
+    expect(transporteurHistorique).toMatchObject({
+      id: identifiantCible('transporteur', 'historique-non-renseigne'),
+      nom: NOM_TRANSPORTEUR_HISTORIQUE,
+      actif: false,
+      type_tms: 'autre',
+    });
+    expect(
+      plan.correspondances
+        .filter((c) => c.sourceType === 'systeme')
+        .map((c) => [c.bubbleId, c.cibleId]),
+    ).toEqual(
+      expect.arrayContaining([
+        ['association-historique', associationHistorique!.id],
+        ['transporteur-historique', transporteurHistorique!.id],
+      ]),
+    );
+    expect(
+      plan.tables.attributions_antgaspi.map((a) => [
+        a.association_id,
+        a.transporteur_id,
+        a.poids_repas_kg,
+        a.volume_repas_realise,
+      ]),
+    ).toEqual([
+      [association!.id, transporteurBubble!.id, 12.6, 28],
+      [association!.id, transporteurHistorique!.id, 8, 18],
+      [associationHistorique!.id, transporteurBubble!.id, 3, 7],
+      [associationHistorique!.id, transporteurHistorique!.id, 2, 5],
+    ]);
+    const attribution = plan.tables.attributions_antgaspi[0]!;
     expect(attribution).toMatchObject({
       id: identifiantCible('attribution', complete['unique id']!),
       collecte_id: identifiantCible('collecte', complete['unique id']!),
-      association_id: seule(plan.tables.associations).id,
-      transporteur_id: seule(plan.tables.transporteurs).id,
       branche_attribution: BRANCHE_MIGRATION,
       mode_validation: 'manuel_top1',
       poids_repas_kg: 12.6,
@@ -298,21 +378,33 @@ describe('M5.2 / collectes — pesées, attribution, historique partiel', () => 
     });
     expect(BRANCHE_MIGRATION).toBe('migration_bubble');
     expect(
-      plan.listings['ag-sans-attribution']!.map((l) => [
+      plan.listings['ag-attribution-historique']!.map((l) => [
         l.manque,
         l.poids_total_kg,
       ]),
     ).toEqual([
       ['transporteur', 8],
-      ['association', ''],
+      ['association', 3],
+      ['association et transporteur', 2],
     ]);
-    // Le transporteur d'une collecte sans attribution reste lisible dans les notes.
-    expect(plan.tables.collectes[2]!.notes_internes).toContain(
-      'Transporteur: Coursiers Zêta',
-    );
+    // Un don porté par une fiche historique reste « historique partiel ».
+    expect(plan.tables.collectes.map((c) => c.statut)).toEqual([
+      'cloturee',
+      'cloturee',
+      'cloturee',
+      'cloturee',
+      'realisee_sans_collecte',
+    ]);
+    // Ce que Bubble nomme sans que l'attribution le porte reste lisible dans les notes.
+    const notes = plan.tables.collectes.map((c) => c.notes_internes as string);
+    expect(notes[0]).not.toMatch(/Point de dépôt|Transporteur:/);
+    expect(notes[2]).toContain('Point de dépôt: Exutoire Lambda');
+    expect(notes[2]).not.toContain('Transporteur:');
+    expect(notes[4]).toContain(`Point de dépôt: ${ASSO}`);
+    expect(notes[4]).toContain('Transporteur: Coursiers Zêta');
   });
 
-  it('« historique partiel » : convives absents, don sans association, transporteur ou poids, déchets sans pesée, lieu non situé', () => {
+  it('« historique partiel » : convives absents, don sans association ou transporteur, déchets sans pesée, lieu non situé', () => {
     const t = transporteur();
     const ag = (v: Record<string, string>) =>
       collecte({
@@ -370,10 +462,10 @@ describe('M5.2 / collectes — pesées, attribution, historique partiel', () => 
         .map((c) => parRef.get(c.evenement_id));
     };
     const plan = monde(lignes, { geocodes: situe });
+    // « sans poids » est importée « sans excédent » : rien ne lui manque.
     expect(partiels(plan)).toEqual([
       'sans convives',
       'convives négatifs',
-      'sans poids',
       'sans transporteur',
       'sans pesée',
     ]);
@@ -558,7 +650,7 @@ describe('M5.2 / packs — crédits recomptés, jamais débités par déclencheu
 
   it('taille → type et crédits ; crédits consommés = collectes rattachées et débitées ; une annulée ne compte que si le pack la liste encore', () => {
     const p = pack({ Type: '10' });
-    const terminee = lier(p);
+    const terminee = lier(p, { 'Poids total': '4' });
     const sansExcedent = lier(p, { "Pas d'excédents": 'oui' });
     const aVenir = lier(p, {
       Statut: 'Programmée',

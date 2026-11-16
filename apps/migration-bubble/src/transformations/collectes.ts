@@ -30,7 +30,11 @@ import {
 import { notesReferencesTransport } from '../referentiel-tms';
 import type { LieuRetenu, PassageSurLieu } from './lieux';
 import type { Clients } from './organisations';
-import type { UsageReferentiel } from './referentiels';
+import {
+  ajouterAssociationHistorique,
+  ajouterTransporteurHistorique,
+  type UsageReferentiel,
+} from './referentiels';
 
 export type StatutCible =
   | 'programmee'
@@ -44,6 +48,8 @@ export interface CollecteLue {
   statut: StatutCible;
   /** Programmée ou créée dans Bubble à une date passée : jamais soldée, importée annulée. */
   nonSoldee: boolean;
+  /** Anti-gaspi terminée sans poids ni mention « pas d'excédents » : importée « sans excédent » (Val 2026-11-16). */
+  sansPoids: boolean;
   date: DateMurale;
   /** Collecte de plus de 5 ans : aucune donnée personnelle de contact n'est reprise. */
   ancienne: boolean;
@@ -66,29 +72,43 @@ const FLUX_BUBBLE: [string, CodeFlux][] = [
 export const CONTACT_INCONNU = '—';
 export const TELEPHONE_INCONNU = '-';
 export const BRANCHE_MIGRATION = 'migration_bubble';
+export const MOTIF_PAS_D_EXCEDENTS = 'Migration Bubble — pas d’excédents';
+export const MOTIF_SANS_POIDS = 'Migration Bubble — poids du don non renseigné';
+
+/** Poids du don : « Poids total » strictement positif, sinon null. */
+function poidsDuDon(ligne: Ligne): number | null {
+  const poids = lireDecimal(ligne['Poids total']);
+  return poids !== null && poids > 0 ? poids : null;
+}
 
 function statutCible(
   ligne: Ligne,
   type: CollecteLue['type'],
   jour: string,
   jourReference: string,
-): { statut: StatutCible; nonSoldee: boolean } | null {
+): Pick<CollecteLue, 'statut' | 'nonSoldee' | 'sansPoids'> | null {
+  const autre = { nonSoldee: false, sansPoids: false };
   switch ((ligne['Statut'] ?? '').trim()) {
-    case 'Terminée':
-      return {
-        statut:
-          type === 'anti_gaspi' && lireOuiNon(ligne["Pas d'excédents"]) === true
-            ? 'realisee_sans_collecte'
-            : 'cloturee',
-        nonSoldee: false,
-      };
+    case 'Terminée': {
+      if (type !== 'anti_gaspi') return { statut: 'cloturee', ...autre };
+      if (lireOuiNon(ligne["Pas d'excédents"]) === true)
+        return { statut: 'realisee_sans_collecte', ...autre };
+      // Un don clôturé porte un poids : sans poids, la collecte est « sans excédent ».
+      return poidsDuDon(ligne) === null
+        ? {
+            statut: 'realisee_sans_collecte',
+            nonSoldee: false,
+            sansPoids: true,
+          }
+        : { statut: 'cloturee', ...autre };
+    }
     case 'Annulée':
-      return { statut: 'annulee', nonSoldee: false };
+      return { statut: 'annulee', ...autre };
     case 'Programmée':
     case 'Créée':
       return jour >= jourReference
-        ? { statut: 'programmee', nonSoldee: false }
-        : { statut: 'annulee', nonSoldee: true };
+        ? { statut: 'programmee', ...autre }
+        : { statut: 'annulee', nonSoldee: true, sansPoids: false };
     default:
       return null;
   }
@@ -242,6 +262,10 @@ export function transformerCollectes(
   ctx: Contexte,
   plan: Plan,
 ): void {
+  // Fiches inactives qui portent les dons dont Bubble ne dit pas l'association
+  // ou le transporteur (Val 2026-11-16) ; créées seulement si une collecte s'en sert.
+  let associationHistoriqueId: string | null = null;
+  let transporteurHistoriqueId: string | null = null;
   for (const c of lues) {
     const l = c.ligne;
     const lieu = deps.lieuParAdresse.get(c.adresseCle);
@@ -329,9 +353,7 @@ export function transformerCollectes(
       c.type === 'anti_gaspi' && pointDepot
         ? deps.associationParNom.get(pointDepot)
         : undefined;
-    const poidsTotal = lireDecimal(l['Poids total']);
-    const poidsRepas =
-      poidsTotal !== null && poidsTotal > 0 ? poidsTotal : null;
+    const poidsRepas = poidsDuDon(l);
     const pesees: [CodeFlux, number][] = [];
     if (c.type === 'zero_dechet') {
       const poids = deps.poidsParBubbleId.get(
@@ -343,16 +365,16 @@ export function transformerCollectes(
       }
     }
     const cloturee = c.statut === 'cloturee';
-    const attribuee =
-      cloturee && c.type === 'anti_gaspi' && !!associationId && !!transporteur;
+    // Une anti-gaspi clôturée porte toujours un poids (sinon elle est « sans excédent »).
+    const attribuee = cloturee && c.type === 'anti_gaspi';
+    const attributionIncomplete =
+      attribuee && (!associationId || !transporteur);
 
     const partiel =
       !paxConnu ||
       !lieu.situe ||
-      (cloturee &&
-        (c.type === 'anti_gaspi'
-          ? !attribuee || poidsRepas === null
-          : pesees.length === 0));
+      attributionIncomplete ||
+      (cloturee && c.type === 'zero_dechet' && pesees.length === 0);
 
     const packId =
       c.type === 'anti_gaspi'
@@ -374,9 +396,11 @@ export function transformerCollectes(
       controle_acces_requis:
         lireOuiNon(l["besoin de l'immatriculation"]) === true,
       aucun_repas_motif:
-        c.statut === 'realisee_sans_collecte'
-          ? 'Migration Bubble — pas d’excédents'
-          : null,
+        c.statut !== 'realisee_sans_collecte'
+          ? null
+          : c.sansPoids
+            ? MOTIF_SANS_POIDS
+            : MOTIF_PAS_D_EXCEDENTS,
       motif_incident:
         c.statut !== 'annulee'
           ? null
@@ -396,6 +420,10 @@ export function transformerCollectes(
         ),
         c.type === 'zero_dechet' && pointDepot
           ? `Exutoire: ${pointDepot}`
+          : null,
+        // Association ou transporteur nommés par Bubble mais absents de l'attribution.
+        c.type === 'anti_gaspi' && pointDepot && !(attribuee && associationId)
+          ? `Point de dépôt: ${pointDepot}`
           : null,
         transporteur && !attribuee ? `Transporteur: ${transporteur.nom}` : null,
         texteOuNull(l['formule']) ? `Formule: ${l['formule']!.trim()}` : null,
@@ -480,22 +508,34 @@ export function transformerCollectes(
         statut: c.statut,
         motif: 'collecte « sans excédent » qui porte un poids',
       });
+    if (c.sansPoids)
+      ajouterAuListing(plan, 'ag-sans-poids', {
+        bubble_id: c.bubbleId,
+        identifiant: l['Identifiant'] ?? '',
+        date: c.date.jour,
+        point_depot: pointDepot ?? '',
+        transporteur: transporteur?.nom ?? '',
+      });
     if (attribuee) {
       const id = identifiantCible('attribution', c.bubbleId);
       plan.tables.attributions_antgaspi.push({
         id,
         collecte_id: collecteId,
-        association_id: associationId,
-        transporteur_id: transporteur.id,
+        association_id:
+          associationId ??
+          (associationHistoriqueId ??= ajouterAssociationHistorique(ctx, plan)),
+        transporteur_id:
+          transporteur?.id ??
+          (transporteurHistoriqueId ??= ajouterTransporteurHistorique(
+            ctx,
+            plan,
+          )),
         // Valeur réservée à l'import : jamais produite par l'algorithme d'attribution.
         branche_attribution: BRANCHE_MIGRATION,
         mode_validation: 'manuel_top1',
         valide_at: instant,
         poids_repas_kg: poidsRepas,
-        volume_repas_realise:
-          poidsRepas === null
-            ? null
-            : Math.ceil(poidsRepas / ctx.poidsParRepasKg),
+        volume_repas_realise: Math.ceil(poidsRepas! / ctx.poidsParRepasKg),
         created_at: instant,
       });
       plan.correspondances.push({
@@ -505,8 +545,9 @@ export function transformerCollectes(
         cibleId: id,
         fusionne: false,
       });
-    } else if (cloturee && c.type === 'anti_gaspi')
-      ajouterAuListing(plan, 'ag-sans-attribution', {
+    }
+    if (attributionIncomplete)
+      ajouterAuListing(plan, 'ag-attribution-historique', {
         bubble_id: c.bubbleId,
         identifiant: l['Identifiant'] ?? '',
         date: c.date.jour,
@@ -516,7 +557,7 @@ export function transformerCollectes(
         ]
           .filter((m) => m !== null)
           .join(' et '),
-        poids_total_kg: poidsRepas ?? '',
+        poids_total_kg: poidsRepas,
       });
     if (partiel)
       ajouterAuListing(plan, 'collectes-historique-partiel', {
@@ -528,11 +569,8 @@ export function transformerCollectes(
         raisons: [
           paxConnu ? null : 'nombre de convives absent',
           lieu.situe ? null : 'lieu non situé',
-          cloturee && c.type === 'anti_gaspi' && !attribuee
-            ? 'association ou transporteur absent'
-            : null,
-          cloturee && c.type === 'anti_gaspi' && poidsRepas === null
-            ? 'poids du don absent'
+          attributionIncomplete
+            ? 'association ou transporteur non renseigné dans Bubble'
             : null,
           cloturee && c.type === 'zero_dechet' && pesees.length === 0
             ? 'aucune pesée'

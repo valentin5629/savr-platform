@@ -188,6 +188,94 @@ export function transformerAssociations(
   return associationParNom;
 }
 
+export const NOM_ASSOCIATION_HISTORIQUE =
+  'Association historique non renseignée';
+export const NOM_TRANSPORTEUR_HISTORIQUE =
+  'Transporteur historique non renseigné';
+
+/**
+ * Fiche inactive qui porte les dons dont Bubble ne dit pas l'association
+ * (Val 2026-11-16) : leurs kilos et leurs repas entrent ainsi dans les
+ * graphiques. Rend son identifiant.
+ */
+export function ajouterAssociationHistorique(
+  ctx: Contexte,
+  plan: Plan,
+): string {
+  const id = identifiantCible('association', 'historique-non-renseignee');
+  plan.tables.associations.push({
+    id,
+    nom: NOM_ASSOCIATION_HISTORIQUE,
+    adresse: 'À compléter',
+    latitude: null,
+    longitude: null,
+    region: 'idf',
+    ville: 'À compléter',
+    capacite_max_beneficiaires: null,
+    horaires_ouverture: null,
+    contact_nom: null,
+    contact_email: EMAIL_A_COMPLETER,
+    contact_telephone: null,
+    habilitee_attestation_fiscale: false,
+    siren: null,
+    logo_url: null,
+    commentaires_internes:
+      'Migration Bubble — porte les dons dont l’association n’est pas renseignée dans Bubble',
+    description_rapport_impact:
+      'Association non renseignée dans l’historique repris de Bubble.',
+    id_point_collecte_mts1: null,
+    actif: false,
+    created_at: ctx.instantImport,
+    updated_at: ctx.instantImport,
+  });
+  plan.correspondances.push({
+    sourceType: 'systeme',
+    bubbleId: 'association-historique',
+    table: 'associations',
+    cibleId: id,
+    fusionne: false,
+  });
+  return id;
+}
+
+/** Même rôle pour les dons dont Bubble ne dit pas le transporteur. */
+export function ajouterTransporteurHistorique(
+  ctx: Contexte,
+  plan: Plan,
+): string {
+  const id = identifiantCible('transporteur', 'historique-non-renseigne');
+  plan.tables.transporteurs.push({
+    id,
+    nom: NOM_TRANSPORTEUR_HISTORIQUE,
+    siren: SIREN_A_COMPLETER,
+    adresse: 'À compléter',
+    code_postal: '00000',
+    ville: 'À compléter',
+    latitude: null,
+    longitude: null,
+    types_vehicules: ['vul'],
+    // Aucun logiciel de transport : la base ne lui crée pas de fiche prestataire.
+    type_tms: 'autre',
+    contact_nom: 'À compléter',
+    contact_email: EMAIL_A_COMPLETER,
+    contact_telephone: '-',
+    actif: false,
+    commentaires_internes:
+      'Migration Bubble — porte les dons dont le transporteur n’est pas renseigné dans Bubble',
+    description_process_collecte: null,
+    types_collecte: ['anti_gaspi'],
+    created_at: ctx.instantImport,
+  });
+  plan.correspondances.push({
+    sourceType: 'systeme',
+    bubbleId: 'transporteur-historique',
+    table: 'transporteurs',
+    cibleId: id,
+    fusionne: false,
+  });
+  return id;
+}
+
 /** « Vélo cargo », « Camion frigorifique »… → valeurs de l'enum des véhicules ; rien de lisible → null. */
 export function typesVehicules(texte: string | undefined): string[] | null {
   const t = normaliserNom(texte);

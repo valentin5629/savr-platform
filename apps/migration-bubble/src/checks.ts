@@ -32,6 +32,13 @@ const IMPORTEES = (table: string) =>
   `(SELECT t.* FROM plateforme.${table} t
      WHERE EXISTS (SELECT 1 FROM migration.id_map m
                     WHERE m.target_table = '${table}' AND m.target_id = t.id))`;
+/** Don attendu : anti-gaspi « Terminée », sans la mention « pas d'excédents », au poids strictement positif. */
+const DON_SRC = `(s.ligne ->> 'Type' = 'NOURRITURE' AND s.ligne ->> 'Statut' = 'Terminée'
+     AND lower(btrim(coalesce(s.ligne ->> 'Pas d''excédents', ''))) <> 'oui'
+     AND coalesce(migration.nombre(s.ligne ->> 'Poids total'), 0) > 0)`;
+const FICHE_HISTORIQUE = (cle: string, colonne: string) =>
+  `JOIN migration.id_map h ON h.source_type = 'systeme' AND h.bubble_id = '${cle}'
+                           AND h.target_id = ${colonne}`;
 const DEBITEES = `('programmee','validee','en_cours','realisee','realisee_sans_collecte','cloturee','annulee')`;
 /** Pesées attendues : collectes de déchets « Terminée » × 5 flux, poids strictement positif. */
 const PESEES_SRC = `(SELECT c.bubble_id, migration.nombre(p.ligne ->> f.colonne) AS poids
@@ -127,6 +134,17 @@ export const CHECKS: Check[] = [
             (SELECT count(*) FROM ${PESEES_SRC} p) AS source) x WHERE cible <> source`,
   },
   {
+    code: 'A8',
+    libelle:
+      'Anti-gaspi terminée : clôturée si l’export porte un poids sans la mention « pas d’excédents », « réalisée sans collecte » sinon',
+    nature: 'bloquant',
+    sql: `SELECT s.bubble_id, c.statut FROM ${COLLECTES_SRC} s
+            JOIN migration.id_map m ON m.source_type = 'collecte' AND m.bubble_id = s.bubble_id
+            JOIN plateforme.collectes c ON c.id = m.target_id
+           WHERE s.ligne ->> 'Type' = 'NOURRITURE' AND s.ligne ->> 'Statut' = 'Terminée'
+             AND c.statut::text <> CASE WHEN ${DON_SRC} THEN 'cloturee' ELSE 'realisee_sans_collecte' END`,
+  },
+  {
     code: 'B1',
     libelle:
       'Crédits initiaux des packs = tailles de packs et d’abonnements de l’export',
@@ -181,13 +199,12 @@ export const CHECKS: Check[] = [
   {
     code: 'B6',
     libelle:
-      'Poids des dons importés = « Poids total » de l’export pour les collectes attribuées (à 0,1 kg près)',
+      'Poids des dons importés = « Poids total » de tous les dons de l’export (à 0,1 kg près)',
     nature: 'bloquant',
     sql: `SELECT cible, source FROM (SELECT
             (SELECT coalesce(sum(a.poids_repas_kg), 0) FROM ${IMPORTEES('attributions_antgaspi')} a) AS cible,
-            (SELECT coalesce(sum(greatest(migration.nombre(s.ligne ->> 'Poids total'), 0)), 0)
-               FROM ${COLLECTES_SRC} s
-               JOIN migration.id_map m ON m.source_type = 'attribution' AND m.bubble_id = s.bubble_id) AS source) x
+            (SELECT coalesce(sum(migration.nombre(s.ligne ->> 'Poids total')), 0)
+               FROM ${COLLECTES_SRC} s WHERE ${DON_SRC}) AS source) x
           WHERE abs(cible - source) > 0.1`,
   },
   {
@@ -235,11 +252,12 @@ export const CHECKS: Check[] = [
   {
     code: 'C9',
     libelle:
-      'Toute collecte anti-gaspi clôturée non « historique partiel » a son attribution',
+      'Toute collecte anti-gaspi clôturée a son attribution, avec un poids',
     nature: 'bloquant',
-    sql: `SELECT c.id FROM plateforme.collectes c
-           WHERE c.type = 'anti_gaspi' AND c.statut = 'cloturee' AND NOT c.historique_partiel
-             AND NOT EXISTS (SELECT 1 FROM plateforme.attributions_antgaspi a WHERE a.collecte_id = c.id)`,
+    sql: `SELECT c.id FROM ${IMPORTEES('collectes')} c
+           WHERE c.type = 'anti_gaspi' AND c.statut = 'cloturee'
+             AND NOT EXISTS (SELECT 1 FROM plateforme.attributions_antgaspi a
+                              WHERE a.collecte_id = c.id AND a.poids_repas_kg > 0)`,
   },
   {
     code: 'E1',
@@ -345,6 +363,37 @@ export const CHECKS: Check[] = [
            WHERE (c.origine = 'migration_bubble') IS DISTINCT FROM
                  EXISTS (SELECT 1 FROM migration.id_map m
                           WHERE m.target_table = 'collectes' AND m.target_id = c.id)`,
+  },
+  {
+    code: 'E11',
+    libelle:
+      'Fiches « historique non renseigné » : inactives, sans logiciel de transport, et jamais à la place d’une association ou d’un transporteur que l’export désigne',
+    nature: 'bloquant',
+    sql: `SELECT 'association historique active' AS anomalie, a.id FROM plateforme.associations a
+            ${FICHE_HISTORIQUE('association-historique', 'a.id')} WHERE a.actif
+          UNION ALL
+          SELECT 'transporteur historique actif ou relié à un logiciel', t.id FROM plateforme.transporteurs t
+            ${FICHE_HISTORIQUE('transporteur-historique', 't.id')}
+           WHERE t.actif OR t.type_tms::text <> 'autre' OR t.prestataire_logistique_id IS NOT NULL
+          UNION ALL
+          SELECT 'association connue remplacée par la fiche historique', a.id
+            FROM plateforme.attributions_antgaspi a
+            ${FICHE_HISTORIQUE('association-historique', 'a.association_id')}
+            JOIN migration.id_map m ON m.source_type = 'attribution' AND m.target_id = a.id
+            JOIN migration.sources_brutes s ON s.source_type = 'collectes_ag' AND s.bubble_id = m.bubble_id
+           WHERE EXISTS (SELECT 1 FROM migration.sources_brutes p
+                           JOIN migration.id_map mp ON mp.source_type = 'point_depot' AND mp.bubble_id = p.bubble_id
+                          WHERE p.source_type = 'points_depot'
+                            AND btrim(p.ligne ->> 'Nom') = btrim(s.ligne ->> 'Point de dépot'))
+          UNION ALL
+          SELECT 'transporteur connu remplacé par la fiche historique', a.id
+            FROM plateforme.attributions_antgaspi a
+            ${FICHE_HISTORIQUE('transporteur-historique', 'a.transporteur_id')}
+            JOIN migration.id_map m ON m.source_type = 'attribution' AND m.target_id = a.id
+            JOIN migration.sources_brutes s ON s.source_type = 'collectes_ag' AND s.bubble_id = m.bubble_id
+           WHERE EXISTS (SELECT 1 FROM migration.id_map mt
+                          WHERE mt.source_type = 'transporteur'
+                            AND mt.bubble_id = btrim(s.ligne ->> 'Transporteur'))`,
   },
   {
     code: 'D1',

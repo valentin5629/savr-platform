@@ -10,7 +10,7 @@
 -- =============================================================================
 
 BEGIN;
-SELECT plan(10);
+SELECT plan(12);
 
 SELECT is(
   (SELECT array_agg(code ORDER BY code) FROM plateforme.email_templates WHERE actif),
@@ -101,6 +101,21 @@ SELECT ok(
           AND strpos(corps_html, '<ul><li>Collecte sur événement : le {{date_collecte}}') > 0
    FROM plateforme.email_templates WHERE code = 'ag_attribution_association'),
   'association : objet « Don de repas confirmé », liste bien formée'
+);
+
+SELECT ok(
+  (SELECT strpos(corps_html, 'vous recevrez le nom et la plaque d''immatriculation du chauffeur avant le jour J.') > 0
+          AND strpos(corps_html, 'téléphone du chauffeur') = 0
+   FROM plateforme.email_templates WHERE code = 'collecte_programmee' AND actif),
+  'récapitulatif : annonce le nom et la plaque du chauffeur, plus son téléphone (Val 2026-11-16)'
+);
+
+SELECT ok(
+  (SELECT strpos(corps_html, '{{#if un_chauffeur}}Voici le nom et la plaque d''immatriculation du chauffeur qui interviendra{{/if}}') > 0
+          AND strpos(corps_html, '{{#if plusieurs_chauffeurs}}Voici les noms et les plaques d''immatriculation des chauffeurs qui interviendront{{/if}}') > 0
+          AND strpos(corps_html, 'dans les plus brefs délais.') > 0
+   FROM plateforme.email_templates WHERE code = 'infos_acces_collecte' AND actif),
+  'accès chauffeur : phrase au singulier ou au pluriel, nouvelle phrase de fin (Val 2026-11-16)'
 );
 
 SELECT * FROM finish();

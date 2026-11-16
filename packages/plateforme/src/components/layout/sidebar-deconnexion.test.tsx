@@ -75,24 +75,16 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
     expect(screen.queryByText('Viparis')).toBeNull();
   });
 
-  it('clic sur le nom : menu « Paramètres », « Confidentialité », « Se déconnecter »', () => {
+  it('clic sur le nom : menu « Paramètres », « Se déconnecter » (liens légaux dans « Mon profil », Val 2026-11-16)', () => {
     render(<Sidebar role="traiteur_manager" identite={identite} />);
     expect(screen.queryByRole('menu')).toBeNull();
     ouvrir();
     const items = screen.getAllByRole('menuitem');
     expect(items.map((i) => i.textContent)).toEqual([
       'Paramètres',
-      'Confidentialité',
-      'Mentions légales',
       'Se déconnecter',
     ]);
     expect(items[0]!.getAttribute('href')).toBe('/traiteur/parametres');
-    // Politique de confidentialité (CDC §15, 3.4) : nouvel onglet.
-    expect(items[1]!.getAttribute('href')).toBe('/confidentialite');
-    expect(items[1]!.getAttribute('target')).toBe('_blank');
-    expect(items[1]!.getAttribute('rel')).toBe('noopener');
-    expect(items[2]!.getAttribute('href')).toBe('/mentions-legales');
-    expect(items[2]!.getAttribute('target')).toBe('_blank');
   });
 
   it('« Paramètres » quitte la navigation principale', () => {
@@ -132,18 +124,16 @@ describe('Sidebar — menu de l’utilisateur en pied de menu (Val 2026-11-02)',
       screen.getByRole('button', { name: 'Menu de Camille Martin' }),
     ).toHaveTextContent('CM');
     ouvrir();
-    expect(screen.getAllByRole('menuitem')).toHaveLength(4);
+    expect(screen.getAllByRole('menuitem')).toHaveLength(2);
   });
 
-  it('Admin : « Paramètres » (réglages métier) reste dans la barre, le menu ne porte que la confidentialité et la déconnexion', () => {
+  it('Admin : « Paramètres » (réglages métier) reste dans la barre, le menu ne porte que la déconnexion', () => {
     render(<Sidebar role="admin_savr" identite={identite} />);
     expect(
       screen.getByRole('link', { name: 'Paramètres' }),
     ).toBeInTheDocument();
     ouvrir();
     expect(screen.getAllByRole('menuitem').map((i) => i.textContent)).toEqual([
-      'Confidentialité',
-      'Mentions légales',
       'Se déconnecter',
     ]);
   });

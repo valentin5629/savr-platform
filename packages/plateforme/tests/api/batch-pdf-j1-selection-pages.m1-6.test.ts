@@ -38,7 +38,10 @@ interface Requete {
   dans: string[] | null;
 }
 
-type Reponse = { data: unknown; error: { message: string } | null };
+type Reponse = {
+  data: unknown;
+  error: { message: string; code?: string } | null;
+};
 
 function fausseBase(repondre: (q: Requete) => Reponse) {
   const requetes: Requete[] = [];
@@ -87,6 +90,7 @@ function fausseBase(repondre: (q: Requete) => Reponse) {
         return chaine;
       },
       maybeSingle: () => Promise.resolve(repondre(q)),
+      single: () => Promise.resolve(repondre(q)),
       then: (ok: (v: Reponse) => unknown, ko?: (e: unknown) => unknown) =>
         Promise.resolve(repondre(q)).then(ok, ko),
     };
@@ -591,7 +595,7 @@ describe('M2.4 / batch AG — attestation déjà émise au-delà de la 1re tranc
     ).toEqual([100, 100, 50]);
   });
 
-  it('150 organisations à traiter : entités de facturation lues par lots, aucune attestation sans entité', async () => {
+  it('150 organisations à traiter : entités de facturation lues par lots ; sans entité, le rapport n’attend plus', async () => {
     const aTraiter = ids(150).map((id) => ({
       id,
       evenement_id: `ev-${id}`,
@@ -611,6 +615,10 @@ describe('M2.4 / batch AG — attestation déjà émise au-delà de la 1re tranc
     const base = fausseBase((q) => {
       if (q.table === 'collectes')
         return { data: pageDe(aTraiter, q), error: null };
+      // Attestation créée à l'instant par une autre fabrication : la collecte
+      // s'arrête là (la suite du rendu n'est pas l'objet de ce test).
+      if (q.table === 'attestations_don' && q.op === 'insert')
+        return { data: null, error: { code: '23505', message: 'doublon' } };
       // Aucune attestation existante, aucune entité de facturation connue.
       return { data: [], error: null };
     });
@@ -621,10 +629,12 @@ describe('M2.4 / batch AG — attestation déjà émise au-delà de la 1re tranc
     expect(
       base.lectures('entites_facturation').map((t) => (t.dans ?? []).length),
     ).toEqual([100, 50]);
-    // Sans entité au SIRET vérifié, l'attestation est différée, jamais émise.
-    expect(result.skipped_siret_donateur).toBe(150);
-    expect(result.enqueued).toBe(0);
-    expect(base.ecritures()).toEqual([]);
+    // Sans entité, le rapport n'attend plus (Val 2026-11-16) : chaque collecte
+    // tente son attestation.
+    expect(
+      base.ecritures().filter((r) => r.table === 'attestations_don'),
+    ).toHaveLength(150);
+    expect(result.already_done).toBe(150);
   });
 });
 

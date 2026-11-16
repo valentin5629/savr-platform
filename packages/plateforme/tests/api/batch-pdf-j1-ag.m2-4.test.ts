@@ -18,7 +18,6 @@ vi.mock('../../src/lib/pdf/logo-inline.js', () => ({
 }));
 
 import { runBatchPdfJ1Ag } from '../../src/lib/pdf/batch-pdf-j1-ag.js';
-import { logger } from '@savr/shared/src/logger/index.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -100,7 +99,7 @@ beforeEach(() => vi.clearAllMocks());
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-describe('M2.4 / BatchPdfJ1Ag / SIRET donateur non vérifié (décision Val 2026-09-28)', () => {
+describe('M2.4 / BatchPdfJ1Ag / donateur sans SIRET vérifié : le rapport n’attend plus (Val 2026-11-16)', () => {
   const casBloquants: Array<[string, Record<string, unknown>[]]> = [
     [
       'entité SIRET en_attente',
@@ -142,70 +141,43 @@ describe('M2.4 / BatchPdfJ1Ag / SIRET donateur non vérifié (décision Val 2026
   ];
 
   for (const [cas, entites] of casBloquants) {
-    it(`${cas} → attestation différée, AUCUN numéro consommé, alerte Ops in-app`, async () => {
+    it(`${cas} → rapport émis sans attendre, numéro alloué, aucune alerte SIRET`, async () => {
       const sb = makeSupabase([
         { data: [makeCollecteAg()], error: null }, // select collectes AG
         { data: [], error: null }, // attestations existantes
         { data: entites, error: null }, // entites_facturation
+        { data: { id: 'att-new' }, error: null }, // insert attestation
+        { data: 'ATT-DON-2026-00003', error: null }, // numéro
+        { data: [{ id: 'att-new' }], error: null }, // numéro posé
       ]);
 
       const result = await runBatchPdfJ1Ag(sb as never);
 
-      expect(result.skipped_siret_donateur).toBe(1);
-      expect(result.enqueued).toBe(0);
+      expect(result.enqueued).toBe(1);
       expect(result.errors).toHaveLength(0);
-      // Pas de fatal : un report n'est pas un échec du job.
-      expect(result.fatal).toBeUndefined();
-
       const rpcCalls = sb.rpc.mock.calls as unknown as Array<
         [string, Record<string, unknown>]
       >;
-      // Le numéro ATT-DON gapless n'est JAMAIS alloué pour une attestation différée.
-      expect(rpcCalls.map((c) => c[0])).not.toContain(
-        'f_next_numero_attestation',
-      );
-      expect(rpcCalls).toContainEqual([
-        'f_upsert_alerte_admin',
+      expect(rpcCalls.map((c) => c[0])).toContain('f_next_numero_attestation');
+      expect(rpcCalls.map((c) => c[0])).not.toContain('f_upsert_alerte_admin');
+      // Donateur figé tel qu'il est connu (vide sans entité) : il n'est plus imprimé.
+      const entite = entites[0] as Record<string, unknown> | undefined;
+      expect(sb._chain.insert).toHaveBeenCalledWith(
         expect.objectContaining({
-          p_code: 'attestation_ag_siret_donateur_manquant',
-          p_entity_type: 'collectes',
-          p_entity_id: 'col-ag-1',
+          collecte_id: 'col-ag-1',
+          donateur_entite_facturation_id: entite?.id ?? null,
+          donateur_raison_sociale: entite?.raison_sociale ?? null,
+          donateur_siret: entite?.siret ?? null,
         }),
-      ]);
-      // Aucune écriture : ni attestation, ni job PDF, ni rapport RSE.
-      expect(sb._chain.insert).not.toHaveBeenCalled();
+      );
+      expect(sb._chain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ type_document: 'attestation-don' }),
+      );
     });
   }
 });
 
 describe('M2.4 / BatchPdfJ1Ag / alerte SIRET donateur — cycle de vie', () => {
-  it('alerte non posée (RPC en échec) → journalisée, jamais un échec du job', async () => {
-    const spy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
-    const sb = makeSupabase([
-      { data: [makeCollecteAg()], error: null },
-      { data: [], error: null },
-      { data: [], error: null }, // aucune entité
-    ]);
-    sb.rpc.mockImplementation((() =>
-      Promise.resolve({
-        data: null,
-        error: { code: '42501', message: 'permission denied' },
-      })) as never);
-
-    const result = await runBatchPdfJ1Ag(sb as never);
-
-    expect(result.skipped_siret_donateur).toBe(1);
-    expect(result.fatal).toBeUndefined();
-    expect(spy).toHaveBeenCalledWith(
-      'attestation_ag.alerte_non_posee',
-      expect.objectContaining({
-        collecte_id: 'col-ag-1',
-        error_code: '42501',
-      }),
-    );
-    spy.mockRestore();
-  });
-
   it('attestation émise → l’alerte SIRET donateur ouverte de CETTE collecte est résolue', async () => {
     const sb = makeSupabase([
       { data: [makeCollecteAg()], error: null },
@@ -241,16 +213,6 @@ describe('M2.4 / BatchPdfJ1Ag / alerte SIRET donateur — cycle de vie', () => {
     expect(eqs).toContainEqual(['entity_type', 'collectes']);
     expect(eqs).toContainEqual(['entity_id', 'col-ag-1']);
     expect(eqs).toContainEqual(['statut', 'ouverte']);
-  });
-
-  it('attestation différée → aucune résolution d’alerte', async () => {
-    const sb = makeSupabase([
-      { data: [makeCollecteAg()], error: null },
-      { data: [], error: null },
-      { data: [], error: null },
-    ]);
-    await runBatchPdfJ1Ag(sb as never);
-    expect(sb._chain.update).not.toHaveBeenCalled();
   });
 });
 

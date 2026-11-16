@@ -34,7 +34,7 @@ export interface SectionCgu {
 }
 
 /** Version du texte ci-dessous. Doit rester égale à `CGU_VERSION_COURANTE`. */
-export const CGU_TEXTE_VERSION = 'v2';
+export const CGU_TEXTE_VERSION = 'v3';
 
 export const CGU_SECTIONS: SectionCgu[] = [
   {

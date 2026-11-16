@@ -171,6 +171,7 @@ export async function evaluerInfosAccesEtEnvoyer(
     return NON_ENVOYE;
   }
 
+  const chauffeurs = payload.chauffeurs ?? [];
   // Textes saisis interpolés tels quels dans le HTML du gabarit : échappés ici.
   const variables: Record<string, string> = {
     prenom: escapeHtml(payload.prenom ?? ''),
@@ -183,7 +184,12 @@ export async function evaluerInfosAccesEtEnvoyer(
         payload.lieu_adresse ??
         '',
     ),
-    chauffeurs_bloc: renderChauffeursBloc(payload.chauffeurs ?? []),
+    chauffeurs_bloc: renderChauffeursBloc(chauffeurs),
+    // Phrase d'introduction au singulier ou au pluriel selon le nombre de
+    // camions (Val 2026-11-16) : le moteur n'a pas de {{else}}, d'où deux
+    // conditions exclusives.
+    un_chauffeur: chauffeurs.length > 1 ? '' : 'true',
+    plusieurs_chauffeurs: chauffeurs.length > 1 ? 'true' : '',
   };
 
   let statut: SendEmailStatut;

@@ -455,7 +455,11 @@ export function Chauffeurs({
                 className={
                   vb
                     ? LIGNES_CAMION
-                    : 'grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3'
+                    : // Valeurs alignées en bas (Val 2026-11-16) : le libellé
+                      // « Plaque d’immatriculation » passe sur deux lignes
+                      // dans une carte étroite, les valeurs restent sur une
+                      // même ligne.
+                      'grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-3 sm:items-end'
                 }
               >
                 <InfoItem label="Chauffeur">

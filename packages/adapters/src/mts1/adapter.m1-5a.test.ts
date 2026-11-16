@@ -46,6 +46,7 @@ const COLLECTE_ZD: Collecte = {
   contact_principal_telephone: '+33600000001',
   contact_secours_nom: null,
   contact_secours_telephone: null,
+  type_vehicule_souhaite: 'camion_16m3_simple',
   lieu: LIEU_FIXTURE,
 };
 
@@ -274,14 +275,14 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
 
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     expect(orderPayload['orderCategories']).toEqual(['Alimentaire']);
-    // AG = un seul stuff « Don alimentaire » (pesé plus tard, quantity 0).
+    // AG = un seul stuff « Excédents alimentaires (en kg) », nom Bubble (pesé plus tard, quantity 0).
     // COLLECTE_AG n'a pas de point favori → point B = adresse de l'association inline.
     const stuffs = orderPayload['stuffs'] as Array<{
       name: string;
       relatedAddress?: unknown;
     }>;
     expect(stuffs).toHaveLength(1);
-    expect(stuffs[0]!.name).toBe('Don alimentaire');
+    expect(stuffs[0]!.name).toBe('Excédents alimentaires (en kg)');
     expect(stuffs[0]!.relatedAddress).toEqual({
       address: {
         addressSingleLine: '12 rue des Associations, Ivry-sur-Seine',
@@ -290,8 +291,8 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
   });
 
   // BL-P1-API-02 — point de dépôt AG = point de dépôt de l'association (favoritePlace
-  // id_point_collecte_mts1), porté par le stuff « Don alimentaire » (relatedAddress).
-  it('M1.5a / dispatch AG — point B (asso) sur le stuff Don alimentaire (relatedAddress)', async () => {
+  // id_point_collecte_mts1), porté par le stuff du don (relatedAddress).
+  it('M1.5a / dispatch AG — point B (asso) sur le stuff du don (relatedAddress)', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,
       id: 'MTS1-ORDER-AG-FAV',
@@ -317,15 +318,15 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       1,
     );
 
-    // Point B AG = point de dépôt de l'association, porté par le stuff « Don
-    // alimentaire » (relatedAddress.placeId).
+    // Point B AG = point de dépôt de l'association, porté par le stuff du don
+    // (relatedAddress.placeId).
     const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
     const stuffs = orderPayload['stuffs'] as Array<{
       name: string;
       relatedAddress?: { placeId?: string };
     }>;
     expect(stuffs).toHaveLength(1);
-    expect(stuffs[0]!.name).toBe('Don alimentaire');
+    expect(stuffs[0]!.name).toBe('Excédents alimentaires (en kg)');
     expect(stuffs[0]!.relatedAddress).toEqual({
       placeId: 'PLACE_BLUESPACE_IVRY',
     });
@@ -362,7 +363,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       relatedAddress?: unknown;
     }>;
     expect(stuffs).toHaveLength(1);
-    expect(stuffs[0]!.name).toBe('Don alimentaire');
+    expect(stuffs[0]!.name).toBe('Excédents alimentaires (en kg)');
     expect(stuffs[0]!.relatedAddress).toEqual({
       address: {
         addressSingleLine: '12 rue des Associations, Ivry-sur-Seine',
@@ -400,7 +401,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     ).toHaveLength(0);
   });
 
-  it('M1.5a / dispatch ZD — stuffs contient les 5 flux + volume_du_camion', async () => {
+  it('M1.5a / dispatch ZD — stuffs contient les 5 flux + le camion choisi par l’Admin', async () => {
     const postOrder = vi.fn().mockResolvedValue({
       ok: true,
       id: 'O1',
@@ -428,7 +429,7 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
       relatedAddress?: { placeId?: string };
     }>;
     expect(stuffs.map((s) => s.name)).toContain('Bio-déchets (en kg)');
-    expect(stuffs.map((s) => s.name)).toContain('<volume_du_camion>');
+    expect(stuffs.map((s) => s.name)).toContain('16 m³ simple');
     expect(stuffs).toHaveLength(6);
     // Point B (livraison) ZD = entrepôt Savr, porté par CHAQUE stuff (relatedAddress).
     for (const s of stuffs) {
@@ -468,6 +469,44 @@ describe('M1.5a / AdapterMts1 — dispatchCollecte ZD nominal', () => {
     for (const s of stuffs) {
       expect(s.relatedAddress).toBeUndefined();
     }
+  });
+
+  // Décision Val 2026-11-16 : l'article camion porte le libellé du véhicule
+  // choisi par l'Admin. Un ordre sans véhicule (l'envoi en est refusé par la
+  // route, reste un ordre plus ancien) part sans article camion, jamais avec
+  // un texte à remplir.
+  it('M1.5a / dispatch ZD — sans véhicule choisi → 5 flux, aucun article camion', async () => {
+    const postOrder = vi.fn().mockResolvedValue({
+      ok: true,
+      id: 'O-ZD-SANS-VEH',
+      externalReference: 'col-zd-001-1',
+      status: 'PLANNED',
+      createdAt: '',
+    });
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      getTour: vi.fn(),
+      postOrder,
+      ...tourneeUnitaireSimulee(),
+    });
+
+    const supabase = makeMockSupabase({ tourneeExistante: null });
+    await new AdapterMts1(TRANSPORTEUR, supabase).dispatchCollecte(
+      { ...COLLECTE_ZD, type_vehicule_souhaite: null },
+      1,
+    );
+
+    const orderPayload = postOrder.mock.calls[0]![0] as Record<string, unknown>;
+    const noms = (orderPayload['stuffs'] as Array<{ name: string }>).map(
+      (s) => s.name,
+    );
+    expect(noms).toEqual([
+      'Bio-déchets (en kg)',
+      'Carton (en kg)',
+      'D.I.B (en kg)',
+      'Film plastique (en kg)',
+      'Verre (en kg)',
+    ]);
   });
 });
 

@@ -553,7 +553,8 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     expect(base.de('pesees_tournees', 'upsert')).toHaveLength(1);
   });
 
-  it('M1.5b/releve_fil_poids_absent_ou_nul — un flux sans saisie (null) ou à 0 n’écrit aucune pesée', async () => {
+  it('M1.5b/releve_fil_poids_absent_ou_nul — un flux sans saisie (null) ou à 0 vaut 0 kg dès qu’un autre flux est pesé', async () => {
+    // Décision Val 2026-11-16 : un flux non pesé, c'est qu'il n'y en avait pas.
     const base = baseSimulee({
       collecteStatut: 'en_cours',
       tournees: [TOURNEE_1],
@@ -563,9 +564,9 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
       '/v3/tours/TOUR-1': {
         json: tourA({
           stuffs: [
-            stuffSimule('<volume_du_camion>', 1, 1),
+            stuffSimule('20 m³ simple', 1, 1),
             stuffSimule('Bio-déchets (en kg)', null), // rien saisi
-            stuffSimule('Carton (en kg)', 0), // flux non pesé (Val 2026-10-13)
+            stuffSimule('Carton (en kg)', 0),
             // `quantity` et `measurement.weight` ne sont pas des poids.
             {
               ...stuffSimule('Verre (en kg)', null, 40),
@@ -583,7 +584,47 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
       base
         .de('pesees_tournees', 'upsert')
         .map((a) => [a.data!['flux_id'], a.data!['poids_kg']]),
-    ).toEqual([[FLUX.dechet_residuel, 12]]);
+    ).toEqual([
+      [FLUX.biodechet, 0],
+      [FLUX.carton, 0],
+      [FLUX.verre, 0],
+      [FLUX.dechet_residuel, 12],
+    ]);
+    // Un flux à 0 kg n'est jamais « hors seuil », l'article camion n'est pas
+    // un article inconnu.
+    expect(base.alertes('pesee_hors_seuil')).toEqual([]);
+    expect(base.journal('STUFF_INCONNU')).toEqual([]);
+  });
+
+  it('M1.5b/releve_fil_rien_pese — aucun flux pesé : aucune pesée ; mission finie, une alerte, une seule fois', async () => {
+    const base = baseSimulee({
+      collecteStatut: 'en_cours',
+      tournees: [TOURNEE_1],
+    });
+    const rienPese = [
+      stuffSimule('Bio-déchets (en kg)', null),
+      stuffSimule('Carton (en kg)', 0),
+      stuffSimule('Verre (en kg)', null),
+    ];
+    const fil = filSimule({
+      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
+      '/v3/tours/TOUR-1': { json: tourA({ stuffs: rienPese }) },
+    });
+
+    // Mission en cours : le chauffeur n'a pas encore saisi, rien ne se passe.
+    await releve(base);
+    expect(base.de('pesees_tournees', 'upsert')).toEqual([]);
+    expect(base.alertes('pesees_absentes')).toEqual([]);
+
+    // Mission finie sans aucun poids : pas de bordereau à 0 kg, l'équipe est
+    // prévenue, une seule fois malgré les passages suivants.
+    fil.poser('/v3/tours/TOUR-1', {
+      json: tourA({ stuffs: rienPese, terminee: true }),
+    });
+    await releve(base);
+    await releve(base);
+    expect(base.de('pesees_tournees', 'upsert')).toEqual([]);
+    expect(base.alertes('pesees_absentes')).toHaveLength(1);
   });
 
   it('M1.5b/releve_fil_deux_commandes_meme_tour — chaque commande n’est lue que sur SON arrêt, dans le tour qu’elle désigne', async () => {
@@ -736,7 +777,7 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
           stuffs: [
             // Libellé que l'adapter envoie lui-même pour une collecte AG : son
             // poids part dans le poids du don (Val 2026-11-13), pas en pesée.
-            stuffSimule('Don alimentaire', 40),
+            stuffSimule('Excédents alimentaires (en kg)', 40),
             // Témoin : un libellé vraiment inconnu reste tracé.
             stuffSimule('Gravats (en kg)', 320),
           ],

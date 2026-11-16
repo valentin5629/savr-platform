@@ -24,7 +24,8 @@
     "./src/alerting/slack.js": "./src/alerting/slack.ts",
     "./src/rate-limit/outbound-throttle.js": "./src/rate-limit/outbound-throttle.ts",
     "./src/temps/index.js": "./src/temps/index.ts",
-    "./src/validation/index.js": "./src/validation/index.ts"
+    "./src/validation/index.js": "./src/validation/index.ts",
+    "./src/vehicules/index.js": "./src/vehicules/index.ts"
   },
   "scripts": {
     "build": "echo 'shared: build no-op (paquet TS-only consommé via main)'",

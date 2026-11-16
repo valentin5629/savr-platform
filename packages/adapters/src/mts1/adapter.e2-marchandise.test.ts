@@ -113,12 +113,12 @@ async function corpsDuPut(
 describe('E2 — la modification d’une commande MTS-1 renvoie sa marchandise avant la mission', () => {
   afterEach(() => _setMts1Handlers(null));
 
-  it('AG programmée : le PUT porte le « Don alimentaire » et l’adresse de l’association (point B)', async () => {
+  it('AG programmée : le PUT porte les « Excédents alimentaires (en kg) » et l’adresse de l’association (point B)', async () => {
     const corps = await corpsDuPut(COLLECTE_AG);
 
     expect(corps['stuffs']).toEqual([
       {
-        name: 'Don alimentaire',
+        name: 'Excédents alimentaires (en kg)',
         task: 'PICKUP',
         quantity: 0,
         relatedAddress: {
@@ -142,7 +142,7 @@ describe('E2 — la modification d’une commande MTS-1 renvoie sa marchandise a
 
     expect(corps['stuffs']).toEqual([
       {
-        name: 'Don alimentaire',
+        name: 'Excédents alimentaires (en kg)',
         task: 'PICKUP',
         quantity: 0,
         relatedAddress: { placeId: 'PLACE-ASSO-1' },
@@ -150,16 +150,17 @@ describe('E2 — la modification d’une commande MTS-1 renvoie sa marchandise a
     ]);
   });
 
-  it('ZD validée : les cinq flux et le volume du camion repartent', async () => {
+  it('ZD validée : les cinq flux et le camion choisi par l’Admin repartent', async () => {
     const corps = await corpsDuPut({
       ...COLLECTE_AG,
       type: 'zero_dechet',
       statut: 'validee',
+      type_vehicule_souhaite: 'camion_20m3_simple',
     });
 
-    const stuffs = corps['stuffs'] as Array<{ name: string }>;
+    const stuffs = corps['stuffs'] as Array<{ name: string; quantity: number }>;
     expect(stuffs).toHaveLength(6);
-    expect(stuffs.map((s) => s.name)).toContain('<volume_du_camion>');
+    expect(stuffs.at(-1)).toMatchObject({ name: '20 m³ simple', quantity: 1 });
   });
 
   it.each(['en_cours', 'realisee'])(

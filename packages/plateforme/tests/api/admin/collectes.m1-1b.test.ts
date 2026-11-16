@@ -217,6 +217,7 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
       date_collecte: '2026-07-01',
       dirty_tms: false,
       prestataire_logistique_id: prestataire,
+      type_vehicule_souhaite: 'camion_20m3_simple',
       ...over,
     },
     error: null,
@@ -458,6 +459,31 @@ describe('M0.6 / Dispatch ZD / choix du prestataire par l’Admin', () => {
       'fn_dispatcher_collecte',
       expect.objectContaining({ p_prestataire_logistique_id: null }),
     );
+  });
+
+  // Décision Val 2026-11-16 : le véhicule choisi part comme article camion de
+  // la commande ; sans lui, l'envoi d'une ZD est refusé, rien n'est émis.
+  it('ZD sans type de véhicule : 422, aucun ordre émis', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(
+      collecteZd('prest-strike', { type_vehicule_souhaite: null }),
+    );
+
+    const res = await dispatch({});
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toMatch(/type de véhicule/);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
+  });
+
+  it('ZD : un véhicule retiré dans la demande même est refusé (422)', async () => {
+    setupAuth('ops_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce(collecteZd('prest-strike'));
+
+    const res = await dispatch({ type_vehicule_souhaite: null });
+
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.rpc).not.toHaveBeenCalled();
   });
 });
 

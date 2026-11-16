@@ -28,23 +28,9 @@ export const DIFFICULTE_VARIANT: Record<
   tres_difficile: 'error',
 } satisfies Record<Enums['acces_difficulte'], 'success' | 'warning' | 'error'>;
 
-/**
- * `plateforme.type_vehicule` — libellé de toute valeur (`type_vehicule_max`,
- * `types_vehicules`, `type_vehicule`, `type_vehicule_souhaite`).
- */
-export const VEHICULE_LABEL: Record<string, string> = {
-  velo_cargo: 'Vélo cargo',
-  camionnette: 'Camionnette',
-  fourgon: 'Fourgon',
-  vul: 'VUL',
-  poids_lourd: 'Poids lourd',
-  camionnette_frigo: 'Camionnette frigo',
-  camion_frigo: 'Camion frigo',
-  camion_16m3_simple: '16 m³ simple',
-  camion_16m3_double: '16 m³ double',
-  camion_20m3_simple: '20 m³ simple',
-  camion_20m3_double: '20 m³ double',
-} satisfies Record<Enums['type_vehicule'], string>;
+// `plateforme.type_vehicule` : libellés partagés avec l'adapter MTS-1 (nom de
+// l'article camion), cf. @savr/shared/src/vehicules.
+export { VEHICULE_LABEL } from '@savr/shared/src/vehicules/index.js';
 
 /**
  * Gabarits proposés pour un lieu (véhicule max) et un transporteur : l'échelle

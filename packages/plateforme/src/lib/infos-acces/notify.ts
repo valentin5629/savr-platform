@@ -6,6 +6,7 @@ import {
 import { escapeHtml } from '@savr/shared/src/email/html.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { formatDateFr } from '@savr/shared/src/csv/index.js';
+import { decalerJour } from '@savr/shared/src/temps/index.js';
 import { cloreAlerteInfosAcces, TEMPLATE_INFOS_ACCES } from './suivi-email.js';
 import { adresseLieu } from '@/lib/notifications/traiteur-operationnel.js';
 
@@ -33,9 +34,10 @@ type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
  *     (`infos_acces_email_envoye_at` remis à NULL) pour re-tenter au prochain
  *     déclenchement.
  *
- * Appelée après la saisie Admin (PATCH fiche collecte). En V1 MTS-1 n'expose pas
- * le téléphone chauffeur (as-built §6) → la complétude n'est atteinte que via la
- * saisie Admin ; le poll ne fait que peupler nom + plaque.
+ * Appelée après la saisie Admin (PATCH fiche collecte), le webhook du
+ * transporteur vélo et le passage qui suit la relève (`envoyerInfosAccesCompletes`).
+ * MTS-1 n'expose pas le téléphone chauffeur : nom + plaque suffisent (Val
+ * 2026-11-16), la relève les peuple.
  */
 export interface InfosAccesChauffeur {
   rang: number;
@@ -261,22 +263,34 @@ const un = <T>(v: T | T[] | null | undefined): T | undefined =>
 // Collectes encore à réaliser, seules à recevoir l'email (une collecte réalisée
 // ou annulée n'a plus d'accès à préparer).
 const STATUTS_A_VENIR = ['programmee', 'validee', 'en_cours'];
-// Borne d'un passage : l'envoi de chaque email attend Resend, la relève vit
-// sous la limite de 60 s de sa fonction.
-const MAX_PAR_PASSAGE = 20;
+// Fenêtre du passage : de J à J+7 (jour de Paris). Le chauffeur est désigné
+// dans les derniers jours avant la collecte ; une collecte plus lointaine est
+// évaluée quand elle entre dans la fenêtre, ou par la saisie Admin.
+const FENETRE_JOURS = 7;
+// Plafond de lecture : bien au-delà du volume d'une semaine (≈ 40 collectes en
+// An 1), pour qu'une file de collectes incomplètes ne cache jamais une
+// collecte complète plus lointaine.
+const MAX_CANDIDATES = 500;
+// Budget du passage : la relève vit sous la limite de 60 s de sa fonction.
+// Passé ce délai, plus aucune collecte n'est commencée ; le reste attend le
+// passage suivant (un email réservé est toujours envoyé jusqu'au bout).
+const BUDGET_MS = 25_000;
 
 /**
  * Passe des emails « Accès chauffeur » après la relève des transporteurs
  * (décision Val 2026-11-16) : le chauffeur et la plaque arrivent de MTS-1 par
  * la relève, sans saisie Admin, et rien ne déclenchait alors l'email. Chaque
- * collecte à contrôle d'accès, à venir et sans email réservé est évaluée ; la
- * fonction SQL ne réserve et ne renvoie de quoi écrire que si tous ses camions
- * sont complets, sous verrou de la collecte (jamais deux emails).
+ * collecte à contrôle d'accès, de J à J+7 et sans email réservé est évaluée ;
+ * la fonction SQL ne réserve et ne renvoie de quoi écrire que si tous ses
+ * camions sont complets, sous verrou de la collecte (jamais deux emails). Une
+ * collecte incomplète ne coûte qu'un appel à la base.
  */
 export async function envoyerInfosAccesCompletes(
   supabase: AdminSupabase,
   aujourdhui: string,
+  maintenant: () => number = Date.now,
 ): Promise<{ evaluees: number; envoyes: number }> {
+  const echeance = maintenant() + BUDGET_MS;
   const { data, error } = await supabase
     .from('collectes')
     .select('id')
@@ -284,18 +298,22 @@ export async function envoyerInfosAccesCompletes(
     .is('infos_acces_email_envoye_at', null)
     .in('statut', STATUTS_A_VENIR)
     .gte('date_collecte', aujourdhui)
+    .lte('date_collecte', decalerJour(aujourdhui, FENETRE_JOURS))
     .order('date_collecte', { ascending: true })
-    .limit(MAX_PAR_PASSAGE);
+    .limit(MAX_CANDIDATES);
   if (error) {
     logger.error('infos_acces.passage_lecture_echec', {
       error_code: (error as { code?: string }).code ?? 'UNKNOWN',
     });
     return { evaluees: 0, envoyes: 0 };
   }
+  let evaluees = 0;
   let envoyes = 0;
   for (const { id } of (data ?? []) as Array<{ id: string }>) {
+    if (maintenant() > echeance) break;
+    evaluees++;
     const { envoye } = await evaluerInfosAccesEtEnvoyer(supabase, id);
     if (envoye) envoyes++;
   }
-  return { evaluees: data?.length ?? 0, envoyes };
+  return { evaluees, envoyes };
 }

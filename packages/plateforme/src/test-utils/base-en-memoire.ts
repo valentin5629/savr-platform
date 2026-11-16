@@ -76,6 +76,7 @@ function requete(
     is: comparer((v, borne) => v === borne),
     gte: comparer((v, borne) => v >= borne),
     lt: comparer((v, borne) => v < borne),
+    lte: comparer((v, borne) => v <= borne),
     in: (colonne: string, valeurs: unknown[]) => {
       filtres.push((l) => valeurs.includes(l[colonne]));
       return b;

@@ -279,6 +279,69 @@ describe('M0.6 / infos accès — passage après la relève (envoyerInfosAccesCo
     expect(emails).toHaveLength(1);
   });
 
+  it('fenêtre J à J+7 : une collecte au-delà n’est pas évaluée', async () => {
+    const b = creerBaseEnMemoire({
+      collectes: [
+        ligne('j7', { date_collecte: '2026-11-23' }),
+        ligne('j8', { date_collecte: '2026-11-24' }),
+      ],
+      alertes_admin: [],
+    });
+    const evaluees: unknown[] = [];
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = (args) => {
+      evaluees.push(args['p_collecte_id']);
+      return null;
+    };
+
+    await envoyerInfosAccesCompletes(client(b), '2026-11-16');
+
+    expect(evaluees).toEqual(['j7']);
+  });
+
+  it('30 collectes incomplètes plus proches ne cachent pas une collecte complète', async () => {
+    const incompletes = Array.from({ length: 30 }, (_, i) =>
+      ligne(`incomplete-${i}`, { date_collecte: '2026-11-17' }),
+    );
+    const b = creerBaseEnMemoire({
+      collectes: [
+        ...incompletes,
+        ligne('complete', { date_collecte: '2026-11-20' }),
+      ],
+      alertes_admin: [],
+    });
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = (args) =>
+      args['p_collecte_id'] === 'complete' ? PAYLOAD_COMPLET : null;
+
+    const r = await envoyerInfosAccesCompletes(client(b), '2026-11-16');
+
+    expect(r).toEqual({ evaluees: 31, envoyes: 1 });
+    expect(emails).toHaveLength(1);
+  });
+
+  it('budget de temps dépassé : plus aucune collecte n’est commencée', async () => {
+    const b = creerBaseEnMemoire({
+      collectes: [ligne('premiere'), ligne('seconde')],
+      alertes_admin: [],
+    });
+    const evaluees: unknown[] = [];
+    b.rpcs['fn_infos_acces_marquer_si_complet'] = (args) => {
+      evaluees.push(args['p_collecte_id']);
+      return null;
+    };
+    // 0 au départ, puis 10 s, puis 30 s : la seconde collecte dépasse les 25 s.
+    const instants = [0, 10_000, 30_000];
+    const horloge = () => instants.shift() ?? 30_000;
+
+    const r = await envoyerInfosAccesCompletes(
+      client(b),
+      '2026-11-16',
+      horloge,
+    );
+
+    expect(evaluees).toEqual(['premiere']);
+    expect(r.evaluees).toBe(1);
+  });
+
   it('collecte incomplète (la fonction SQL ne réserve rien) → aucun email', async () => {
     const b = creerBaseEnMemoire({
       collectes: [ligne('incomplete')],

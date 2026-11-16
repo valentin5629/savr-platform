@@ -50,7 +50,8 @@ function normaliser(v: unknown): string | null | undefined {
  * Saisie/correction manuelle des infos d'accès chauffeur par tournée (Admin).
  * Secours à la récupération auto MTS-1 (décision Val #3, 2026-07-15). Écrit sur
  * `plateforme.tournees` puis ré-évalue la complétude → envoie l'email récap au
- * programmateur dès que toutes les tournées ont nom + téléphone (même logique
+ * programmateur dès que toutes les tournées ont nom + plaque, à défaut de
+ * plaque nom + téléphone (Val 2026-11-16 ; même logique
  * atomique/anti-double-envoi que le chemin auto).
  *
  * Body : { tournees: [{ tournee_id, chauffeur_nom?, chauffeur_telephone?,

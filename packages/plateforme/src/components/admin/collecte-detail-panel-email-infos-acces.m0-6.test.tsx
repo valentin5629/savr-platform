@@ -360,6 +360,10 @@ describe('M0.6 — fiche collecte Admin : état réel de l’email « infos d’
           ],
         }),
       );
+      // Le texte du bloc Chauffeur dit la règle de l'envoi.
+      expect(document.body).toHaveTextContent(
+        'nom du chauffeur et plaque (à défaut de plaque, téléphone)',
+      );
       expect(boutonRenvoi('Envoyer l’email')).toBeInTheDocument();
     },
     ATTENTE_CAS_MS,

@@ -2940,10 +2940,11 @@ export function CollecteDetailPanel({
               {collecte.controle_acces_requis && (
                 <>
                   <Text>
-                    Ce lieu exige un contrôle d’accès : nom et téléphone du
-                    chauffeur (et nom de l’accompagnant s’il y en a un) pour
-                    chaque camion — un email récapitulatif est envoyé au
-                    programmateur dès que toutes les tournées sont complètes.
+                    Ce lieu exige un contrôle d’accès : nom du chauffeur et
+                    plaque (à défaut de plaque, téléphone) pour chaque camion,
+                    et nom de l’accompagnant s’il y en a un — un email
+                    récapitulatif est envoyé au programmateur dès que toutes les
+                    tournées sont complètes.
                   </Text>
                   <div data-testid="etat-email-infos-acces">
                     {suiviEmailAcces.etat === 'envoye' && (

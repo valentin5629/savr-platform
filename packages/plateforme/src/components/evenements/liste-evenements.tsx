@@ -350,6 +350,7 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
     return `/api/v1/evenements?${qs}`;
   }, [
     vue,
+    // Recharge au changement de jour : la route range selon aujourd'hui.
     aujourdhui,
     f.type,
     f.from,

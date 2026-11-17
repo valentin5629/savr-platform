@@ -228,6 +228,20 @@ export default tseslint.config(
     ],
     rules: { 'no-console': 'off' },
   },
+  // Scénarios de charge k6 (tests/load) : exécutés par k6, pas par Node ni
+  // Next.js. Globales injectées par k6, console = sortie du run.
+  {
+    files: ['tests/load/**/*.js'],
+    languageOptions: {
+      globals: {
+        __ENV: 'readonly',
+        __VU: 'readonly',
+        console: 'readonly',
+        URL: 'readonly',
+      },
+    },
+    rules: { 'no-console': 'off' },
+  },
   // Fichiers de test : console.log de debug toléré (jamais du code de prod).
   {
     files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts'],

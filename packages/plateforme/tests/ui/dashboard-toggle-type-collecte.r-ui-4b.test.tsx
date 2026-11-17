@@ -32,6 +32,22 @@ describe('Dashboards — ToggleTypeCollecte (R-UI-4b D1)', () => {
     expect(nbPictos('Anti-Gaspi')).toBe(1);
   });
 
+  it('item levable accordé à ce qui est listé : « Tous » sur la liste Événements (Val 2026-11-17)', () => {
+    render(
+      <ToggleTypeCollecte
+        avecTous
+        libelleTous="Tous"
+        value="tous"
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByRole('radio', { name: 'Tous' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.queryByRole('radio', { name: 'Toutes' })).toBeNull();
+  });
+
   it('clic sur Anti-Gaspi change le type ; re-clic ne le désélectionne pas', () => {
     render(<TestDashboardComponentsPage />);
     const ag = screen.getByRole('radio', { name: 'Anti-Gaspi' });

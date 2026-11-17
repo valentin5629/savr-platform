@@ -136,9 +136,9 @@ describe('Liste Événements — réglages par espace', () => {
         fireEvent.click(bouton);
         const cible = String(ouvrir.mock.calls[0]?.[0] ?? '');
         expect(cible.startsWith('/api/v1/exports/evenements?')).toBe(true);
-        // Vue « à venir » par défaut : à partir d'aujourd'hui.
-        expect(new URLSearchParams(cible.split('?')[1]).get('from')).toMatch(
-          /^\d{4}-\d{2}-\d{2}$/,
+        // Vue « à venir » par défaut : rangement fait par la route (`vue`).
+        expect(new URLSearchParams(cible.split('?')[1]).get('vue')).toBe(
+          'a_venir',
         );
         cleanup();
       }

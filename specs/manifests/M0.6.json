@@ -1825,6 +1825,14 @@
       "test": "M0.6 / statut Admin — envois abandonnés en nombre borné dans le filtre + M0.6 / liste Collectes Admin — filtre de statut et envois abandonnés en nombre",
       "statut": "implemented",
       "libelle": "Filtre « Créée » ou « Programmée » (l'une sans l'autre) de la liste Collectes Admin : les collectes à l'envoi abandonné partent dans l'URL du filtre, qui ne se découpe pas en lots. Il en porte 250 au plus ; au-delà la route répond 500 sans lire la liste, et le journal dit le nombre et le plafond (avant, rien ne bornait cette liste : mesuré sur savr-dev le 2026-11-12, la requête passe avec 360 identifiants et échoue avec 372, sans dire pourquoi). Sans filtre de statut, ou avec « Créée » et « Programmée » ensemble, aucun identifiant ne part dans l'URL : pas de refus, et chaque ligne dit toujours si son envoi est abandonné."
+    },
+    {
+      "id": "M0.6-collectes-select-liste-blanche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1542",
+      "artefact": "supabase/migrations/20261117230000_plateforme_collectes_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 43 colonnes ; vue v_collectes_gestionnaire_lieux sans la photo) + packages/plateforme/src/lib/collectes/champs-editables.ts (reponseCollecteModifiee)",
+      "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-29 gestionnaire, traiteur manager, traiteur commercial, agence, client organisateur : ligne visible, 3 colonnes retirées en 42501 ; 30 ligne tierce invisible ; 31-36 vue du gestionnaire ; 37-46 policies d'autres tables et vues security_invoker toujours lisibles ; 47-52 admin_savr et ops_savr JWT fermés, service_role intact ; 53-56 fonctions ; 57-58 fail-closed colonne ajoutée ; recalé dans le même lot : SECU__collectes_ecriture_client_fermee A3) + packages/plateforme/tests/api/collectes/patch-client-reponse-reduite.test.ts",
+      "statut": "implemented",
+      "libelle": "collectes : SELECT authenticated en liste blanche de 43 colonnes — notes_internes, motif_override_prestataire et aucun_repas_photo_url hors privilège, lues en service_role par le back-office ; les PATCH clients d'une collecte (traiteur, agence, gestionnaire) ne renvoient plus la ligne entière de fn_modifier_collecte."
     }
   ],
   "cdc_source_hash": {

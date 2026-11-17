@@ -100,12 +100,15 @@ SELECT ok(
   'A2 authenticated n''a plus INSERT table-level sur collectes'
 );
 
--- Non-régression : SELECT (col_select) et DELETE (col_delete_brouillon) sont hors
--- périmètre de l'arbitrage — les retirer casserait la lecture et la suppression
--- de brouillon.
+-- Non-régression : la lecture (col_select) et DELETE (col_delete_brouillon) sont
+-- hors périmètre de l'arbitrage — les retirer casserait la lecture et la
+-- suppression de brouillon. Depuis 20261117230000 la lecture n'est plus un
+-- privilège table-level mais une liste blanche de colonnes (épinglée par
+-- SECU__collectes_select_liste_blanche) : on vérifie ici qu'une colonne lue par
+-- tous les écrans clients reste lisible.
 SELECT ok(
-  has_table_privilege('authenticated', 'plateforme.collectes', 'SELECT'),
-  'A3 SELECT reste accorde (col_select — lecture des ecrans clients)'
+  has_column_privilege('authenticated', 'plateforme.collectes', 'statut', 'SELECT'),
+  'A3 la lecture reste accordee (col_select — lecture des ecrans clients, liste blanche de colonnes)'
 );
 SELECT ok(
   has_table_privilege('authenticated', 'plateforme.collectes', 'DELETE'),

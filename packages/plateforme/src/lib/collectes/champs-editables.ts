@@ -28,6 +28,23 @@ export const CHAMPS_COLLECTE_EDITABLES: readonly string[] = [
   ...CHAMPS_TYPE_CONTACTS_COLLECTE,
 ];
 
+// Réponse d'un PATCH client de collecte. `fn_modifier_collecte` rend la ligne
+// ENTIÈRE (`to_jsonb`), dont `notes_internes`, `motif_override_prestataire` et
+// `aucun_repas_photo_url` : trois colonnes réservées à l'équipe Savr, hors GRANT
+// SELECT authenticated (migration 20261117230000). La réponse est donc réduite à
+// l'id et aux champs que ces rôles peuvent éditer ; les écrans n'en consomment
+// que le statut HTTP.
+export function reponseCollecteModifiee(
+  ligne: unknown,
+): Record<string, unknown> {
+  const l = (ligne ?? {}) as Record<string, unknown>;
+  return Object.fromEntries(
+    ['id', ...CHAMPS_COLLECTE_EDITABLES]
+      .filter((champ) => champ in l)
+      .map((champ) => [champ, l[champ]]),
+  );
+}
+
 // Refusés explicitement (422) plutôt qu'ignorés : pour changer le lieu ou le
 // type, on annule la collecte et on en programme une nouvelle.
 export const CHAMPS_COLLECTE_VERROUILLES: readonly string[] = [

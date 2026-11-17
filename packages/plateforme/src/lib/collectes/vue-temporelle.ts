@@ -11,8 +11,9 @@ import {
 // 15h16, une collecte de 15h15 est passée, une de 15h16 encore à venir
 // (décision Val 2026-11-03). Chaque vue s'ouvre de la plus proche à la plus
 // lointaine : date croissante à venir, décroissante dans le passé.
-// La page Événements du gestionnaire garde le rangement au jour, sur la date
-// de l'événement (décision Val 2026-10-20) : aujourd'hui y reste « à venir ».
+// La page Événements a sa propre règle, appliquée par sa route : passé dès que
+// sa date est passée ou que sa dernière collecte est réalisée (Val 2026-11-17,
+// lib/evenements/liste-evenements.ts).
 
 export type VueCollectes = 'a_venir' | 'passees';
 

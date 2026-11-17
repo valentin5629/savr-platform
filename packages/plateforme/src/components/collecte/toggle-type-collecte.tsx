@@ -50,6 +50,8 @@ interface ToggleTypeCollecteProps<V extends TypeCollecteFiltre> {
   onChange: (type: V) => void;
   /** Item « Toutes » en tête (filtre levable). Défaut : non. */
   avecTous?: boolean;
+  /** Libellé de l'item levable, accordé à ce qui est listé (Événements : « Tous »). */
+  libelleTous?: string;
   'aria-label'?: string;
   className?: string;
   'data-testid'?: string;
@@ -59,6 +61,7 @@ export function ToggleTypeCollecte<V extends TypeCollecteFiltre>({
   value,
   onChange,
   avecTous = false,
+  libelleTous = 'Toutes',
   'aria-label': ariaLabel = 'Type de collecte',
   className,
   'data-testid': testId,
@@ -90,7 +93,7 @@ export function ToggleTypeCollecte<V extends TypeCollecteFiltre>({
             <Picto type="zero_dechet" petit />
             <Picto type="anti_gaspi" petit />
           </span>
-          Toutes
+          {libelleTous}
         </ToggleGroupItem>
       )}
       <ToggleGroupItem value="zero_dechet" className={item}>

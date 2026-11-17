@@ -1832,7 +1832,7 @@
       "artefact": "supabase/migrations/20261117230000_plateforme_collectes_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 43 colonnes ; vue v_collectes_gestionnaire_lieux sans la photo) + packages/plateforme/src/lib/collectes/champs-editables.ts (reponseCollecteModifiee)",
       "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-29 gestionnaire, traiteur manager, traiteur commercial, agence, client organisateur : ligne visible, 3 colonnes retirées en 42501 ; 30 ligne tierce invisible ; 31-36 vue du gestionnaire ; 37-46 policies d'autres tables et vues security_invoker toujours lisibles ; 47-52 admin_savr et ops_savr JWT fermés, service_role intact ; 53-56 fonctions ; 57-58 fail-closed colonne ajoutée ; recalé dans le même lot : SECU__collectes_ecriture_client_fermee A3) + packages/plateforme/tests/api/collectes/patch-client-reponse-reduite.test.ts",
       "statut": "implemented",
-      "libelle": "collectes : SELECT authenticated en liste blanche de 43 colonnes — notes_internes, motif_override_prestataire et aucun_repas_photo_url hors privilège, lues en service_role par le back-office ; les PATCH clients d'une collecte (traiteur, agence, gestionnaire) ne renvoient plus la ligne entière de fn_modifier_collecte."
+      "libelle": "collectes : SELECT authenticated en liste blanche de 43 colonnes (36 depuis 20261117233000, livrable M0.6-collectes-select-sept-colonnes-fermees) — notes_internes, motif_override_prestataire et aucun_repas_photo_url hors privilège, lues en service_role par le back-office ; les PATCH clients d'une collecte (traiteur, agence, gestionnaire) ne renvoient plus la ligne entière de fn_modifier_collecte."
     },
     {
       "id": "M0.6-declaration-coursier-bloc",
@@ -1842,6 +1842,14 @@
       "test": "packages/plateforme/src/components/admin/declaration-coursier-section.test.tsx + packages/plateforme/tests/api/admin/collectes-declaration-coursier.test.ts + Déclaration du coursier (A Toute!, Val 2026-11-17)",
       "statut": "implemented",
       "libelle": "Fiche collecte Admin, onglet Logistique : bloc « Déclaration du coursier » qui montre tous les champs saisis par le coursier A Toute! à « Colis récupéré » (poids, tranches de poids, caisse, attente), cases en Oui / Non (décision Val 2026-11-17)."
+    },
+    {
+      "id": "M0.6-collectes-select-sept-colonnes-fermees",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1561",
+      "artefact": "supabase/migrations/20261117233000_plateforme_collectes_select_sept_colonnes_fermees.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 36 colonnes) + packages/plateforme/src/lib/collectes/fiche-client.ts (lieu_overrides lu en service_role après la lecture sous RLS) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (lireSnapshotFacteurs)",
+      "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (2-3 liste blanche exacte de 36 colonnes, 10 fermées ; 59 non-vacuité ; 60-64 gestionnaire, traiteur manager, traiteur commercial, client organisateur, agence : aucune des 7 colonnes lisible ; 65 contrôle positif de la sonde ; 66 jointure ; 67 filtre ; 68-69 admin_savr et ops_savr JWT fermés ; 70 service_role intact ; 71-72 fonctions) + M3.1/fiche_get_surcharge_lue_en_service + M3.1/fiche_get_surcharge_erreur_500 + M3.5/synthese_facteurs_lus_en_service + M3.5/synthese_facteurs_par_lots + M3.5/synthese_facteurs_erreur",
+      "statut": "implemented",
+      "libelle": "collectes : dirty_tms, nb_camions_demande, incident_imputable_a, annulee_cote_savr_motif, caps_appliques, co2_facteurs_snapshot et lieu_overrides hors du privilège SELECT authenticated (décision Val 2026-11-17), lues en service_role ; la fiche collecte des espaces clients et la synthèse PDF des tableaux de bord les relisent en service_role après la lecture sous RLS."
     }
   ],
   "cdc_source_hash": {

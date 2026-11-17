@@ -62,8 +62,26 @@ function appeler(etat, methode, chemin, o) {
   if (res.status === 401) etat.connecteA = 0;
   if (o.page) dureePages.add(res.timings.duration, { name: o.nom });
   const attendu = o.attendu || 200;
-  check(res, { [`${o.nom} → ${attendu}`]: (r) => r.status === attendu });
+  const ok = check(res, {
+    [`${o.nom} → ${attendu}`]: (r) => r.status === attendu,
+  });
+  if (!ok) signalerInattendu(etat, o.nom, res);
   return res;
+}
+
+// Trois premières réponses inattendues par route et par utilisateur simulé :
+// code, redirection éventuelle, champ `error` du JSON. Rien d'autre du corps
+// (il peut porter des données de collecte).
+function signalerInattendu(etat, nom, res) {
+  etat.signales = etat.signales || {};
+  const n = (etat.signales[nom] = (etat.signales[nom] || 0) + 1);
+  if (n > 3) return;
+  const json = lireJson(res);
+  const erreur = json && typeof json.error === 'string' ? json.error : '';
+  const vers = res.headers.Location || res.headers.location || '';
+  console.warn(
+    `[${etat.compte.email}] ${nom} → ${res.status}${vers ? ` vers ${vers}` : ''}${erreur ? ` : ${erreur.slice(0, 160)}` : ''}`,
+  );
 }
 
 function lireJson(res) {
@@ -174,9 +192,10 @@ function exporterCollectes(etat) {
 // lecture, 25 % écriture, 5 % batch) : une action de lecture fait 2 requêtes,
 // la programmation 3 écritures, l'export 1. 35 × 2 = 70, 8 × 3 = 24, 5 × 1 = 5.
 export const POIDS_TRAITEUR = {
-  tableauDeBord: 12,
-  liste: 12,
-  fiche: 11,
+  tableauDeBord: 10,
+  liste: 11,
+  fiche: 10,
+  registre: 4,
   programmation: 8,
   export: 5,
 };
@@ -208,6 +227,18 @@ const ACTIONS_TRAITEUR = {
     appeler(etat, 'GET', `/api/v1/traiteur/collectes/${au(etat.collectes)}`, {
       nom: 'GET /api/v1/traiteur/collectes/[id]',
       sla: 'fiche',
+      nature: 'lecture',
+    });
+  },
+  registre(etat) {
+    appeler(etat, 'GET', '/registre', {
+      nom: 'GET /registre',
+      nature: 'lecture',
+      page: true,
+    });
+    appeler(etat, 'GET', '/api/v1/registre', {
+      nom: 'GET /api/v1/registre',
+      sla: 'registre',
       nature: 'lecture',
     });
   },
@@ -293,11 +324,12 @@ function corpsBrouillon(ref, nom, pax) {
 
 // ─── Équipe Savr ────────────────────────────────────────────────────────────
 
+// Le registre est réservé aux rôles clients (`ROLES_REGISTRE`, lib/routes.ts) :
+// il est dans le parcours traiteur, pas ici.
 export const POIDS_EQUIPE = {
-  tableauDeBord: 10,
-  liste: 12,
-  fiche: 8,
-  registre: 5,
+  tableauDeBord: 12,
+  liste: 14,
+  fiche: 9,
   export: 3,
 };
 
@@ -327,18 +359,6 @@ const ACTIONS_EQUIPE = {
     });
   },
   fiche: ficheEvenement,
-  registre(etat) {
-    appeler(etat, 'GET', '/registre', {
-      nom: 'GET /registre',
-      nature: 'lecture',
-      page: true,
-    });
-    appeler(etat, 'GET', '/api/v1/registre', {
-      nom: 'GET /api/v1/registre',
-      sla: 'registre',
-      nature: 'lecture',
-    });
-  },
   export: exporterCollectes,
 };
 

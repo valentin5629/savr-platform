@@ -46,6 +46,9 @@ export const options = {
   }),
   // Le nettoyage parcourt 16 comptes : plus que les 60 s par défaut.
   teardownTimeout: '5m',
+  // Sans elle, k6 vide les cookies à chaque itération : la session de
+  // l'utilisateur simulé disparaîtrait dès sa 2e action (401, mesuré).
+  noCookiesReset: true,
 };
 
 let etat;

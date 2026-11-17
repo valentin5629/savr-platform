@@ -33,12 +33,15 @@ export function lireConfig(env) {
       'BASE_URL manquante (ex. https://dev.app.gosavr.io). Aucune cible par défaut.',
     );
   }
-  let url;
-  try {
-    url = new URL(brute);
-  } catch {
-    throw new Error(`BASE_URL illisible : ${brute}`);
-  }
+  // Lecture à la main : k6 n'a pas l'objet `URL` du navigateur ni de Node.
+  // Schéma, hôte, port éventuel, chemin ignoré ; identifiants (`user@`) refusés.
+  const m = /^(https?):\/\/([a-z0-9.-]+)(:\d+)?(\/.*)?$/i.exec(brute);
+  if (!m) throw new Error(`BASE_URL illisible : ${brute}`);
+  const hostname = m[2].toLowerCase();
+  const url = {
+    hostname,
+    origin: `${m[1].toLowerCase()}://${hostname}${m[3] || ''}`,
+  };
   if (!hoteAutorise(url.hostname)) {
     throw new Error(
       `Hôte refusé : ${url.hostname}. Les tests de charge ne visent que dev, un aperçu de branche ou un serveur local, jamais la production.`,

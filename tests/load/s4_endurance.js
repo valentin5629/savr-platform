@@ -50,6 +50,9 @@ export const options = {
   },
   thresholds: seuilsK6(seuilsTranches(CATEGORIES)),
   teardownTimeout: '5m',
+  // Sans elle, k6 vide les cookies à chaque itération : la session de
+  // l'utilisateur simulé disparaîtrait dès sa 2e action (401, mesuré).
+  noCookiesReset: true,
 };
 
 export function setup() {

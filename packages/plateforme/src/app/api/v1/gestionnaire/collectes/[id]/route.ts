@@ -13,6 +13,7 @@ import { chargerFicheCollecteClient } from '@/lib/collectes/fiche-client.js';
 import {
   CHAMPS_COLLECTE_EDITABLES,
   CHAMPS_COLLECTE_VERROUILLES,
+  reponseCollecteModifiee,
 } from '@/lib/collectes/champs-editables.js';
 import { notifierEquipeModificationCollecte } from '@/lib/collectes/email-modification.js';
 import { lireContactsCollecte } from '@/lib/collectes/contacts-collecte.js';
@@ -233,7 +234,7 @@ export async function PATCH(
   });
 
   return NextResponse.json({
-    data: updated,
+    data: reponseCollecteModifiee(updated),
     flags: { reacceptation_requise, cascade_tms },
   });
 }

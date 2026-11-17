@@ -47,6 +47,9 @@ export default defineConfig({
       // Renderer PDF (apps/pdf-renderer) : tests unitaires de templates/dispatch.
       // Titrés « M1.6 / … » et « M2.4 / … » → routés par test:module comme les packages.
       'apps/**/*.{test,spec}.{ts,tsx}',
+      // Tests de charge k6 : seules leurs parties pures (gardes, seuils tirés
+      // du CDC, répartition des comptes) sont jouées ici, pas les runs.
+      'tests/load/**/*.test.ts',
     ],
     exclude: [
       '**/node_modules/**',

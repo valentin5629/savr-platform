@@ -82,11 +82,12 @@ export function lirePoidsSaisi(valeur: string): number | null {
   return Number.isFinite(poids) && poids > 0 ? poids : null;
 }
 
-// Une case « oui ou non » : le type du champ quand A Toute! le donne, à défaut
-// son libellé.
+// Une case « oui ou non » : son type (`true_false`, exemple du swagger) ou son
+// libellé, la valeur du type n'étant pas encore mesurée sur une vraie saisie.
 function estCase(champ: EtapeHistoriqueEverest['champs'][number]): boolean {
-  if (champ.type) return champ.type === 'true_false';
-  return normaliser(champ.name).includes('oui ou non');
+  return (
+    champ.type === 'true_false' || normaliser(champ.name).includes('oui ou non')
+  );
 }
 
 function valeurAffichee(
@@ -247,7 +248,12 @@ export async function releverPoidsDonCoursier(
   return true;
 }
 
-const SOURCE = 'everest';
+// Source propre à la mémoire, que le webhook n'écrit jamais : l'index unique
+// de integrations_inbox porte sur (source, event_id_externe) seulement, et une
+// notification forgée sous `everest` pourrait sinon occuper la clé
+// `poids_don:<collecte>` et rendre la mémoire muette (revue sécurité
+// 2026-11-17). Même séparation que MTS-1 (`mts1` / `mts1_notification`).
+const SOURCE = 'everest_memoire';
 const MEMOIRE = 'poids_don_collecte';
 
 async function lireSommeEcrite(
@@ -288,18 +294,27 @@ async function noterSommeEcrite(
     traite_at: maintenant,
   });
   if (!error) return;
-  const { error: erreurMaj } =
-    error.code === '23505'
-      ? await supabase
-          .from('integrations_inbox')
-          .update({ payload: { valeur }, traite_at: maintenant })
-          .eq('source', SOURCE)
-          .eq('event_type', MEMOIRE)
-          .eq('event_id_externe', cle)
-      : { error };
+  if (error.code !== '23505') {
+    throw new LogistiqueTransientError(
+      `Mémoire ${MEMOIRE} non notée — ${error.message}`,
+    );
+  }
+  const { data, error: erreurMaj } = await supabase
+    .from('integrations_inbox')
+    .update({ payload: { valeur }, traite_at: maintenant })
+    .eq('source', SOURCE)
+    .eq('event_type', MEMOIRE)
+    .eq('event_id_externe', cle)
+    .select('id');
   if (erreurMaj) {
     throw new LogistiqueTransientError(
       `Mémoire ${MEMOIRE} non notée — ${erreurMaj.message}`,
+    );
+  }
+  // Clé occupée par une autre ligne : la mémoire ne serait jamais relue.
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new LogistiqueTransientError(
+      `Mémoire ${MEMOIRE} non notée — clé ${cle} occupée par une autre ligne`,
     );
   }
 }

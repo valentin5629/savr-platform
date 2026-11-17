@@ -37,6 +37,9 @@ interface Etat {
   memoire?: number;
   ecritsPoids: number[];
   memoiresNotees: number[];
+  sourcesMemoire: string[];
+  /** La mise à jour de la mémoire ne touche aucune ligne (clé occupée). */
+  memoireCleOccupee?: boolean;
 }
 
 function fauxSupabase(etat: Etat): SupabaseClient {
@@ -97,6 +100,7 @@ function fauxSupabase(etat: Etat): SupabaseClient {
       },
       maybeSingle: () => Promise.resolve({ data: resultat(), error: null }),
       insert: (ligne: Record<string, unknown>) => {
+        etat.sourcesMemoire.push(ligne['source'] as string);
         etat.memoiresNotees.push(
           (ligne['payload'] as { valeur: number }).valeur,
         );
@@ -107,8 +111,16 @@ function fauxSupabase(etat: Etat): SupabaseClient {
               : { code: '23505', message: 'duplicate key value' },
         });
       },
-      then: (ok: (v: unknown) => void) =>
-        ok({ data: maj ? null : resultat(), error: null }),
+      then: (ok: (v: unknown) => void) => {
+        if (maj && nom === 'integrations_inbox') {
+          etat.sourcesMemoire.push(filtres['source'] as string);
+          return ok({
+            data: etat.memoireCleOccupee ? [] : [{ id: 'memoire-1' }],
+            error: null,
+          });
+        }
+        return ok({ data: maj ? null : resultat(), error: null });
+      },
     };
     return c;
   };
@@ -157,6 +169,7 @@ beforeEach(() => {
     courses: [{ rang: 1, ref: 'MIS-1' }],
     ecritsPoids: [],
     memoiresNotees: [],
+    sourcesMemoire: [],
   };
 });
 
@@ -243,6 +256,23 @@ describe('releverPoidsDonCoursier — poids du don AG', () => {
     expect(etat.ecritsPoids).toEqual([]);
   });
 
+  it('mémoire sous une source que le webhook n’écrit jamais (revue sécurité 2026-11-17)', async () => {
+    etat.memoire = 10;
+    mock.historiques.set('MIS-1', [enlevement('12')]);
+    await releverPoidsDonCoursier(fauxSupabase(etat), COLLECTE, 'corr');
+    // INSERT puis mise à jour, toutes deux hors de la source du webhook.
+    expect(etat.sourcesMemoire).toEqual(['everest_memoire', 'everest_memoire']);
+  });
+
+  it('clé de mémoire occupée par une autre ligne : erreur, jamais un succès muet', async () => {
+    etat.memoire = 10;
+    etat.memoireCleOccupee = true;
+    mock.historiques.set('MIS-1', [enlevement('12')]);
+    await expect(
+      releverPoidsDonCoursier(fauxSupabase(etat), COLLECTE, 'corr'),
+    ).rejects.toThrow(/occupée par une autre ligne/);
+  });
+
   it('le coursier corrige sa saisie : le nouveau poids est écrit, la mémoire mise à jour', async () => {
     etat.memoire = 12.5;
     mock.historiques.set('MIS-1', [
@@ -316,7 +346,11 @@ describe('lireDeclarationsCoursier — fiche collecte Admin', () => {
           value: '1',
           type: 'true_false',
         },
-        { name: '60 et 79,99 kg ( oui ou non )', value: '0', type: null },
+        {
+          name: '60 et 79,99 kg ( oui ou non )',
+          value: 'false',
+          type: 'boolean',
+        },
         {
           name: "Minutes d'attentes ( nombre ) colis récupéré",
           value: '20',

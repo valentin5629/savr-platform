@@ -344,6 +344,53 @@ describe('M3.2 / liste Événements gestionnaire — route', () => {
     );
   });
 
+  it('EVT/vue_passes_des_derniere_collecte_realisee — passé = date passée OU toutes ses collectes terminées dont une réalisée ; à venir = le reste (Val 2026-11-17)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 17/11 à 10h, heure de Paris.
+    vi.setSystemTime(new Date('2026-11-17T09:00:00Z'));
+    try {
+      rls.__set({ data: [], error: null, count: 0 });
+      await liste('?vue=passees&from=2026-11-01');
+      expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+        'en_cours:collectes(id), realisee:collectes(id)',
+      );
+      expect(rls.__calls.not).toContainEqual([
+        'en_cours.statut',
+        'in',
+        '(realisee,cloturee,realisee_sans_collecte,annulee,annulation_demandee)',
+      ]);
+      expect(rls.__calls.in).toContainEqual([
+        'realisee.statut',
+        ['realisee', 'cloturee', 'realisee_sans_collecte'],
+      ]);
+      // La période de la barre reste celle choisie, jamais bornée à hier.
+      expect(rls.__calls.gte).toEqual([['date_evenement', '2026-11-01']]);
+      expect(rls.__calls.lte).toBeUndefined();
+      expect(rls.__calls.or).toContainEqual([
+        'date_evenement.lt.2026-11-17,and(en_cours.is.null,realisee.not.is.null)',
+      ]);
+
+      rls = makeChain();
+      rls.__set({ data: [], error: null, count: 0 });
+      await liste('?vue=a_venir');
+      expect(rls.__calls.gte).toEqual([['date_evenement', '2026-11-17']]);
+      expect(rls.__calls.or).toContainEqual([
+        'en_cours.not.is.null,realisee.is.null',
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('EVT/sans_vue_aucun_rangement — sans `vue`, seule la période compte (export et anciens liens)', async () => {
+    rls.__set({ data: [], error: null, count: 0 });
+    await liste('?from=2026-11-01');
+    expect(String(rls.__calls.select?.[0]?.[0])).not.toContain('en_cours:');
+    expect(rls.__calls.or).toEqual([
+      ['hors_brouillon.not.is.null,collectes.is.null'],
+    ]);
+  });
+
   it('M3.2/evenements_route_zd_et_type_deux_conditions_separees — « ZD » + un type : une collecte ZD ET une collecte de ce type, pas forcément la même (Q1 Val 2026-10-24)', async () => {
     rls.__set({ data: [], error: null, count: 0 });
     await liste(`?type=zero_dechet&type_evenement_ids[]=${TE1}`);

@@ -30,9 +30,17 @@ import type { VarianteBadge } from './types';
 
 export type StatutEvenementConsolide = 'En cours' | 'Terminé' | 'Annulé';
 
-const REALISEES = new Set(['realisee', 'cloturee', 'realisee_sans_collecte']);
-const ANNULEES = new Set(['annulee', 'annulation_demandee']);
-const TERMINAUX = new Set([...REALISEES, ...ANNULEES]);
+/** Statuts « réalisée » et terminaux, lus aussi par le rangement à venir / passés de la liste Événements. */
+export const STATUTS_REALISES = [
+  'realisee',
+  'cloturee',
+  'realisee_sans_collecte',
+] as const;
+const ANNULES = ['annulee', 'annulation_demandee'] as const;
+export const STATUTS_TERMINAUX = [...STATUTS_REALISES, ...ANNULES] as const;
+const REALISEES = new Set<string>(STATUTS_REALISES);
+const ANNULEES = new Set<string>(ANNULES);
+const TERMINAUX = new Set<string>(STATUTS_TERMINAUX);
 
 /** Dérive le statut consolidé d'un événement depuis ses collectes. */
 export function statutEvenementConsolide(

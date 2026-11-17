@@ -308,7 +308,7 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
   );
 
   it(
-    'M3.2/evenements_vues_a_venir_passes_par_date — « Événements à venir » par défaut (aujourd’hui et après, date croissante), « passés » (avant aujourd’hui, date décroissante)',
+    'M3.2/evenements_vues_a_venir_passes_par_date — « Événements à venir » par défaut (date croissante), « passés » (date décroissante) ; le rangement part à la route (`vue`), la période choisie n’est plus bornée par l’écran (Val 2026-11-17)',
     async () => {
       // Horloge seule figée (minuteries réelles) : 8 juillet 2026, 10 h à Paris.
       vi.useFakeTimers({ toFake: ['Date'] });
@@ -338,7 +338,8 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
         ).toHaveAttribute('aria-selected', 'true');
         // Liste paginée : la borne ET le sens du tri partent au serveur.
         let q = derniereListe();
-        expect(q.get('from')).toBe('2026-07-08');
+        expect(q.get('vue')).toBe('a_venir');
+        expect(q.get('from')).toBeNull();
         expect(q.get('to')).toBeNull();
         expect(q.get('ordre')).toBe('asc');
 
@@ -347,9 +348,10 @@ describe('M3.2 / liste Événements gestionnaire — écran', () => {
         );
         await waitFor(() => {
           q = derniereListe();
-          expect(q.get('to')).toBe('2026-07-07');
+          expect(q.get('vue')).toBe('passees');
         }, ATTENTE_UI);
         expect(q.get('from')).toBeNull();
+        expect(q.get('to')).toBeNull();
         expect(q.get('ordre')).toBe('desc');
         expect(new URLSearchParams(window.location.search).get('onglet')).toBe(
           'passees',

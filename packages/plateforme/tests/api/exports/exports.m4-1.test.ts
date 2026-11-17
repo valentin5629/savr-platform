@@ -1103,6 +1103,21 @@ describe('M4.1 / evenements — filtres de la liste', () => {
     expect(rls.__calls.range?.[0]).toEqual([0, 999]);
   });
 
+  it('EVT/export_suit_la_vue — le fichier reprend le rangement à venir / passés de la liste (Val 2026-11-17)', async () => {
+    setupAuth('traiteur_manager');
+    rls.push({ data: [], error: null });
+    const res = await call('evenements', '?vue=passees');
+    expect(res.status).toBe(200);
+    expect(String(rls.__calls.select?.[0]?.[0])).toContain(
+      'en_cours:collectes(id), realisee:collectes(id)',
+    );
+    expect(
+      (rls.__calls.or ?? []).some((a) =>
+        String(a[0]).endsWith(',and(en_cours.is.null,realisee.not.is.null)'),
+      ),
+    ).toBe(true);
+  });
+
   it('M3.2/export_evenements_par_tranches — au-delà d’une réponse PostgREST, toutes les lignes sortent', async () => {
     setupAuth('admin_savr', null);
     const evt = (id: string) => ({

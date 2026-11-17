@@ -29,6 +29,7 @@ import type {
   EverestCancelResponse,
   EverestCreatedMission,
   EverestMissionDetail,
+  EtapeHistoriqueEverest,
   EtapeMissionEverest,
   EverestUpdateResponse,
   PhotoMissionEverest,
@@ -181,6 +182,55 @@ function formatImage(b: Buffer): string | null {
   )
     return 'image/webp';
   return null;
+}
+
+// Historique rendu par POST /missions/statuses (forme mesurée sur le compte
+// A Toute! le 2026-11-17 : `missions[].ref`, `missions[].statuses[]` portant
+// `status`, `date_created` en secondes et `extras_fields[]` {name, value,
+// type}). Seules les missions demandées sont retenues ; une étape ou un champ
+// d'une autre forme est ignoré, jamais une erreur.
+function lireHistoriques(
+  missions: unknown,
+  demandees: Set<string>,
+): Map<string, EtapeHistoriqueEverest[]> {
+  const lus = new Map<string, EtapeHistoriqueEverest[]>();
+  if (!Array.isArray(missions)) return lus;
+  for (const m of missions as Array<{ ref?: unknown; statuses?: unknown }>) {
+    const ref = texteOuNull(m?.ref);
+    if (!ref || !demandees.has(ref) || !Array.isArray(m.statuses)) continue;
+    const etapes: EtapeHistoriqueEverest[] = [];
+    for (const e of m.statuses as Array<Record<string, unknown>>) {
+      const statut = texteOuNull(e?.['status']);
+      const date = e?.['date_created'];
+      if (!statut || typeof date !== 'number' || !Number.isFinite(date)) {
+        continue;
+      }
+      const champs: EtapeHistoriqueEverest['champs'] = [];
+      const bruts = e['extras_fields'];
+      if (Array.isArray(bruts)) {
+        for (const c of bruts as Array<Record<string, unknown>>) {
+          const nom = texteOuNull(c?.['name']);
+          const valeur = c?.['value'];
+          if (!nom) continue;
+          champs.push({
+            name: nom,
+            value:
+              typeof valeur === 'string' || typeof valeur === 'number'
+                ? String(valeur)
+                : typeof valeur === 'boolean'
+                  ? valeur
+                    ? 'true'
+                    : 'false'
+                  : '',
+            type: texteOuNull(c['type']),
+          });
+        }
+      }
+      etapes.push({ statut_code: statut, date, champs });
+    }
+    lus.set(ref, etapes);
+  }
+  return lus;
 }
 
 function texteOuNull(v: unknown): string | null {
@@ -557,6 +607,85 @@ export class EverestClient {
       etape: etapeMission(mission),
       photos: photosMission(mission),
     };
+  }
+
+  // ─── Historique des étapes d'une ou plusieurs missions ─────────────────────
+  // POST /missions/statuses (100 références au plus) : chaque étape avec les
+  // champs que le coursier y a saisis. La relecture d'une mission
+  // (`/missions/get`) ne donne que ceux de l'étape courante, perdus dès l'étape
+  // suivante ; l'historique les garde. Lecture seule. Une mission absente de la
+  // réponse est absente de la carte rendue.
+
+  async getStatuses(
+    refs: string[],
+    correlationId: string,
+  ): Promise<Map<string, EtapeHistoriqueEverest[]>> {
+    if (refs.length === 0) return new Map();
+    if (refs.length > 100) {
+      throw new LogistiquePermanentError(
+        'Everest getStatuses : 100 missions au plus',
+      );
+    }
+    const handlers = _getEverestHandlers();
+    const t0 = Date.now();
+
+    if (handlers) {
+      if (!handlers.getStatuses) return new Map();
+      const result = await handlers.getStatuses(refs);
+      if (!result.ok) {
+        if (result.status === 401) {
+          return this.jetonInutilisable('getStatuses', 401);
+        }
+        throw result.status >= 500
+          ? new LogistiqueTransientError(
+              `Everest getStatuses ${result.status} : ${result.error}`,
+            )
+          : new LogistiquePermanentError(
+              `Everest getStatuses ${result.status} : ${result.error}`,
+            );
+      }
+      return result.data;
+    }
+
+    const jeton = await this.jetonOuAlerte('getStatuses');
+    const resp = await this.postJson(
+      '/missions/statuses',
+      { refs },
+      jeton,
+    ).catch((err: unknown) => {
+      throw new LogistiqueTransientError(
+        `Everest getStatuses réseau : ${libelleErreurReseau(err)}`,
+      );
+    });
+
+    const motif =
+      resp.ok || resp.status === 401 ? null : await lireMotifRefus(resp);
+    await this.log({
+      methode: 'POST',
+      endpoint: '/missions/statuses',
+      statut_http: resp.status,
+      duree_ms: Date.now() - t0,
+      correlation_id: correlationId,
+      ...(motif ? { erreur: motif } : {}),
+    });
+
+    if (resp.status === 401) {
+      return this.jetonInutilisable('getStatuses', 401);
+    }
+    if (resp.status >= 500) {
+      throw new LogistiqueTransientError(
+        avecMotif(`Everest getStatuses ${resp.status}`, motif),
+      );
+    }
+    if (!resp.ok) {
+      throw new LogistiquePermanentError(
+        avecMotif(`Everest getStatuses ${resp.status}`, motif),
+      );
+    }
+    const corps = (await resp.json().catch(() => null)) as {
+      missions?: unknown;
+    } | null;
+    return lireHistoriques(corps?.missions, new Set(refs));
   }
 
   // ─── Téléchargement d'une photo de mission ─────────────────────────────────

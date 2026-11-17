@@ -130,6 +130,24 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:291",
       "statut": "implemented",
       "test": "M2.5 / webhook Everest — notification réelle `mission_status` + M2.5/everest_contrat_get_etape (dont « sécurité : event=mission_finished alors que l’API dit « enlevée » »)"
+    },
+    {
+      "id": "M2.5-poids-colis-recupere",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md:190",
+      "ref_divergence": "_Divergences/M2.5_20261117_everest-poids-colis-recupere.md",
+      "artefact": "packages/adapters/src/declaration-coursier.ts (releverPoidsDonCoursier : collecte AG validee/en_cours/realisee confiée à A Toute!, somme des courses non annulées quand chacune a un poids, mémoire poids_don_collecte dans integrations_inbox, l'Admin garde le dernier mot) ; packages/plateforme/src/app/api/webhooks/everest/route.ts (relirePoidsDon aux étapes enlevée et réussie de la mission courante, best-effort)",
+      "test": "packages/adapters/src/declaration-coursier.test.ts + poids du don déclaré à « Colis récupéré » (Val 2026-11-17)",
+      "statut": "implemented",
+      "libelle": "Poids du don AG déclaré par le coursier A Toute! à « Colis récupéré » (champ « Poids en Kg obligatoire ») écrit dans attributions_antgaspi.poids_repas_kg aux règles de MTS-1 : somme des vélos quand chacun est pesé, l'Admin garde le dernier mot (décisions Val 2026-11-17)."
+    },
+    {
+      "id": "M2.5-declaration-coursier-historique",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:291",
+      "ref_divergence": "_Divergences/M2.5_20261117_everest-poids-colis-recupere.md",
+      "artefact": "packages/adapters/src/everest/client.ts (getStatuses : POST /missions/statuses, lireHistoriques) ; packages/adapters/src/everest/mock.ts (EtapeHistoriqueEverest, handler getStatuses)",
+      "test": "packages/adapters/src/everest/client.historique.test.ts",
+      "statut": "implemented",
+      "libelle": "Champs saisis par le coursier lus dans l'historique des étapes de la course (POST /missions/statuses, forme mesurée le 2026-11-17), qui les garde après « Colis remis », jamais dans la notification."
     }
   ],
   "cdc_source_hash": {

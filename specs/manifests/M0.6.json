@@ -1833,6 +1833,15 @@
       "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-29 gestionnaire, traiteur manager, traiteur commercial, agence, client organisateur : ligne visible, 3 colonnes retirées en 42501 ; 30 ligne tierce invisible ; 31-36 vue du gestionnaire ; 37-46 policies d'autres tables et vues security_invoker toujours lisibles ; 47-52 admin_savr et ops_savr JWT fermés, service_role intact ; 53-56 fonctions ; 57-58 fail-closed colonne ajoutée ; recalé dans le même lot : SECU__collectes_ecriture_client_fermee A3) + packages/plateforme/tests/api/collectes/patch-client-reponse-reduite.test.ts",
       "statut": "implemented",
       "libelle": "collectes : SELECT authenticated en liste blanche de 43 colonnes — notes_internes, motif_override_prestataire et aucun_repas_photo_url hors privilège, lues en service_role par le back-office ; les PATCH clients d'une collecte (traiteur, agence, gestionnaire) ne renvoient plus la ligne entière de fn_modifier_collecte."
+    },
+    {
+      "id": "M0.6-declaration-coursier-bloc",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:263",
+      "ref_divergence": "_Divergences/M2.5_20261117_everest-poids-colis-recupere.md",
+      "artefact": "packages/plateforme/src/components/admin/declaration-coursier-section.tsx (bloc « Déclaration du coursier ») ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (affiché sous « Chauffeur » si prestataire actuel A Toute! et référence de course) ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/declaration-coursier/route.ts (GET, équipe Savr) ; packages/adapters/src/declaration-coursier.ts (lireDeclarationsCoursier)",
+      "test": "packages/plateforme/src/components/admin/declaration-coursier-section.test.tsx + packages/plateforme/tests/api/admin/collectes-declaration-coursier.test.ts + Déclaration du coursier (A Toute!, Val 2026-11-17)",
+      "statut": "implemented",
+      "libelle": "Fiche collecte Admin, onglet Logistique : bloc « Déclaration du coursier » qui montre tous les champs saisis par le coursier A Toute! à « Colis récupéré » (poids, tranches de poids, caisse, attente), cases en Oui / Non (décision Val 2026-11-17)."
     }
   ],
   "cdc_source_hash": {

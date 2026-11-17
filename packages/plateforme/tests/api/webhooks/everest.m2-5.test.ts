@@ -16,6 +16,17 @@ import {
   type EverestMissionDetail,
 } from '@savr/adapters/src/index.js';
 
+// Poids du don déclaré par le coursier (Val 2026-11-17) : la relève est testée
+// à part (packages/adapters/src/declaration-coursier.test.ts) ; ici, seul le
+// moment où la route la déclenche. Le reste du module reste le vrai.
+const releve = vi.hoisted(() => ({
+  poidsDon: vi.fn(async (..._args: unknown[]) => true),
+}));
+vi.mock('@savr/adapters/src/index.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  releverPoidsDonCoursier: releve.poidsDon,
+}));
+
 // ─── Mock Supabase ────────────────────────────────────────────────────────────
 
 let mockInboxInsertResult: { data: unknown; error: unknown } = {
@@ -2413,6 +2424,71 @@ describe('M2.5 / webhook Everest — notification réelle `mission_status`', () 
         (u) => (u as Record<string, unknown>)['derniere_sync_at'] !== undefined,
       ),
     ).toBe(true);
+  });
+
+  describe('poids du don déclaré à « Colis récupéré » (Val 2026-11-17)', () => {
+    beforeEach(() => {
+      releve.poidsDon.mockReset();
+      releve.poidsDon.mockResolvedValue(true);
+    });
+
+    it.each([
+      ['mission-en-cours-de-livraison', 'enlevee'],
+      ['livraison-terminee', 'reussie'],
+    ] as const)(
+      'étape %s (%s) de la mission courante → poids relu pour la collecte',
+      async (slug, etape) => {
+        mockState.details.set('EVR-MS', detail(etape));
+        const resp = await POST(notification(slug));
+        expect(resp.status).toBe(200);
+        expect(releve.poidsDon).toHaveBeenCalledTimes(1);
+        expect(releve.poidsDon).toHaveBeenCalledWith(
+          mockSupabase,
+          'col-ms',
+          'EVR-MS',
+        );
+      },
+    );
+
+    it.each([
+      ['mission-acceptee', 'affectee'],
+      ['nouvelle-mission', null],
+      ['annule', 'annulee'],
+    ] as const)('étape %s (%s) → poids non relu', async (slug, etape) => {
+      mockState.details.set('EVR-MS', detail(etape));
+      await POST(notification(slug));
+      expect(releve.poidsDon).not.toHaveBeenCalled();
+    });
+
+    it('course vide (« Rien à récupérer ») → poids non relu', async () => {
+      mockState.details.set(
+        'EVR-MS',
+        detail('reussie', { statut_code: 'pas-de-commande' }),
+      );
+      await POST(notification('pas-de-commande'));
+      expect(releve.poidsDon).not.toHaveBeenCalled();
+    });
+
+    it('mission qui n’est plus la mission courante → poids non relu', async () => {
+      mockRefTournee = 'EVR-AUTRE';
+      mockState.details.set('EVR-MS', detail('enlevee'));
+      await POST(notification('mission-en-cours-de-livraison'));
+      expect(releve.poidsDon).not.toHaveBeenCalled();
+    });
+
+    it('relève en échec → tracée, la notification reste traitée (200)', async () => {
+      releve.poidsDon.mockRejectedValueOnce(new Error('historique illisible'));
+      const erreurs = vi.spyOn(logger, 'error');
+      mockState.details.set('EVR-MS', detail('enlevee'));
+      const resp = await POST(notification('mission-en-cours-de-livraison'));
+      expect(resp.status).toBe(200);
+      expect(inboxMarqueeTraitee()).toBe(true);
+      expect(erreurs).toHaveBeenCalledWith(
+        'webhooks.everest.poids_don_non_releve',
+        expect.objectContaining({ collecte_id: 'col-ms' }),
+      );
+      expect(collecteEcriteAvec('statut', 'en_cours')).toBe(true);
+    });
   });
 
   it('« Mission Affectée » (mission-acceptee, affectee) → mission assigned + collecte acceptee', async () => {

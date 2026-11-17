@@ -89,6 +89,25 @@ export interface EverestHandlers {
   ) => Promise<EverestResult<EverestMissionDetail>>;
   /** Téléchargement d'une photo de mission. Absent : une image simulée. */
   downloadPhoto?: (src: string) => Promise<PhotoTelechargee>;
+  /**
+   * Historique des étapes (POST /missions/statuses), keyed par `ref`. Absent :
+   * aucune étape (aucun champ saisi par le coursier).
+   */
+  getStatuses?: (
+    refs: string[],
+  ) => Promise<EverestResult<Map<string, EtapeHistoriqueEverest[]>>>;
+}
+
+/**
+ * Une étape de l'historique d'une mission (POST /missions/statuses, forme
+ * mesurée sur le compte A Toute! le 2026-11-17) : son code, sa date et les
+ * champs supplémentaires que le coursier y a saisis.
+ */
+export interface EtapeHistoriqueEverest {
+  statut_code: string;
+  /** Secondes Unix (`date_created`). */
+  date: number;
+  champs: Array<{ name: string; value: string; type: string | null }>;
 }
 
 /** Une photo téléchargée : son contenu et son type, lu sur la réponse. */
@@ -118,6 +137,8 @@ export interface MockMissionState {
   updates: Array<Record<string, unknown>>;
   /** Détails relus par POST /missions/get, keyed par mission_id (BL-P0-07) */
   details: Map<string, EverestMissionDetail>;
+  /** Historique relu par POST /missions/statuses, keyed par mission_id. */
+  historiques: Map<string, EtapeHistoriqueEverest[]>;
 }
 
 export function setupEverestMock(
@@ -128,6 +149,7 @@ export function setupEverestMock(
     updateFailsStatus?: number;
     getMissionFails?: boolean;
     getMissionFailsStatus?: number;
+    getStatusesFailsStatus?: number;
   } = {},
 ): MockMissionState {
   const state: MockMissionState = {
@@ -136,6 +158,7 @@ export function setupEverestMock(
     cancelledIds: new Set(),
     updates: [],
     details: new Map(),
+    historiques: new Map(),
   };
 
   let missionCounter = 0;
@@ -203,6 +226,22 @@ export function setupEverestMock(
         vehicule_type: null,
       };
       return { ok: true, data: detail };
+    },
+
+    getStatuses: async (refs) => {
+      if (opts.getStatusesFailsStatus) {
+        return {
+          ok: false,
+          status: opts.getStatusesFailsStatus,
+          error: 'Everest getStatuses error',
+        };
+      }
+      const lus = new Map<string, EtapeHistoriqueEverest[]>();
+      for (const ref of refs) {
+        const h = state.historiques.get(ref);
+        if (h) lus.set(ref, h);
+      }
+      return { ok: true, data: lus };
     },
   });
 

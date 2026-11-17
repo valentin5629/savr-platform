@@ -124,6 +124,7 @@ import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargem
 import { Label } from '@/components/ui/label';
 import { UploadSimpleIcon } from '@/components/ui/icones';
 import { PhotosTransporteurModal } from './photos-transporteur-modal';
+import { DeclarationCoursierSection } from './declaration-coursier-section';
 import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 import { STATUTS_ANNULES } from '@/lib/collectes/fiche-client-types';
 import { MAX_PHOTOS_CLIENT } from '@/lib/collectes/photos-client';
@@ -3184,6 +3185,12 @@ export function CollecteDetailPanel({
               )}
             </div>
           </FicheSection>
+          {/* Déclaration du coursier à l'enlèvement (A Toute!, Val
+            2026-11-17) : relue chez le transporteur dès qu'une course existe. */}
+          {currentTransporteur?.type_tms === 'a_toutes' &&
+            collecte.tms_reference && (
+              <DeclarationCoursierSection collecteId={collecteId} />
+            )}
           {/* Pesées ZD (dérivées des pesées MTS-1 ou saisie manuelle Admin) */}
           {collecte.type === 'zero_dechet' && (
             <FicheSection

@@ -5946,3 +5946,70 @@ describe('M1.2 / fiche Admin — type d’événement et contacts de la collecte
     ATTENTE_CAS_MS,
   );
 });
+
+describe('Déclaration du coursier (A Toute!, Val 2026-11-17)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const collecteAToute = {
+    ...collecteAg,
+    statut: 'en_cours',
+    tms_reference: 'EVR-1',
+    prestataire_logistique_id: 'presta-atoutes',
+    prestataire_actuel: {
+      transporteur_id: 't-atoutes',
+      nom: 'A Toute!',
+      type_tms: 'a_toutes',
+    },
+  };
+
+  it(
+    'collecte confiée à A Toute! avec sa course : le bloc relit la déclaration',
+    async () => {
+      const fetchMock = mockFetch(collecteAToute);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      expect(
+        await screen.findByTestId(
+          'bloc-declaration-coursier',
+          undefined,
+          ATTENTE_UI,
+        ),
+      ).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/admin/collectes/c1/declaration-coursier',
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it.each([
+    [
+      'MTS-1',
+      {
+        ...collecteAToute,
+        prestataire_actuel: {
+          transporteur_id: 't-mts1',
+          nom: 'Strike',
+          type_tms: 'mts1',
+        },
+      },
+    ],
+    ['A Toute! sans course', { ...collecteAToute, tms_reference: null }],
+  ])(
+    '%s : pas de bloc, rien n’est relu',
+    async (_cas, fixture) => {
+      const fetchMock = mockFetch(fixture);
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Logistique');
+      await screen.findAllByText(/Chauffeur/, undefined, ATTENTE_UI);
+      expect(screen.queryByTestId('bloc-declaration-coursier')).toBeNull();
+      expect(
+        fetchMock.mock.calls.some(([u]) =>
+          String(u).includes('declaration-coursier'),
+        ),
+      ).toBe(false);
+    },
+    ATTENTE_CAS_MS,
+  );
+});

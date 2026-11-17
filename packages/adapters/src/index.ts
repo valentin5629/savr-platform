@@ -235,6 +235,18 @@ export type {
   PhotosTransporteur,
 } from './photos-transporteur.js';
 
+// Déclaration du coursier à l'enlèvement (décisions Val 2026-11-17) : poids du
+// don AG et champs montrés à l'Admin — point d'entrée neutre (garde-fou 3).
+export {
+  lireDeclarationsCoursier,
+  releverPoidsDonCoursier,
+} from './declaration-coursier.js';
+export type {
+  ChampDeclare,
+  DeclarationCourse,
+  DeclarationsCoursier,
+} from './declaration-coursier.js';
+
 /**
  * Notification MTS-1, étape 2 (décision Val 2026-11-12) — seul point d'entrée du
  * webhook récepteur, qui ne parle jamais directement à MTS-1 (garde-fou 3). Relit

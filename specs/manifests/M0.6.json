@@ -1825,6 +1825,15 @@
       "test": "M0.6 / statut Admin — envois abandonnés en nombre borné dans le filtre + M0.6 / liste Collectes Admin — filtre de statut et envois abandonnés en nombre",
       "statut": "implemented",
       "libelle": "Filtre « Créée » ou « Programmée » (l'une sans l'autre) de la liste Collectes Admin : les collectes à l'envoi abandonné partent dans l'URL du filtre, qui ne se découpe pas en lots. Il en porte 250 au plus ; au-delà la route répond 500 sans lire la liste, et le journal dit le nombre et le plafond (avant, rien ne bornait cette liste : mesuré sur savr-dev le 2026-11-12, la requête passe avec 360 identifiants et échoue avec 372, sans dire pourquoi). Sans filtre de statut, ou avec « Créée » et « Programmée » ensemble, aucun identifiant ne part dans l'URL : pas de refus, et chaque ligne dit toujours si son envoi est abandonné."
+    },
+    {
+      "id": "M0.6-declaration-coursier-bloc",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:263",
+      "ref_divergence": "_Divergences/M2.5_20261117_everest-poids-colis-recupere.md",
+      "artefact": "packages/plateforme/src/components/admin/declaration-coursier-section.tsx (bloc « Déclaration du coursier ») ; packages/plateforme/src/components/admin/collecte-detail-panel.tsx (affiché sous « Chauffeur » si prestataire actuel A Toute! et référence de course) ; packages/plateforme/src/app/api/v1/admin/collectes/[id]/declaration-coursier/route.ts (GET, équipe Savr) ; packages/adapters/src/declaration-coursier.ts (lireDeclarationsCoursier)",
+      "test": "packages/plateforme/src/components/admin/declaration-coursier-section.test.tsx + packages/plateforme/tests/api/admin/collectes-declaration-coursier.test.ts + Déclaration du coursier (A Toute!, Val 2026-11-17)",
+      "statut": "implemented",
+      "libelle": "Fiche collecte Admin, onglet Logistique : bloc « Déclaration du coursier » qui montre tous les champs saisis par le coursier A Toute! à « Colis récupéré » (poids, tranches de poids, caisse, attente), cases en Oui / Non (décision Val 2026-11-17)."
     }
   ],
   "cdc_source_hash": {

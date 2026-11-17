@@ -81,7 +81,7 @@ function prefixe(collecteId: string): string {
   return `photos/collectes/${collecteId}/`;
 }
 
-async function transporteurDeLaCollecte(
+export async function transporteurDeLaCollecte(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<string | null> {
@@ -128,7 +128,7 @@ async function transporteurDeLAttribution(
   return t?.type_tms ?? null;
 }
 
-async function tourneesALire(
+export async function tourneesALire(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<TourneeProvider[]> {

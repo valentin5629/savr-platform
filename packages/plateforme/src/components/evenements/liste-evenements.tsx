@@ -45,7 +45,6 @@ import { useListePaginee } from '@/lib/hooks/use-liste-paginee';
 import { variantStatutEvenement } from '@/lib/libelles/evenement';
 import {
   lireVueCollectes,
-  periodeDeLaVue,
   triDateDescendant,
 } from '@/lib/collectes/vue-temporelle';
 import { jourParis } from '@savr/shared/src/temps/index.js';
@@ -115,8 +114,8 @@ const REGLAGES: Record<EspaceListeEvenements, ReglageEspace> = {
 // se lisent pareil. La période porte ici sur la date de l'événement. Pas de
 // filtre « Statut consolidé » (arbitrage C3 du 2026-10-07, non repris).
 // Vues « Événements à venir / passés » (`onglet`, décision Val 2026-10-20) :
-// même règle que la liste Collectes, sur la date de l'événement ; un événement
-// sans date (brouillon) n'est dans aucune des deux.
+// un événement est passé dès que sa date est passée ou que sa dernière
+// collecte est réalisée (Val 2026-11-17) ; rangement fait par la route.
 const FILTRES = {
   onglet: navigation(texte('')),
   type: texte(),
@@ -331,11 +330,12 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
 
   const urlListe = useMemo(() => {
     const qs = new URLSearchParams();
-    // Période de la barre, bornée à la vue (à venir : aujourd'hui et après).
-    const periode = periodeDeLaVue(vue, { from: f.from, to: f.to }, aujourdhui);
+    // Période de la barre telle quelle ; le rangement à venir / passés est
+    // fait par la route (`vue`), qui lit aussi l'avancement des collectes.
+    qs.set('vue', vue);
     if (f.type) qs.set('type', f.type);
-    if (periode.from) qs.set('from', periode.from);
-    if (periode.to) qs.set('to', periode.to);
+    if (f.from) qs.set('from', f.from);
+    if (f.to) qs.set('to', f.to);
     if (f.lieu.length > 0) qs.set('lieu_ids', f.lieu.join(','));
     if (reglage.traiteur && f.traiteur.length > 0)
       qs.set('traiteur_ids', f.traiteur.join(','));
@@ -350,6 +350,7 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
     return `/api/v1/evenements?${qs}`;
   }, [
     vue,
+    // Recharge au changement de jour : la route range selon aujourd'hui.
     aujourdhui,
     f.type,
     f.from,
@@ -365,7 +366,7 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
   ]);
 
   // Export CSV (§12 §2) : la sélection de la liste affichée (ses filtres,
-  // période bornée à la vue), sans tri ni page. Le fichier est toujours rangé
+  // période et vue à venir / passés), sans tri ni page. Le fichier est toujours rangé
   // du plus récent au plus ancien, quelle que soit la vue.
   function exporterCsv() {
     const qs = new URLSearchParams(urlListe.split('?')[1]);
@@ -522,6 +523,7 @@ function ListeEvenementsContenu({ espace }: { espace: EspaceListeEvenements }) {
         toggle={
           <ToggleTypeCollecte
             avecTous
+            libelleTous="Tous"
             value={
               f.type === 'zero_dechet' || f.type === 'anti_gaspi'
                 ? f.type

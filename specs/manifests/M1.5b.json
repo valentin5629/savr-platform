@@ -135,11 +135,11 @@
     {
       "id": "M1.5b-photo-aucun-repas-lecture-equipe-savr",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:814",
-      "artefact": null,
-      "test": null,
-      "statut": "partial",
+      "artefact": "supabase/migrations/20261117230000_plateforme_collectes_select_liste_blanche.sql (aucun_repas_photo_url hors GRANT SELECT authenticated ; vue v_collectes_gestionnaire_lieux : colonne rendue à NULL) + packages/plateforme/src/lib/collectes/champs-editables.ts (reponseCollecteModifiee : réponse des PATCH traiteur, agence et gestionnaire réduite à l'id et aux champs éditables)",
+      "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (11, 16, 21, 25, 29 : photo illisible par les cinq rôles clients ; 31-36 : vue du gestionnaire ; 50-51 : ops_savr fermé en direct, service_role intact) + packages/plateforme/tests/api/collectes/patch-client-reponse-reduite.test.ts",
+      "statut": "implemented",
       "ref_divergence": "_Divergences/M1.5_20261007_photo-aucun-repas-visibilite.md",
-      "libelle": "Photo du lieu « aucun repas » (`collectes.aucun_repas_photo_url`) réservée à l'équipe Savr : un rôle client ne doit pas la lire, `admin_savr` et `ops_savr` la lisent (arbitrage Val 2026-10-07, scénario 09 `photo_aucun_repas_lecture_equipe_savr_seule`). NON LIVRÉ au sync du 2026-10-09 : la colonne reste lisible par `authenticated` sur `plateforme.collectes` et par la vue `v_collectes_gestionnaire_lieux`. Lot de fermeture à livrer (liste blanche de colonnes ; fermeture d'accès, donc GO reviewer-rls-securite et preuve pgTAP par rôle)."
+      "libelle": "Photo du lieu « aucun repas » (`collectes.aucun_repas_photo_url`) réservée à l'équipe Savr : un rôle client ne doit pas la lire, `admin_savr` et `ops_savr` la lisent (arbitrage Val 2026-10-07, scénario 09 `photo_aucun_repas_lecture_equipe_savr_seule`). LIVRÉ le 2026-11-17 par liste blanche de colonnes sur `plateforme.collectes` : la colonne est fermée à tout porteur du rôle `authenticated`, équipe Savr comprise en accès direct ; l'équipe la lit par le back-office (service_role). La vue `v_collectes_gestionnaire_lieux` la rend à NULL et les routes clientes de modification ne la renvoient plus."
     },
     {
       "id": "M1.5b-releve-recherche-forme-reelle",

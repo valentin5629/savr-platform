@@ -20,6 +20,10 @@
 //    lieu_ids, traiteur_ids, client_ids (staff seul : organisation
 //    programmatrice), type_evenement_ids[], taille_evenements[], type (ZD / AG :
 //    au moins une collecte de ce type), tri=date, ordre, page ;
+//  - vue « à venir » / « passés » (`vue`, Val 2026-11-17) : un événement est
+//    passé dès que sa date est passée OU que sa dernière collecte est réalisée
+//    (statut consolidé « Terminé ») ; à venir sinon. Sans `vue`, pas de
+//    rangement (seule la période compte) ;
 //  - pagination SERVEUR, 50 événements par page, total de la base.
 
 import { logger } from '@savr/shared/src/logger/index.js';
@@ -39,6 +43,9 @@ import { nomOrganisation } from '@/lib/evenements/filtres-evenements';
 import { statutBilan } from '@/lib/collectes/fiche-client-types';
 import { parsePage } from '@/lib/pagination';
 import { lireTri } from '@/lib/tri-liste';
+import { jourParis } from '@savr/shared/src/temps/index.js';
+import { lireVueCollectes } from '@/lib/collectes/vue-temporelle';
+import { STATUTS_REALISES, STATUTS_TERMINAUX } from '@/lib/libelles/evenement';
 import type { Role } from '@/lib/roles';
 
 /** Espace d'affichage d'un rôle : il fixe ce que la liste lit et montre. */
@@ -217,6 +224,7 @@ export function filtresListeEvenements(
   const from = sp.get('from');
   const to = sp.get('to');
   const type = sp.get('type');
+  const vue = lireVueCollectes(sp.get('vue'));
   const { lieuIds, traiteurIds, typeEvtIds, predicatsTaille, aucunResultat } =
     lireFiltresCollectesGestionnaire(sp);
   // Client = organisation programmatrice, filtre du staff seul : ailleurs, le
@@ -245,6 +253,11 @@ export function filtresListeEvenements(
     'hors_brouillon:collectes(id)',
     type ? 'filtre_type:collectes!inner(id)' : '',
     typeEvtIds.length > 0 ? 'filtre_type_evt:collectes!inner(id)' : '',
+    // Rangement à venir / passés : `en_cours` = ses collectes non terminales,
+    // `realisee` = ses collectes réalisées. « Terminé » (même règle que le
+    // badge, `statutEvenementConsolide`) = aucune en cours, au moins une
+    // réalisée.
+    vue ? 'en_cours:collectes(id), realisee:collectes(id)' : '',
   ]
     .filter(Boolean)
     .join(', ');
@@ -266,6 +279,21 @@ export function filtresListeEvenements(
       if (type) q = q.eq('filtre_type.type', type);
       if (from) q = q.gte('date_evenement', from);
       if (to) q = q.lte('date_evenement', to);
+      if (vue) {
+        // Aujourd'hui reste « à venir » tant que l'événement n'est pas terminé.
+        const aujourdhui = jourParis();
+        q = q
+          .not('en_cours.statut', 'in', `(${STATUTS_TERMINAUX.join(',')})`)
+          .in('realisee.statut', STATUTS_REALISES);
+        q =
+          vue === 'passees'
+            ? q.or(
+                `date_evenement.lt.${aujourdhui},and(en_cours.is.null,realisee.not.is.null)`,
+              )
+            : q
+                .gte('date_evenement', aujourdhui)
+                .or('en_cours.not.is.null,realisee.is.null');
+      }
       if (lieuIds.length > 0) q = q.in('lieu_id', lieuIds);
       if (traiteurIds.length > 0)
         q = q.in('traiteur_operationnel_organisation_id', traiteurIds);

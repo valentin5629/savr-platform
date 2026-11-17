@@ -27,7 +27,10 @@ import { timingSafeEqual } from 'node:crypto';
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { fetchEverestMissionDetails } from '@savr/adapters/src/index.js';
+import {
+  fetchEverestMissionDetails,
+  releverPoidsDonCoursier,
+} from '@savr/adapters/src/index.js';
 import { libelleErreurReseau } from '@savr/shared/src/api/erreur-reseau.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
@@ -508,6 +511,17 @@ async function handleEventType(
           'mission_status',
         );
       }
+      // Poids du don déclaré par le coursier à « Colis récupéré » (Val
+      // 2026-11-17), relu dans l'historique des étapes : à l'enlèvement, puis
+      // à la fin de course (filet si la première relecture a échoué).
+      // Best-effort : l'état métier est écrit, un échec n'est que tracé ; le
+      // poids reste saisissable par l'Admin.
+      if (
+        traitement === 'mission_pickedup' ||
+        traitement === 'mission_finished'
+      ) {
+        await relirePoidsDon(supabase, mission, missionId);
+      }
       // Coursier relu à chaque étape (Val 2026-11-03) : A Toute! ne le donne
       // souvent qu'à la première étape terrain, pas à l'affectation.
       // Best-effort : l'état métier est déjà écrit, un échec ici n'est que tracé.
@@ -867,6 +881,28 @@ async function handleEventType(
       });
       break;
     }
+  }
+}
+
+/**
+ * Poids du don relu pour la mission courante d'une collecte non annulée
+ * (garde #348 : une ancienne mission ne décide de rien). Best-effort.
+ */
+async function relirePoidsDon(
+  supabase: SupabaseAdmin,
+  mission: { id: string; tournee_id: string; collecte_id: string },
+  missionId: string,
+): Promise<void> {
+  try {
+    const lue = await lireCollecte(supabase, mission, missionId);
+    if (!lue?.courante || lue.etat.statut === 'annulee') return;
+    await releverPoidsDonCoursier(supabase, mission.collecte_id, missionId);
+  } catch (err) {
+    logger.error('webhooks.everest.poids_don_non_releve', {
+      mission_id: missionId,
+      collecte_id: mission.collecte_id,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 

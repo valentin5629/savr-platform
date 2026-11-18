@@ -951,7 +951,7 @@
     },
     {
       "id": "M3.2-evenements-dechets-labo-zd-seulement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:663",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:662",
       "artefact": "packages/plateforme/src/lib/evenements/liste-evenements.ts + packages/plateforme/src/lib/evenements/fiche-evenement.ts + packages/plateforme/src/app/(gestionnaire)/gestionnaire/evenements/page.tsx + packages/plateforme/src/components/evenements/fiche-evenement-modal.tsx",
       "test": "M3.2/evenements_route_dechets_labo_zd_seulement + M3.2/evenements_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/evenement_fiche_sans_zd_pas_d_estimation_labo + M3.2/evenement_fiche_labo_tiret_sans_zd",
       "statut": "implemented",
@@ -1121,7 +1121,7 @@
     },
     {
       "id": "M3.2-liste-collectes-colonne-dechets-labo",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:663",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:662",
       "artefact": "packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts, packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (partDeLaCollecte)",
       "test": "M3.2/collectes_route_dechets_labo_part_de_la_collecte + M3.2/collectes_route_dechets_labo_zd_seulement + M3.2/collectes_route_dechets_labo_echec_ne_fait_pas_tomber_la_liste + M3.2/collectes_route_dechets_labo_aucun_appel_sans_ligne + M3.2/collectes_colonne_dechets_labo_estimes + M3.2/collectes_colonnes_identiques_liste_traiteur",
       "statut": "implemented",
@@ -1332,7 +1332,7 @@
     },
     {
       "id": "M3.2-collectes-export-csv",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:388",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md:381",
       "artefact": "packages/plateforme/src/app/(gestionnaire)/gestionnaire/collectes/page.tsx (bouton « Exporter CSV ») + packages/plateforme/src/lib/collectes-gestionnaire.ts (lireFiltresCollectesGestionnaire, lue par la route de la liste et par l'export)",
       "test": "M3.2/collectes_export_csv_filtres_de_la_liste",
       "statut": "implemented",
@@ -1493,7 +1493,7 @@
     },
     {
       "id": "M3.2-dechets-labo-annee-moins-un-pax-zero",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:678 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:688",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:677 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:687",
       "artefact": "supabase/migrations/20261025100000_plateforme_pax_collecte_lot_c2.sql (f_dechets_labo_estimes)",
       "test": "C2-LABO-1 + C2-LABO-2 + C2-LABO-3 + C2-LABO-4 + C2-LABO-5 + C2-LABO-6 + C2-SECU",
       "statut": "implemented",
@@ -1598,7 +1598,7 @@
     {
       "id": "M3.2-dechets-labo-reserve-gestionnaire",
       "statut": "implemented",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:667",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:666",
       "artefact": "supabase/migrations/20261029120000_plateforme_dechets_labo_reserve_gestionnaire.sql (garde f_is_staff() OU f_app_role() = 'gestionnaire_lieux' avec son périmètre inchangé ; REVOKE EXECUTE FROM anon, PUBLIC)",
       "test": "supabase/tests/dechets_labo_reserve_gestionnaire.test.sql",
       "libelle": "f_dechets_labo_estimes réservée au gestionnaire de lieux (§05 R_dechets_labo_estimes, « espace gestionnaire de lieux uniquement ») et au staff, qui lit déjà coefficients_perte_labo. Avant le 2026-10-29, tout rôle dont l'organisation portait l'événement obtenait pax × coefficient : une agence programmant pour un traiteur tiers en déduisait le coefficient confidentiel (revue sécurité de la PR #672). Agence, traiteur manager, traiteur commercial et client organisateur reçoivent NULL sur leurs propres événements, avec contre-épreuve staff sur les mêmes événements ; anon n'a plus EXECUTE. Preuve base : 12 assertions, 7 rouges sans la migration."
@@ -1679,14 +1679,14 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c046b6db11c125810733f77fa3c2d5d2ea454fff7f57c93e943788700655fd3d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "76f54805ba3b544c8ce647c4db0c59664ac879a99adc7ef8af42ca7a2491b6d0",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "a367a24b1a6706640aa94445706da0296cd02b73fa28a710bb01025b1db67d69",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "49dfee43bf6424dca60788935ece5e0062ab663f792af690375119020c128f1d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "e8d7be8481cbf3a042b5e018aa0383323665d48144fef7f7424273641127bd41",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "27bcbb66811a4478865192a2c60b32af6aa929b4f90215c41a4be0479e52f039",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "f0b2d988921012e2e6d6ec00199103f530694a67fe8f603da786ba2aee19be96",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "6148d210f6ccb69bfb9eb4441a00b1b5366e03a4d957e78af1ec5cffe8e5cae2",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "39b63ee0a2f7ac5509638a68ad975409ede85f601b8e0a7da6db32f2747d634d",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c26592d4cfedd24f3335e16aa31aa1ae3627fafa57064d593766c60e198763f2",
-    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "1ca4522aabedcd175f3f87ca9dd7f2112e948710ff612f5ffbdc98bc9642cfcd"
+    "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "f87b3d89f7f28d5d027f788249c74ca4ef84f7e277ad2d00c59b66e984ed959e"
   }
 }

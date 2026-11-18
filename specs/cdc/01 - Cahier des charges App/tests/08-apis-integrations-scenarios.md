@@ -111,7 +111,8 @@ Scénario : e2_repush_creneau_et_canal_libre
   Alors le PUT porte comment recomposé, ligne « Précisions du traiteur » du texte de départ mise à jour (chez A Toute! : address_start_comment, décision Val 2026-11-03)
   Quand informations_supplementaires est VIDÉE
   Alors le PUT porte comment recomposé sans la ligne « Précisions du traiteur », JAMAIS omis (l'omission laisserait au chauffeur la consigne périmée du dispatch initial)
-  Et les stuffs ne sont PAS re-poussés (un re-push reposerait à 0 les quantités alimentées par le polling)
+  Et tant que la collecte est programmée ou validée, le PUT porte les stuffs (marchandise et point B, `stuffs[].relatedAddress`) : un PUT sans stuffs les vide chez MTS-1 (mesuré le 2026-11-13)
+  Et une fois la mission commencée, les stuffs ne sont PAS re-poussés (un re-push reposerait à 0 les quantités alimentées par le polling) — décision Val 2026-11-13
   Et controle_acces_requis n'est PAS transmis (aucun champ natif MTS-1, exclusion assumée V1)
   Et place est construit par le helper UNIQUE partagé E1/E2 (parité non recopiée)
 ```
@@ -306,7 +307,7 @@ Scénario : mts1_point_b_relatedaddress
     Et aucun `deliveryPlace` n'est envoyé sur la tournée (ignoré par TourInput)
   Étant donné une collecte AG dispatchée vers MTS-1 avec une association porteuse de id_point_collecte_mts1
   Quand l'adapter construit le payload POST /v3/customerOrders
-  Alors le payload contient exactement 1 stuff {name:"Don alimentaire", task:"PICKUP", quantity:0}
+  Alors le payload contient exactement 1 stuff {name:"Excédents alimentaires (en kg)", task:"PICKUP", quantity:0} (nom Bubble, Val 2026-11-16 ; « Don alimentaire » encore lu en relève)
     Et ce stuff porte relatedAddress = {placeId: association.id_point_collecte_mts1}
     Et quantity vaut 0 : le poids du don est mesuré pendant la collecte et remonte au polling (comme les 5 flux ZD)
 ```
@@ -1425,3 +1426,22 @@ Scénario : e2_everest_contact_association_vide_et_nombre_vehicules
 - Endpoint SSO cross-app `has-profile` — supprimé V1 (sobriété Bloc A A1)
 - Rate limiting Everest : nombre exact de req/min à valider avec A Toute! avant dev
 - Export CSV `GET /admin/dashboard/revenus-organisations.csv` — scénarios format (encoding, headers CSV)
+
+### Ajouts cdc-patch-divergences 2026-11-18 — articles au nom Bubble et flux non pesé à 0 kg (M1.5_20261116)
+
+```gherkin
+# Source : §08 §3bis + §05 pesées (décisions Val 2026-11-16)
+# Couche : adapter + db
+# Priorité : P1-critique
+
+Scénario : mts1_article_camion_et_flux_non_pese_zero
+  Étant donné une collecte ZD avec `type_vehicule_souhaite` = « 20 m³ simple »
+  Quand elle est envoyée à MTS-1
+  Alors la commande porte 1 stuff par flux et 1 article camion « 20 m³ simple », quantity 1
+  Et une ZD sans type de véhicule est refusée à l'envoi (422 « Choisissez d'abord le type de véhicule »)
+  Quand la relève lit un arrêt où verre = 65 kg et les 4 autres flux sont vides
+  Alors collecte_flux porte verre = 65 kg et les 4 autres flux à 0 kg, l'article camion est ignoré
+  Quand aucun flux de l'arrêt n'est pesé et la mission est finie
+  Alors aucune ligne n'est écrite, aucun bordereau à 0 kg, et une alerte in-app `pesees_absentes` est levée une fois par arrêt
+  Et un flux à 0 kg n'est jamais « hors seuil »
+```

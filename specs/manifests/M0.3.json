@@ -81,7 +81,7 @@
     },
     {
       "id": "M0.3-alerte-pack-bas",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1024",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1023",
       "artefact": "supabase/migrations/20260709120000 : fn_trg_pack_debit_realisee + fn_trg_pack_debit_annulation_tardive — détection franchissement du seuil 10% (restants avant >10% ET après ≤10% ET non épuisé) → f_upsert_alerte_admin('pack_ag_bas', …, entity=pack). Le pack_ag_epuise in-app préexistant est conservé.",
       "test": "supabase/tests/pack_etat_alertes.m0-3.test.sql",
       "statut": "implemented",
@@ -129,9 +129,9 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c046b6db11c125810733f77fa3c2d5d2ea454fff7f57c93e943788700655fd3d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "76f54805ba3b544c8ce647c4db0c59664ac879a99adc7ef8af42ca7a2491b6d0",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "2b58ff8a992e7624367be488e51e4c56d8adcd6fb8794b01d4ddb7054cb16412",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "5d2befe83cc7cf041eede0ebb7f727bf7d2cb47af4b950d3666b9fcdd695593d",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/03 - Alertes.md": "bb1b5909a595db4e4b4567bedc8d200e7dc874089b468a8a105bb76f74330925"
   }
 }

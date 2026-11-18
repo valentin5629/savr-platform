@@ -155,8 +155,8 @@
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1038",
       "artefact": "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql (flux_dechets : + code_traitement ; exutoire, adresse, code déchet, code de traitement et filière des 5 flux)",
       "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
-      "statut": "implemented",
-      "libelle": "Référentiel des flux ZD renseigné (jamais rempli depuis le seed) : exutoire final et adresse « voie, code postal ville », code déchet européen, code de traitement final (colonne ajoutée), filière (biodéchets = méthanisation, résiduel = valorisation énergétique). Sources : export Veolia des enlèvements à l'entrepôt (4 flux), Paprec Trivalo 93 pour les emballages (décisions Val 2026-10-04)."
+      "statut": "partial",
+      "libelle": "Référentiel des flux ZD renseigné (jamais rempli depuis le seed) : exutoire final et adresse « voie, code postal ville », code déchet européen, code de traitement final (colonne ajoutée), filière (biodéchets = méthanisation, résiduel = valorisation énergétique). Sources : export Veolia des enlèvements à l'entrepôt (4 flux), Paprec Trivalo 93 pour les emballages (décisions Val 2026-10-04). Reste (sync 2026-11-18) : le CDC décrit désormais les exutoires en noms courts (« Revival », « Veolia Tais ») et les codes R5 (carton) et R13 (verre), fiche M4.2_20261116_exutoires-courts ; livré seulement par la PR #812 (migration 20261116180000), non fusionnée au sync : repasser implemented à sa fusion."
     },
     {
       "id": "M4.2-flux-referentiel-unite-kg",

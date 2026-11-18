@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { logger } from '@savr/shared/src/logger/index.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import { libelleTypeOrganisation } from '@/lib/libelles/organisation';
+import {
+  roleApresChangementDeType,
+  roleCompatibleAvecType,
+} from '@/lib/roles-type-organisation.js';
 import { serverError, writeError } from '@/lib/api-helpers.js';
 import {
   MESSAGE_SIRET_INVALIDE,
@@ -225,6 +230,41 @@ export async function PATCH(
     }
   }
 
+  // Type changé : la base réécrit le rôle des utilisateurs que le nouveau type
+  // n'admet plus, dans la même transaction (trg_organisations_type_reecrit_roles :
+  // vers traiteur → traiteur_manager, sinon le rôle du même nom ; arbitrage Val
+  // 2026-11-18). Lus AVANT l'UPDATE pour tracer chaque réécriture. Un membre
+  // dont l'organisation a déjà ce type n'est pas réécrit (le déclencheur ne
+  // part que sur un vrai changement de type).
+  let rolesReecrits: { id: string; role: string }[] = [];
+  if ('type' in updatePayload) {
+    const nouveauType = String(updatePayload.type);
+    // borne-par-nature: comptes d'une seule organisation
+    const { data: membres, error: membresErr } = await supabase
+      .from('users')
+      .select('id, role, organisations(type)')
+      .eq('organisation_id', id);
+    if (membresErr) {
+      return serverError(membresErr, 'admin.organisations.type_membres');
+    }
+    rolesReecrits = (
+      (membres ?? []) as {
+        id: string;
+        role: string;
+        // Objet, ou liste d'un élément selon le typage de la relation.
+        organisations: { type: string } | { type: string }[] | null;
+      }[]
+    ).filter((m) => {
+      const typeActuel = (
+        Array.isArray(m.organisations) ? m.organisations[0] : m.organisations
+      )?.type;
+      return (
+        typeActuel !== nouveauType &&
+        !roleCompatibleAvecType(m.role, nouveauType)
+      );
+    });
+  }
+
   // §07/06 tarif_refacture_pax_zd_update — capture l'ancienne valeur AVANT l'UPDATE.
   // Mutations d'organisation auditées : ce tarif (§2) et le code de vérification
   // exigé (écriture de sécurité, 2026-11-10) ; les autres champs (raison_sociale,
@@ -305,6 +345,30 @@ export async function PATCH(
         by_user: auth.ctx.userId,
         organisation_id: id,
         code: auditError.code ?? null,
+      });
+    }
+  }
+
+  if (rolesReecrits.length > 0) {
+    // §07/06 user_role_modifie, une ligne par compte réécrit, motif = le type.
+    const nouveauType = String(updatePayload.type);
+    const { error: auditRolesErr } = await supabase.from('audit_log').insert(
+      rolesReecrits.map((m) => ({
+        action: 'user_role_modifie',
+        table_name: 'users',
+        record_id: m.id,
+        user_id: auth.ctx.userId,
+        motif: `Type de l’organisation passé à « ${libelleTypeOrganisation(nouveauType)} »`,
+        old_values: { role: m.role },
+        new_values: { role: roleApresChangementDeType(nouveauType) },
+      })),
+    );
+    if (auditRolesErr) {
+      logger.error('admin.organisations.type_roles.audit_echec', {
+        by_user: auth.ctx.userId,
+        organisation_id: id,
+        nb_comptes: rolesReecrits.length,
+        code: auditRolesErr.code ?? null,
       });
     }
   }

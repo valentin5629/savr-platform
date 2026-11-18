@@ -9,32 +9,22 @@
  * direct `POST /api/v1/admin/users` (compte créé + email d'invitation côté
  * serveur, `requireStaff`). Rôles proposés = ceux du type d'organisation
  * (les rôles internes Savr admin_savr/ops_savr ne se rattachent pas à une org
- * cliente). Composant commun `InviterUtilisateurModal` (R-UI-5, G5).
+ * cliente), lus dans la même table que la garde serveur
+ * (`lib/roles-type-organisation.ts`). Composant commun `InviterUtilisateurModal`
+ * (R-UI-5, G5).
  */
 
 import * as React from 'react';
 import { InviterUtilisateurModal } from '@/components/organisation/inviter-utilisateur-modal';
+import { ROLES_PAR_TYPE_ORGANISATION } from '@/lib/roles-type-organisation';
 
-// Rôles proposables selon le type d'organisation cliente.
+// Rôles proposables selon le type d'organisation cliente ; type inconnu : tous
+// les rôles clients (le serveur refuse ensuite un rôle hors du type).
 export function rolesForOrgType(type: string): string[] {
-  switch (type) {
-    case 'traiteur':
-      return ['traiteur_manager', 'traiteur_commercial'];
-    case 'agence':
-      return ['agence'];
-    case 'gestionnaire_lieux':
-      return ['gestionnaire_lieux'];
-    case 'client_organisateur':
-      return ['client_organisateur'];
-    default:
-      return [
-        'traiteur_manager',
-        'traiteur_commercial',
-        'agence',
-        'gestionnaire_lieux',
-        'client_organisateur',
-      ];
-  }
+  return [
+    ...(ROLES_PAR_TYPE_ORGANISATION[type] ??
+      Object.values(ROLES_PAR_TYPE_ORGANISATION).flat()),
+  ];
 }
 
 export function ClientInviteUserModal({

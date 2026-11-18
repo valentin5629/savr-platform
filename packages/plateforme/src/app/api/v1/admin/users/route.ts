@@ -12,6 +12,10 @@ import {
 } from '@/lib/api-helpers.js';
 import { listeCsv, parmi } from '@/lib/filtre-csv.js';
 import { preparerLienInvitation } from '@/lib/auth/lien-invitation.js';
+import {
+  messageRoleHorsType,
+  roleCompatibleAvecType,
+} from '@/lib/roles-type-organisation.js';
 
 const ROLES_VALIDES = [
   'admin_savr',
@@ -102,6 +106,29 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
 
   const supabase = createAdminSupabaseClient();
 
+  // Rôle ↔ type d'organisation (CDC §09 §2, revue sécurité 2026-11-18) : lu
+  // AVANT de créer le compte Auth, pour n'en laisser aucun orphelin. La base
+  // refuse aussi (trg_users_role_suit_type_organisation), pour tout appelant.
+  const { data: org, error: orgError } = await supabase
+    .from('organisations')
+    .select('nom, type')
+    .eq('id', organisation_id)
+    .maybeSingle();
+  if (orgError) return serverError(orgError, 'admin.users.create_organisation');
+  if (!org) {
+    return NextResponse.json(
+      { error: 'Organisation introuvable' },
+      { status: 422 },
+    );
+  }
+  const { nom: orgNom, type: orgType } = org as { nom: string; type: string };
+  if (!roleCompatibleAvecType(role, orgType)) {
+    return NextResponse.json(
+      { error: messageRoleHorsType(role, orgType) },
+      { status: 422 },
+    );
+  }
+
   // Mot de passe temporaire — l'utilisateur sera invité à le changer via email
   const motDePasseTemporaire =
     Math.random().toString(36).slice(2, 10) + 'Savr1!';
@@ -142,13 +169,6 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   // Lien Savr valable 7 jours, à usage unique (CDC §06.02 §17) → page /invitation.
   const resetUrl = await preparerLienInvitation(supabase, req, userId);
 
-  // Nom de l'organisation de rattachement (variable requise du template).
-  const { data: org } = await supabase
-    .from('organisations')
-    .select('nom')
-    .eq('id', organisation_id)
-    .maybeSingle();
-
   // ONB-04 : le slug 'bienvenue_invitation' n'existait pas au seed → throw avalé,
   // aucun email envoyé. Slug réel = 'invitation_utilisateur' (variables requises
   // prenom + organisation_nom + lien_invitation, cf. seed bloc8 + call-sites
@@ -156,7 +176,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse> {
   void sendEmail('invitation_utilisateur', email, {
     // Le corps est du HTML interpolé tel quel : le texte saisi est échappé.
     prenom: escapeHtml(prenom ?? ''),
-    organisation_nom: escapeHtml((org as { nom?: string } | null)?.nom ?? ''),
+    // Nom de l'organisation de rattachement (variable requise du template).
+    organisation_nom: escapeHtml(orgNom ?? ''),
     lien_invitation: resetUrl,
   }).catch(() => null);
 

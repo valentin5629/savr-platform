@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
+import {
+  messageRoleHorsType,
+  roleCompatibleAvecType,
+} from '@/lib/roles-type-organisation.js';
 
 export async function GET(
   req: NextRequest,
@@ -98,10 +102,11 @@ export async function PATCH(
 
   // Fetch target user — seul admin_savr peut modifier un compte admin_savr.
   // `actif` inclus pour détecter une désactivation réelle (true→false) et figer
-  // l'avant/après dans l'audit (§07/06 user_desactive).
+  // l'avant/après dans l'audit (§07/06 user_desactive). Type de l'organisation :
+  // garde rôle ↔ type ci-dessous.
   const { data: targetUser, error: fetchErr } = await supabase
     .from('users')
-    .select('id, role, actif')
+    .select('id, role, actif, organisations(type)')
     .eq('id', id)
     .single();
 
@@ -112,7 +117,14 @@ export async function PATCH(
     );
   }
 
-  const target = targetUser as { id: string; role: string; actif: boolean };
+  const target = targetUser as {
+    id: string;
+    role: string;
+    actif: boolean;
+    // Jointure vers une organisation : objet, ou liste d'un élément selon le
+    // typage de la relation (même lecture que lib/packs/notify-pack-etat.ts).
+    organisations: { type: string } | { type: string }[] | null;
+  };
 
   if (target.role === 'admin_savr' && !isAdmin) {
     return NextResponse.json(
@@ -125,6 +137,21 @@ export async function PATCH(
   // désactivation — les deux actions sensibles auditées de cette route.
   const roleModifie =
     'role' in updatePayload && updatePayload.role !== target.role;
+
+  // Rôle ↔ type d'organisation (CDC §09 §2, revue sécurité 2026-11-18) : un
+  // rôle client n'existe que dans une organisation de son type. La base refuse
+  // aussi (trg_users_role_suit_type_organisation).
+  const orgType = (
+    Array.isArray(target.organisations)
+      ? target.organisations[0]
+      : target.organisations
+  )?.type;
+  if (roleModifie && !roleCompatibleAvecType(body.role as string, orgType)) {
+    return NextResponse.json(
+      { error: messageRoleHorsType(body.role as string, orgType) },
+      { status: 422 },
+    );
+  }
   const desactivation =
     'actif' in updatePayload &&
     updatePayload.actif === false &&

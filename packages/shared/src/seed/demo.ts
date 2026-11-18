@@ -241,16 +241,19 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     user('user_ops1', 'org_savr', 'ops_savr', 'Ops', 'Un'),
     user('user_ops2', 'org_savr', 'ops_savr', 'Ops', 'Deux'),
     user('user_ops3', 'org_savr', 'ops_savr', 'Ops', 'Trois'),
+    // Commerciaux d'un traiteur (Kaspia) : un rôle client n'existe que dans une
+    // organisation de son type (garde rôle ↔ type, migration 20261118200000 ;
+    // arbitrage Val 2026-11-18, ex-org_savr M0.7).
     user(
       'user_commercial',
-      'org_savr',
+      'org_tr_kaspia',
       'traiteur_commercial',
       'Commercial',
       'Savr',
     ),
     user(
       'user_commercial2',
-      'org_savr',
+      'org_tr_kaspia',
       'traiteur_commercial',
       'Commerciale',
       'Savr',

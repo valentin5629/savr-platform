@@ -4,18 +4,112 @@
  * d'inclusion embargo H+24, périmètre par rôle = 0 fuite inter-organisation),
  * indépendamment du rendu PDF (testé côté renderer) et de la route (testée à part).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   buildSyntheseSnapshot,
   type SyntheseParams,
   type SyntheseRole,
 } from '../../../src/lib/dashboards/synthese-snapshot.js';
+import { TAILLE_LOT } from '../../../src/lib/pdf/selection-par-pages.js';
+
+type Res = { data: unknown; error: unknown };
+
+// ── Lecture service-role des facteurs CO₂ ────────────────────────────────────
+// `collectes.co2_facteurs_snapshot` est hors du privilège de lecture des clients
+// (migration 20261117233000) : le client du demandeur (makeSupabase) ne la rend
+// JAMAIS — il la retire des lignes et la range ici, d'où seule la lecture de
+// service la ressort. Les lignes sont rendues dans l'ordre INVERSE de la
+// demande : le choix du snapshot ne doit pas dépendre de l'ordre de la réponse.
+interface LectureService {
+  table: string;
+  colonnes: string;
+  ids: string[];
+  filtres: unknown[][];
+  limite: number | null;
+}
+const service = vi.hoisted(() => ({
+  snapshots: new Map<string, Record<string, unknown>>(),
+  lectures: [] as LectureService[],
+  erreur: null as { message: string } | null,
+}));
+vi.mock('@savr/shared/src/supabase-client.js', () => ({
+  createAdminSupabaseClient: () => ({
+    from: (table: string) => {
+      const lecture: LectureService = {
+        table,
+        colonnes: '',
+        ids: [],
+        filtres: [],
+        limite: null,
+      };
+      service.lectures.push(lecture);
+      const q: Record<string, unknown> = {
+        select: (colonnes: string) => {
+          lecture.colonnes = colonnes;
+          return q;
+        },
+        in: (colonne: string, ids: string[]) => {
+          lecture.filtres.push(['in', colonne]);
+          lecture.ids = ids;
+          return q;
+        },
+        not: (...a: unknown[]) => {
+          lecture.filtres.push(['not', ...a]);
+          return q;
+        },
+        limit: (n: number) => {
+          lecture.limite = n;
+          return q;
+        },
+        then: (resolve: (r: Res) => unknown) =>
+          resolve(
+            service.erreur
+              ? { data: null, error: service.erreur }
+              : {
+                  data: [...lecture.ids]
+                    .reverse()
+                    .filter((id) => service.snapshots.has(id))
+                    .map((id) => ({
+                      id,
+                      co2_facteurs_snapshot: service.snapshots.get(id),
+                    })),
+                  error: null,
+                },
+          ),
+      };
+      return q;
+    },
+  }),
+}));
+
+beforeEach(() => {
+  service.snapshots.clear();
+  service.lectures.length = 0;
+  service.erreur = null;
+});
+
+/** Lignes `collectes` telles que le demandeur les lit : sans les facteurs. */
+function sansFacteurs(res: Res): Res {
+  if (!Array.isArray(res.data)) return res;
+  return {
+    ...res,
+    data: (res.data as Record<string, unknown>[]).map((ligne) => {
+      const { co2_facteurs_snapshot: facteurs, ...reste } = ligne;
+      if (facteurs != null)
+        service.snapshots.set(
+          String(ligne.id),
+          facteurs as Record<string, unknown>,
+        );
+      return reste;
+    }),
+  };
+}
 
 // ── Mock Supabase chaînable, routé par table + thenable (résout results[table]) ──
-type Res = { data: unknown; error: unknown };
 function makeSupabase(results: Record<string, Res>) {
   const calls: Record<string, unknown[][]> = {};
   const rec = (n: string, a: unknown[]) => (calls[n] ??= []).push(a);
+  if (results.collectes) results.collectes = sansFacteurs(results.collectes);
   let current = '';
   const chain: Record<string, unknown> = {};
   chain.from = (t: string) => {
@@ -195,6 +289,126 @@ describe('M3.5 / synthèse PDF — snapshot §12 §1.6', () => {
     expect(snap.tonnage_zd_kg).toBe(180);
   });
 
+  it('M3.5/synthese_facteurs_lus_en_service — annexe CO₂ : la lecture du demandeur ne nomme pas la colonne, la lecture de service ne porte que sur ses collectes ZD', async () => {
+    const recente = {
+      ...ZD_COLLECTE,
+      id: 'c4',
+      date_collecte: '2026-03-20',
+      co2_facteurs_snapshot: null,
+    };
+    const milieu = {
+      ...ZD_COLLECTE,
+      id: 'c3',
+      date_collecte: '2026-03-01',
+      co2_facteurs_snapshot: {
+        version: 'ADEME-MILIEU',
+        equivalences: { km_voiture_kgco2: 0.5 },
+      },
+    };
+    const { client, calls } = makeSupabase({
+      collectes: {
+        data: [ZD_COLLECTE, AG_COLLECTE, milieu, recente],
+        error: null,
+      },
+    });
+    const snap = await buildSyntheseSnapshot(
+      client,
+      ctxTraiteur,
+      baseParams(),
+      CLOCK,
+    );
+
+    // Sous l'identité du demandeur, nommer la colonne lèverait 42501.
+    const selections = (calls.select ?? []).map(([colonnes]) =>
+      String(colonnes),
+    );
+    expect(selections.length).toBeGreaterThan(0);
+    for (const colonnes of selections)
+      expect(colonnes).not.toContain('co2_facteurs_snapshot');
+
+    // Une lecture de service : les collectes ZD rendues au demandeur, de la
+    // plus récente à la plus ancienne — ni la collecte AG, ni rien d'autre.
+    expect(service.lectures).toEqual([
+      {
+        table: 'collectes',
+        colonnes: 'id, co2_facteurs_snapshot',
+        ids: ['c4', 'c3', 'c1'],
+        filtres: [
+          ['in', 'id'],
+          ['not', 'co2_facteurs_snapshot', 'is', null],
+        ],
+        limite: TAILLE_LOT,
+      },
+    ]);
+    // Snapshot de la plus récente QUI EN PORTE UN (la plus récente n'en a pas).
+    expect(snap.co2_facteurs_snapshot).toEqual({
+      version: 'ADEME-MILIEU',
+      equivalences: { km_voiture_kgco2: 0.5 },
+    });
+    expect(snap.co2?.facteurs_version).toBe('ADEME-MILIEU');
+    expect(snap.co2?.equiv_km_voiture).toBe(600); // 300 kg évités / 0,5
+  });
+
+  it('M3.5/synthese_facteurs_par_lots — au-delà d’un lot : lecture lot par lot, arrêt au premier snapshot trouvé', async () => {
+    // 150 collectes ZD à des dates croissantes (28 par mois, de janvier à
+    // juin 2026) : la plus récente est la dernière (z149). `rang` = rang de la
+    // seule collecte qui porte un snapshot, de la plus récente (1) à la plus
+    // ancienne (150).
+    const deux = (n: number) => String(n).padStart(2, '0');
+    const jour = (i: number) =>
+      `2026-${deux(1 + Math.floor(i / 28))}-${deux(1 + (i % 28))}`;
+    const synthese = async (rang: number) => {
+      service.snapshots.clear();
+      service.lectures.length = 0;
+      const { client } = makeSupabase({
+        collectes: {
+          data: Array.from({ length: 150 }, (_, i) => ({
+            ...ZD_COLLECTE,
+            id: `z${String(i).padStart(3, '0')}`,
+            date_collecte: jour(i),
+            co2_facteurs_snapshot:
+              i === 150 - rang
+                ? { version: `ADEME-RANG-${rang}`, equivalences: {} }
+                : null,
+          })),
+          error: null,
+        },
+      });
+      return buildSyntheseSnapshot(
+        client,
+        ctxTraiteur,
+        baseParams({ from: '2026-01-01', to: '2026-12-31' }),
+        CLOCK,
+      );
+    };
+
+    // Snapshot au 120e rang : hors du premier lot, deux lots lus.
+    const loin = await synthese(120);
+    expect(loin.nb_collectes).toBe(150);
+    expect(loin.co2?.facteurs_version).toBe('ADEME-RANG-120');
+    expect(service.lectures.map((l) => l.ids.length)).toEqual([
+      TAILLE_LOT,
+      150 - TAILLE_LOT,
+    ]);
+    expect(service.lectures[0]?.ids[0]).toBe('z149');
+    expect(service.lectures[1]?.ids[0]).toBe('z049');
+
+    // Snapshot au 5e rang : trouvé dans le premier lot, le second n'est pas lu.
+    const pres = await synthese(5);
+    expect(pres.co2?.facteurs_version).toBe('ADEME-RANG-5');
+    expect(service.lectures.map((l) => l.ids.length)).toEqual([TAILLE_LOT]);
+  });
+
+  it('M3.5/synthese_facteurs_erreur — lecture de service en échec : le rapport échoue, jamais une annexe vide', async () => {
+    const { client } = makeSupabase({
+      collectes: { data: [ZD_COLLECTE], error: null },
+    });
+    service.erreur = { message: 'boom' };
+    await expect(
+      buildSyntheseSnapshot(client, ctxTraiteur, baseParams(), CLOCK),
+    ).rejects.toThrow('Erreur serveur');
+  });
+
   it('export AG : ventilation Anti-Gaspi + repas, PAS de flux/CO₂/évolution ZD (Q2)', async () => {
     const { client } = makeSupabase({
       collectes: { data: [AG_COLLECTE], error: null },
@@ -219,6 +433,9 @@ describe('M3.5 / synthèse PDF — snapshot §12 §1.6', () => {
     expect(snap.flux_zd).toBeNull();
     expect(snap.co2).toBeNull();
     expect(snap.evolution).toBeNull();
+    // Aucune collecte ZD : aucune lecture de service.
+    expect(service.lectures).toHaveLength(0);
+    expect(snap.co2_facteurs_snapshot).toBeNull();
   });
 
   it('prédicat d’inclusion : statut=cloturee ET realisee_at <= now-24h (embargo H+24)', async () => {

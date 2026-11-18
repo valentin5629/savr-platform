@@ -102,6 +102,16 @@ export function contactsCollecte(over: Record<string, unknown> = {}) {
 }
 
 /**
+ * Surcharges du lieu de LA collecte (`collectes.lieu_overrides`, hors du
+ * privilège de lecture des clients depuis la migration 20261117233000), telles
+ * que les renvoie la lecture service-role du chargeur — à poser dans
+ * `admin.results.collectes`.
+ */
+export function surchargesLieu(overrides: Record<string, unknown> | null) {
+  return { lieu_overrides: overrides };
+}
+
+/**
  * Ligne `collectes` telle que la renvoie la lecture RLS du chargeur : l'embed
  * `evenement` ne porte AUCUNE colonne réservée (contacts, référence d'affaire).
  * Le type d'événement est celui de LA collecte (lot B1, décision Val
@@ -123,7 +133,6 @@ export function ligneCollecte(over: Record<string, unknown> = {}) {
     co2_evite_kg: null,
     realisee_at: null,
     aucun_repas_motif: null,
-    lieu_overrides: null,
     type_evenement_id: 't1',
     type_evenement: { libelle: 'Cocktail apéritif' },
     evenement: {

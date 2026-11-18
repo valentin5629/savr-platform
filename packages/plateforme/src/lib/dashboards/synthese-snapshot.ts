@@ -18,10 +18,15 @@
 // bloque jamais la génération). Sections rendues selon le(s) type(s) sélectionné(s)
 // (décision Val 2026-07-07) : la route omet flux/co2/évolution hors ZD, assos hors AG.
 
+import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import type { createSupabaseServerClient } from '@/lib/api-auth.js';
 import { erreurInterne } from '@/lib/api-helpers.js';
 import { estFluxZd, FLUX_ZD_CODES, libelleFlux } from '@/lib/libelles/flux.js';
-import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
+import {
+  lireParPages,
+  TAILLE_LOT,
+  TAILLE_PAGE,
+} from '@/lib/pdf/selection-par-pages.js';
 import {
   attributionsAgOf,
   embedAttributionsAg,
@@ -154,7 +159,6 @@ interface CollecteRow {
   co2_induit_kg: number | null;
   co2_net_kg: number | null;
   energie_primaire_evitee_kwh: number | null;
-  co2_facteurs_snapshot: Record<string, unknown> | null;
   evenements: EvtEmbed | EvtEmbed[] | null;
   collecte_flux:
     | { poids_reel_kg: number | null; flux_dechets: { code: string } | null }[]
@@ -169,7 +173,7 @@ interface CollecteRow {
 const selectPour = (
   role: SyntheseRole,
 ): string => `id, type, taux_recyclage, date_collecte, pax,
-  co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh, co2_facteurs_snapshot,
+  co2_evite_kg, co2_induit_kg, co2_net_kg, energie_primaire_evitee_kwh,
   evenements!inner(id, nom_evenement, date_evenement, lieu_id, pax, organisation_id,
     client_organisateur_organisation_id, type_evenement_id,
     traiteur_operationnel_organisation_id, created_by, lieux(id, nom)),
@@ -260,6 +264,7 @@ export async function buildSyntheseSnapshot(
 
   // Impact carbone agrégé (ZD).
   let co2: SyntheseCo2 | null = null;
+  let facteurs: Record<string, unknown> | null = null;
   if (includeZd && zdRows.length > 0) {
     const evite = zdRows.reduce((s, c) => s + num(c.co2_evite_kg), 0);
     const induit = zdRows.reduce((s, c) => s + num(c.co2_induit_kg), 0);
@@ -268,7 +273,8 @@ export async function buildSyntheseSnapshot(
       (s, c) => s + num(c.energie_primaire_evitee_kwh),
       0,
     );
-    const snap = snapshotOf(zdRows);
+    const snap = await lireSnapshotFacteurs(zdRows);
+    facteurs = snap;
     co2 = {
       evite_kg: Math.round(evite),
       induit_kg: Math.round(induit),
@@ -326,7 +332,7 @@ export async function buildSyntheseSnapshot(
     traiteurs,
     evolution,
     detail,
-    co2_facteurs_snapshot: co2 ? snapshotOf(zdRows) : null,
+    co2_facteurs_snapshot: facteurs,
   };
 }
 
@@ -658,13 +664,43 @@ function detailParEvenement(rows: CollecteRow[]): SyntheseDetailLigne[] {
   return list;
 }
 
-// ── Extraction du snapshot de facteurs CO₂ (annexe) ──────────────────────────
-function snapshotOf(zdRows: CollecteRow[]): Record<string, unknown> | null {
-  // Snapshot de la collecte la plus récente (référentiel figé, §1.6 annexes).
-  const withSnap = zdRows
-    .filter((c) => c.co2_facteurs_snapshot != null)
-    .sort((a, b) => b.date_collecte.localeCompare(a.date_collecte));
-  return withSnap[0]?.co2_facteurs_snapshot ?? null;
+// ── Snapshot de facteurs CO₂ (annexe) ────────────────────────────────────────
+// Celui de la collecte ZD la plus récente qui en porte un (référentiel figé,
+// §1.6 annexes) ; à date égale, la première dans l'ordre de lecture.
+//
+// `collectes.co2_facteurs_snapshot` est hors du privilège de lecture des clients
+// (migration 20261117233000) : lu en service_role, et seulement pour les
+// collectes que la lecture sous RLS vient de rendre au demandeur. De la plus
+// récente à la plus ancienne, lot par lot, jusqu'au premier snapshot trouvé.
+async function lireSnapshotFacteurs(
+  zdRows: CollecteRow[],
+): Promise<Record<string, unknown> | null> {
+  const ids = [...zdRows]
+    .sort((a, b) => b.date_collecte.localeCompare(a.date_collecte))
+    .map((c) => c.id);
+  const admin = createAdminSupabaseClient();
+  for (let i = 0; i < ids.length; i += TAILLE_LOT) {
+    const lot = ids.slice(i, i + TAILLE_LOT);
+    // Un lot d'au plus TAILLE_LOT identifiants rend au plus TAILLE_LOT lignes.
+    const { data, error } = await admin
+      .from('collectes')
+      .select('id, co2_facteurs_snapshot')
+      .in('id', lot)
+      .not('co2_facteurs_snapshot', 'is', null)
+      .limit(TAILLE_LOT);
+    if (error) throw erreurInterne(error, 'dashboards.synthese_snapshot');
+    const parId = new Map(
+      (
+        (data ?? []) as {
+          id: string;
+          co2_facteurs_snapshot: Record<string, unknown> | null;
+        }[]
+      ).map((l) => [l.id, l.co2_facteurs_snapshot]),
+    );
+    const premier = lot.find((id) => parId.get(id) != null);
+    if (premier) return parId.get(premier) ?? null;
+  }
+  return null;
 }
 function facteursVersion(snap: Record<string, unknown> | null): string | null {
   if (!snap) return null;

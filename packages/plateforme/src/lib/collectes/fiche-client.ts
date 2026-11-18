@@ -116,7 +116,6 @@ interface CollecteRow {
   co2_evite_kg: number | null;
   realisee_at: string | null;
   aucun_repas_motif: string | null;
-  lieu_overrides: Record<string, unknown> | null;
   // Type d'événement de LA collecte (lot B1).
   type_evenement_id: string | null;
   type_evenement:
@@ -216,7 +215,7 @@ export async function chargerFicheCollecteClient(
       `id, type, statut, statut_tms, tms_reference, date_collecte, heure_collecte,
        pax, controle_acces_requis, informations_completes, informations_supplementaires,
        taux_recyclage, co2_evite_kg, realisee_at, aucun_repas_motif,
-       lieu_overrides, type_evenement_id,
+       type_evenement_id,
        type_evenement:types_evenements!type_evenement_id(libelle),
        evenement:evenements!inner(
          id, organisation_id, traiteur_operationnel_organisation_id, created_by,
@@ -255,90 +254,115 @@ export async function chargerFicheCollecteClient(
   // téléchargement. Le traiteur opérationnel d'une collecte AG programmée par
   // une agence ne lit donc pas l'attestation de don du donneur d'ordre (D12,
   // arbitrage Val 2026-09-30) ; le rapport RSE ZD lui reste servi (rr_select).
-  const [ctRes, rapRes, attRes, aaRes, alerteRes, evtRes, contactsRes] =
-    await Promise.all([
-      avecCamions
-        ? admin
-            .from('collecte_tournees')
-            .select(
-              'rang, tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule)',
-            )
-            .eq('collecte_id', id)
-            .order('rang', { ascending: true })
-        : Promise.resolve({ data: [] as unknown[], error: null }),
-      useRapportsRse
+  const [
+    ctRes,
+    rapRes,
+    attRes,
+    aaRes,
+    alerteRes,
+    evtRes,
+    contactsRes,
+    surchargesRes,
+  ] = await Promise.all([
+    avecCamions
+      ? admin
+          .from('collecte_tournees')
+          .select(
+            'rang, tournee:tournees(plaque_immatriculation, chauffeur_nom, chauffeur_telephone, type_vehicule)',
+          )
+          .eq('collecte_id', id)
+          .order('rang', { ascending: true })
+      : Promise.resolve({ data: [] as unknown[], error: null }),
+    useRapportsRse
+      ? rls
+          .from('rapports_rse')
+          .select('disponible_a, genere_at, regenere_at')
+          .eq('collecte_id', id)
+          .order('version', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    useRapportsRse
+      ? Promise.resolve({ data: null, error: null })
+      : rls
+          .from('attestations_don')
+          .select('eligible_at, pdf_url, version, created_at')
+          .eq('collecte_id', id)
+          .order('version', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+    // Attribution AG sous la RLS de l'utilisateur. Traiteur et agence : la table
+    // (aa_select). Gestionnaire : la vue v_attributions_gestionnaire, seul chemin
+    // qui lui rende une collecte programmée par un traiteur tiers (C-1) — nom et
+    // ville de l'association à plat, sa description par l'`association_id` de la
+    // vue (associations, policy asso_read).
+    avecAssociation
+      ? espace === 'gestionnaire'
         ? rls
-            .from('rapports_rse')
-            .select('disponible_a, genere_at, regenere_at')
-            .eq('collecte_id', id)
-            .order('version', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      useRapportsRse
-        ? Promise.resolve({ data: null, error: null })
-        : rls
-            .from('attestations_don')
-            .select('eligible_at, pdf_url, version, created_at')
-            .eq('collecte_id', id)
-            .order('version', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-      // Attribution AG sous la RLS de l'utilisateur. Traiteur et agence : la table
-      // (aa_select). Gestionnaire : la vue v_attributions_gestionnaire, seul chemin
-      // qui lui rende une collecte programmée par un traiteur tiers (C-1) — nom et
-      // ville de l'association à plat, sa description par l'`association_id` de la
-      // vue (associations, policy asso_read).
-      avecAssociation
-        ? espace === 'gestionnaire'
-          ? rls
-              .from('v_attributions_gestionnaire')
-              .select(
-                'volume_repas_realise, association_nom, association_ville, association:associations(description_rapport_impact)',
-              )
-              .eq('collecte_id', id)
-              .maybeSingle()
-          : rls
-              .from('attributions_antgaspi')
-              .select(
-                'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
-              )
-              .eq('collecte_id', id)
-              .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      fenetreLogistique
-        ? admin
-            .from('alertes_admin')
-            .select('id')
-            .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
-            .eq('entity_id', id)
-            .eq('statut', 'ouverte')
-            .limit(1)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      // Référence d'affaire : demandée pour l'organisation programmatrice seule.
-      evt
-        ? admin
-            .from('evenements')
+            .from('v_attributions_gestionnaire')
             .select(
-              programmeParSoi
-                ? `reference_affaire, ${COLONNES_CODES_VIPARIS}`
-                : COLONNES_CODES_VIPARIS,
+              'volume_repas_realise, association_nom, association_ville, association:associations(description_rapport_impact)',
             )
-            .eq('id', evt.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      contactsVisibles
-        ? admin
-            .from('collecte_contacts')
-            .select(COLONNES_CONTACTS_COLLECTE)
             .eq('collecte_id', id)
             .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-    ]);
-  // Un échec de ces lectures ne doit pas se lire comme « aucun contact ».
+        : rls
+            .from('attributions_antgaspi')
+            .select(
+              'volume_repas_realise, association:associations!association_id(nom, ville, description_rapport_impact)',
+            )
+            .eq('collecte_id', id)
+            .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    fenetreLogistique
+      ? admin
+          .from('alertes_admin')
+          .select('id')
+          .eq('code', CODE_ALERTE_COORDONNEES_URGENCE)
+          .eq('entity_id', id)
+          .eq('statut', 'ouverte')
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    // Référence d'affaire : demandée pour l'organisation programmatrice seule.
+    evt
+      ? admin
+          .from('evenements')
+          .select(
+            programmeParSoi
+              ? `reference_affaire, ${COLONNES_CODES_VIPARIS}`
+              : COLONNES_CODES_VIPARIS,
+          )
+          .eq('id', evt.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    contactsVisibles
+      ? admin
+          .from('collecte_contacts')
+          .select(COLONNES_CONTACTS_COLLECTE)
+          .eq('collecte_id', id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    // Surcharges du lieu saisies à la programmation : colonne hors du
+    // privilège de lecture des clients (migration 20261117233000), lue ici
+    // après la lecture sous RLS ci-dessus, qui établit que l'appelant voit
+    // la collecte. Seul le lieu effectif qui en découle est rendu.
+    admin
+      .from('collectes')
+      .select('lieu_overrides')
+      .eq('id', c.id)
+      .maybeSingle(),
+  ]);
+  // Un échec de ces lectures ne doit pas se lire comme « aucun contact », ni
+  // comme « lieu non surchargé » (la fiche afficherait l'adresse du référentiel).
   if (evtRes.error) return { erreur: evtRes.error };
   if (contactsRes.error) return { erreur: contactsRes.error };
+  if (surchargesRes.error) return { erreur: surchargesRes.error };
+  const lieuOverrides =
+    (
+      surchargesRes.data as {
+        lieu_overrides: Record<string, unknown> | null;
+      } | null
+    )?.lieu_overrides ?? null;
   const reserve = evtRes.data as EvenementReserve | null;
   const contacts = contactsRes.data as ContactsCollecte | null;
 
@@ -442,7 +466,7 @@ export async function chargerFicheCollecteClient(
   // Lieu EFFECTIF de cette collecte : même fusion que celle transmise au
   // transporteur (surcharges saisies à la programmation, allowlist + gardes).
   const lieuEffectif = lieuRef
-    ? applyLieuOverrides(lieuRef, c.lieu_overrides)
+    ? applyLieuOverrides(lieuRef, lieuOverrides)
     : null;
   const evenement: EvenementFiche | null = evt
     ? {

@@ -20,6 +20,7 @@ import {
   ligneCollecte,
   reserveEvenement,
   contactsCollecte,
+  surchargesLieu,
 } from '../helpers/fiche-client-mock';
 import { etatRapport } from '@/lib/collectes/fiche-client-types';
 
@@ -427,10 +428,9 @@ describe('M3.1 / fiche client — contenu servi', () => {
   });
 
   it('M3.1/fiche_get_lieu_effectif — instructions d’accès : surcharge de la collecte appliquée', async () => {
-    rls.results.collectes = {
-      data: ligneCollecte({
-        lieu_overrides: { acces_details: 'Quai B, badge 1234' },
-      }),
+    rls.results.collectes = { data: ligneCollecte(), error: null };
+    admin.results.collectes = {
+      data: surchargesLieu({ acces_details: 'Quai B, badge 1234' }),
       error: null,
     };
     const { json } = await getFiche();
@@ -439,6 +439,40 @@ describe('M3.1 / fiche client — contenu servi', () => {
     expect(lieu.acces_details).toBe('Quai B, badge 1234');
     // La réponse ne porte que le lieu effectif, pas la surcharge brute.
     expect(JSON.stringify(json)).not.toContain('lieu_overrides');
+  });
+
+  it('M3.1/fiche_get_surcharge_lue_en_service — la lecture du client ne nomme pas lieu_overrides, la lecture de service ne lit que cette colonne de cette collecte', async () => {
+    rls.results.collectes = {
+      // Une ligne cliente qui en porterait une ne compte pas : seule la
+      // lecture de service fait foi.
+      data: ligneCollecte({ lieu_overrides: { acces_details: 'IGNORÉE' } }),
+      error: null,
+    };
+    admin.results.collectes = { data: surchargesLieu(null), error: null };
+    const { res, json } = await getFiche();
+    expect(res.status).toBe(200);
+    // Colonne hors du privilège de lecture des clients : la nommer sous leur
+    // identité lèverait 42501 et la fiche entière tomberait en 500.
+    expect(rls.selects.collectes).toHaveLength(1);
+    expect(rls.selects.collectes?.[0]).not.toContain('lieu_overrides');
+    expect(admin.selects.collectes).toEqual(['lieu_overrides']);
+    expect(admin.eqs.collectes).toEqual([['id', 'c1']]);
+    const lieu = (json.data.evenement as { lieu: { acces_details: string } })
+      .lieu;
+    expect(lieu.acces_details).toBe('Hall 7');
+    expect(JSON.stringify(json)).not.toContain('IGNORÉE');
+  });
+
+  it('M3.1/fiche_get_surcharge_erreur_500 — lecture de la surcharge en échec : 500, jamais l’adresse du référentiel à la place', async () => {
+    rls.results.collectes = { data: ligneCollecte(), error: null };
+    admin.results.evenements = { data: reserveEvenement(), error: null };
+    admin.results.collecte_contacts = {
+      data: contactsCollecte(),
+      error: null,
+    };
+    admin.results.collectes = { data: null, error: { message: 'boom' } };
+    const { res } = await getFiche();
+    expect(res.status).toBe(500);
   });
 
   it('M3.1/fiche_get_urgence_demandee — alerte existante ⇒ coordonnees_urgence_demandee', async () => {

@@ -1853,7 +1853,7 @@
     },
     {
       "id": "M0.6-collectes-visibilite-par-ensemble",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:516",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:518",
       "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (col_select et cf_select : appartenance aux ensembles rendus une fois par requête par f_evenements_visibles_organisation, f_evenements_visibles_lieux, f_collectes_visibles_client ; f_collecte_visible gardée)",
       "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (1-15 collectes et 16-30 collecte_flux : même ensemble que f_collecte_visible pour 15 jetons ; 33-42 non-vacuité ; 46-47 plus d'appel ligne à ligne)",
       "statut": "implemented",
@@ -1869,7 +1869,7 @@
     },
     {
       "id": "M0.6-fonctions-visibilite-appel-direct",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:656",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:658",
       "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (trois fonctions SECURITY DEFINER fermées à PUBLIC et anon, ouvertes à authenticated ; f_evenements_visibles_organisation limitée aux événements qui portent une collecte) + supabase/tests/securite_rpc_definer_exposees.test.sql (allowlist T17)",
       "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (43-45 appel direct des trois fonctions : rien de plus que ce que le jeton lit, 15 jetons dont comptes au code activé en aal1 et aal2)",
       "statut": "implemented",

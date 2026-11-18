@@ -21,7 +21,7 @@
 --     opérationnel, ou le client organisateur ;
 --   - événement daté sur un lieu de l'organisation du jeton, collecte hors
 --     brouillon (garde anti-fuite des brouillons tiers B-2 et 2026-10-24).
--- Le test `perf__collectes_visibilite_par_ensemble.test.sql` compare, rôle par
+-- Le test `SECU__collectes_visibilite_par_ensemble.test.sql` compare, rôle par
 -- rôle, ce que voit chaque jeton à ce que rend `f_collecte_visible`, gardée
 -- telle quelle (bordereaux, tournées, fichiers, registre l'utilisent encore).
 --
@@ -38,16 +38,23 @@
 --
 -- Accès : aucun élargi. Les trois fonctions sont SECURITY DEFINER et ouvertes à
 -- `authenticated` parce que les policies les appellent sous le rôle de
--- l'appelant (famille (a) de l'allowlist de securite_rpc_definer_exposees). Elles
--- ne rendent que des identifiants que le jeton voit déjà, appellent
--- `f_code_verification_ok()` (cliquet SECU__code_verification_base, assertion
--- 14) et sont fermées à PUBLIC et anon. ⚠ Ouverture de fonctions à
+-- l'appelant (famille (a) de l'allowlist de securite_rpc_definer_exposees).
+-- Appelées directement (PostgREST /rpc), elles ne rendent que des identifiants
+-- que le jeton lit déjà : un événement rendu porte au moins une collecte que
+-- le jeton voit (revue sécurité du 2026-11-18 : sans l'EXISTS de
+-- `f_evenements_visibles_organisation`, un événement SANS collecte qui cite
+-- l'organisation dans une colonne que la policy de son rôle ne lit pas, par
+-- exemple client organisateur d'un jeton traiteur, sortait par l'appel direct).
+-- Elles appellent `f_code_verification_ok()` (cliquet SECU__code_verification_base,
+-- assertion 14) et sont fermées à PUBLIC et anon. ⚠ Ouverture de fonctions à
 -- `authenticated` : migration prod soumise à Val (CLAUDE.md §12, 2bis).
 
 BEGIN;
 
 -- Événements dont l'organisation du jeton est le programmateur, le traiteur
--- opérationnel ou le client organisateur.
+-- opérationnel ou le client organisateur, et qui portent au moins une collecte
+-- (sans elle, l'appel direct rendrait des événements que le jeton ne lit pas ;
+-- les policies n'en perdent rien : une collecte témoigne de son événement).
 CREATE OR REPLACE FUNCTION plateforme.f_evenements_visibles_organisation()
 RETURNS SETOF uuid
 LANGUAGE sql
@@ -61,6 +68,7 @@ AS $function$
     AND (   e.organisation_id                       = (auth.jwt()->>'organisation_id')::uuid
          OR e.traiteur_operationnel_organisation_id = (auth.jwt()->>'organisation_id')::uuid
          OR e.client_organisateur_organisation_id   = (auth.jwt()->>'organisation_id')::uuid)
+    AND EXISTS (SELECT 1 FROM plateforme.collectes c WHERE c.evenement_id = e.id)
 $function$;
 
 -- Événements datés sur un lieu de l'organisation du jeton, qui portent au moins

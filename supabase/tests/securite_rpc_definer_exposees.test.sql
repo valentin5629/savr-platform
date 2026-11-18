@@ -190,8 +190,9 @@ SELECT is_empty(
       'f_traiteur_intervenu_lieux_gestionnaire',
       'f_fichier_visible',
       'f_code_verification_active', -- rend un booléen sur le seul compte du jeton (2026-11-04)
-      -- col_select, cf_select, evt_gestionnaire_select (20261118120000) : ne
-      -- rendent que des identifiants que le jeton voit déjà.
+      -- col_select, cf_select, evt_gestionnaire_select (20261118120000) :
+      -- appelées directement, ne rendent que des identifiants que le jeton lit
+      -- déjà (prouvé par SECU__collectes_visibilite_par_ensemble, 15 jetons).
       'f_evenements_visibles_organisation',
       'f_evenements_visibles_lieux',
       'f_collectes_visibles_client',

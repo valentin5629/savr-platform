@@ -27,12 +27,13 @@
 -- corrigés par le seed du même lot) ; savr-prod : aucun.
 --
 -- Deux déclencheurs :
---   1. `trg_users_role_suit_type_organisation` (BEFORE INSERT, UPDATE OF role,
+--   1. `trg_users_role_suit_type_organisation` (AFTER INSERT, UPDATE OF role,
 --      organisation_id) refuse un rôle client hors de son type, QUEL QUE SOIT
 --      l'appelant (service_role et postgres compris : les routes Admin passent
 --      par service_role). Il ne se déclenche que si le rôle ou l'organisation
 --      change : une ligne ancienne discordante reste modifiable sur ses autres
---      colonnes (connexion, profil).
+--      colonnes (connexion, profil). AFTER, et non BEFORE (revue sécurité du
+--      2026-11-18, NON-GO B1) : la RLS et la clé étrangère parlent d'abord.
 --   2. `trg_organisations_type_reecrit_roles` (AFTER UPDATE OF type) réécrit,
 --      dans la même transaction, le rôle des utilisateurs que le nouveau type
 --      n'admet plus (arbitrage Val 2026-11-18) : vers traiteur → traiteur_manager,
@@ -69,20 +70,23 @@ COMMENT ON FUNCTION plateforme.f_role_compatible_type_organisation(plateforme.us
 
 -- 1. Garde à l'écriture d'un utilisateur.
 --
--- SECURITY DEFINER pour LIRE le type de l'organisation : sous `authenticated`,
--- la RLS d'`organisations` cache les autres organisations, et la garde
--- parlerait alors à la place de la RLS (refus 23514 au lieu de 42501 sur une
--- écriture inter-organisations). Elle n'écrit rien et ne rend que NEW.
--- Fonction de déclencheur : exclue du cliquet du code de vérification, qui ne
--- recense que les fonctions appelables (`pg_get_function_result <> 'trigger'`).
---
--- Rôle ou organisation absents, organisation inexistante : la garde laisse
--- passer, parce que la contrainte NOT NULL ou la clé étrangère (non
--- différable) refusent la ligne juste après. Elle ne tranche que sur un type lu.
+-- AFTER ROW, SECURITY INVOKER (revue sécurité du 2026-11-18, NON-GO B1). Une
+-- première version BEFORE + SECURITY DEFINER lisait le type de l'organisation
+-- visée AVANT le WITH CHECK de la RLS : un client qui tentait un INSERT dans
+-- une organisation d'un autre client recevait « refusé dans une organisation
+-- de type traiteur » au lieu de 42501, et apprenait ainsi qu'elle existe et
+-- son type (mesuré pour un gestionnaire, un manager, un commercial, une
+-- agence et une session ops sans code de vérification).
+-- En AFTER, une ligne n'arrive ici qu'après la RLS (policies et restrictive
+-- `code_verification_equipe_savr`), NOT NULL et la clé étrangère (déclencheur
+-- interne `RI_ConstraintTrigger_c_…`, tiré avant celui-ci par ordre de nom) :
+-- l'organisation lue est donc celle que l'appelant a le droit d'écrire, et
+-- elle existe. Une organisation créée par la même instruction (CTE) est déjà
+-- visible à ce moment (revue, R1).
+-- Organisation illisible malgré tout : refus (aucun cas connu, fermé par défaut).
 CREATE OR REPLACE FUNCTION plateforme.fn_users_role_suit_type_organisation()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
@@ -91,39 +95,31 @@ BEGIN
   IF TG_OP = 'UPDATE'
      AND NEW.role IS NOT DISTINCT FROM OLD.role
      AND NEW.organisation_id IS NOT DISTINCT FROM OLD.organisation_id THEN
-    RETURN NEW;
-  END IF;
-
-  IF NEW.role IS NULL OR NEW.organisation_id IS NULL THEN
-    RETURN NEW;
+    RETURN NULL;
   END IF;
 
   SELECT o.type INTO v_type
   FROM plateforme.organisations o
   WHERE o.id = NEW.organisation_id;
 
-  IF NOT FOUND THEN
-    RETURN NEW;
-  END IF;
-
   IF plateforme.f_role_compatible_type_organisation(NEW.role, v_type) IS NOT TRUE THEN
     RAISE EXCEPTION 'Rôle % refusé dans une organisation de type % (CDC §09 §2)',
-      NEW.role::text, v_type::text
+      NEW.role::text, COALESCE(v_type::text, 'illisible')
       USING ERRCODE = '23514';
   END IF;
 
-  RETURN NEW;
+  RETURN NULL;
 END;
 $$;
 
 REVOKE ALL ON FUNCTION plateforme.fn_users_role_suit_type_organisation() FROM PUBLIC, anon, authenticated;
 
 COMMENT ON FUNCTION plateforme.fn_users_role_suit_type_organisation() IS
-  'Déclencheur BEFORE INSERT / UPDATE OF role, organisation_id sur plateforme.users : refuse (23514) un rôle client dans une organisation d''un autre type, pour tout appelant. Revue sécurité 2026-11-18.';
+  'Déclencheur AFTER INSERT / UPDATE OF role, organisation_id sur plateforme.users : refuse (23514) un rôle client dans une organisation d''un autre type, pour tout appelant, après la RLS et la clé étrangère. Revue sécurité 2026-11-18.';
 
 DROP TRIGGER IF EXISTS trg_users_role_suit_type_organisation ON plateforme.users;
 CREATE TRIGGER trg_users_role_suit_type_organisation
-  BEFORE INSERT OR UPDATE OF role, organisation_id ON plateforme.users
+  AFTER INSERT OR UPDATE OF role, organisation_id ON plateforme.users
   FOR EACH ROW EXECUTE FUNCTION plateforme.fn_users_role_suit_type_organisation();
 
 -- 2. Changement de type d'une organisation : les rôles suivent.

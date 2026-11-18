@@ -19,12 +19,21 @@ const lieuxChain = { select: vi.fn(() => ({ eq: lieuxEq })) };
 // organisations_domaines_email : select(count, head) … eq → { count, error }
 const domEq = vi.fn();
 const domChain = { select: vi.fn(() => ({ eq: domEq })) };
+// users : membres de l'organisation, select … eq → { data, error }
+const usersEq = vi.fn();
+const usersChain = { select: vi.fn(() => ({ eq: usersEq })) };
+// audit_log : insert → { error }
+const auditInsert = vi.fn();
 const from = vi.fn((table: string) =>
   table === 'organisations_lieux'
     ? lieuxChain
     : table === 'organisations_domaines_email'
       ? domChain
-      : orgChain,
+      : table === 'users'
+        ? usersChain
+        : table === 'audit_log'
+          ? { insert: auditInsert }
+          : orgChain,
 );
 
 vi.mock('@savr/shared/src/supabase-client.js', () => ({
@@ -75,6 +84,10 @@ describe('Organisations / type — lieux rattachés', () => {
     orgChain.single.mockReset();
     lieuxEq.mockReset();
     domEq.mockReset();
+    usersEq.mockReset();
+    usersEq.mockResolvedValue({ data: [], error: null });
+    auditInsert.mockReset();
+    auditInsert.mockResolvedValue({ error: null });
     setupAuth('admin_savr');
   });
 
@@ -154,5 +167,144 @@ describe('Organisations / type — lieux rattachés', () => {
     expect(orgChain.update).toHaveBeenCalledWith({
       type: 'client_organisateur',
     });
+  });
+});
+
+// Changement de type : la base réécrit les rôles que le nouveau type n'admet plus
+// (trg_organisations_type_reecrit_roles, arbitrage Val 2026-11-18) ; la route
+// trace chaque réécriture (§07/06 user_role_modifie).
+describe('Organisations / type — rôles des utilisateurs réécrits et tracés', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    orgChain.single.mockReset();
+    lieuxEq.mockReset();
+    domEq.mockReset();
+    usersEq.mockReset();
+    auditInsert.mockReset();
+    auditInsert.mockResolvedValue({ error: null });
+    setupAuth('admin_savr');
+  });
+
+  it('traiteur → agence : une trace user_role_modifie par compte réécrit, l’équipe Savr exclue', async () => {
+    lieuxEq.mockResolvedValueOnce({ count: 0, error: null });
+    usersEq.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'u-mgr',
+          role: 'traiteur_manager',
+          organisations: { type: 'traiteur' },
+        },
+        {
+          id: 'u-com',
+          role: 'traiteur_commercial',
+          organisations: { type: 'traiteur' },
+        },
+        { id: 'u-ops', role: 'ops_savr', organisations: { type: 'traiteur' } },
+      ],
+      error: null,
+    });
+    orgChain.single.mockResolvedValueOnce({
+      data: { id: 'org-1', type: 'agence', actif: true },
+      error: null,
+    });
+    const res = await patch({ type: 'agence' });
+    expect(res.status).toBe(200);
+    expect(usersEq).toHaveBeenCalledWith('organisation_id', 'org-1');
+    expect(auditInsert).toHaveBeenCalledTimes(1);
+    const lignes = auditInsert.mock.calls[0]![0] as {
+      action: string;
+      record_id: string;
+      user_id: string;
+      motif: string;
+      old_values: { role: string };
+      new_values: { role: string };
+    }[];
+    expect(lignes.map((l) => l.record_id)).toEqual(['u-mgr', 'u-com']);
+    for (const l of lignes) {
+      expect(l.action).toBe('user_role_modifie');
+      expect(l.user_id).toBe('user-staff-1');
+      expect(l.new_values).toEqual({ role: 'agence' });
+      expect(l.motif).toContain('Agence');
+      expect(l.motif.length).toBeGreaterThanOrEqual(10);
+    }
+    expect(lignes.map((l) => l.old_values.role)).toEqual([
+      'traiteur_manager',
+      'traiteur_commercial',
+    ]);
+  });
+
+  it('agence → traiteur : le compte agence devient traiteur_manager', async () => {
+    lieuxEq.mockResolvedValueOnce({ count: 0, error: null });
+    usersEq.mockResolvedValueOnce({
+      data: [
+        { id: 'u-agc', role: 'agence', organisations: { type: 'agence' } },
+      ],
+      error: null,
+    });
+    orgChain.single.mockResolvedValueOnce({
+      data: { id: 'org-1', type: 'traiteur', actif: true },
+      error: null,
+    });
+    const res = await patch({ type: 'traiteur' });
+    expect(res.status).toBe(200);
+    const lignes = auditInsert.mock.calls[0]![0] as {
+      new_values: { role: string };
+    }[];
+    expect(lignes).toHaveLength(1);
+    expect(lignes[0]!.new_values).toEqual({ role: 'traiteur_manager' });
+  });
+
+  it('type renvoyé à l’identique : aucune trace (le déclencheur ne part pas)', async () => {
+    lieuxEq.mockResolvedValueOnce({ count: 0, error: null });
+    usersEq.mockResolvedValueOnce({
+      data: [
+        // compte ancien hors de son type : la base ne le réécrit pas ici
+        {
+          id: 'u-ecart',
+          role: 'traiteur_commercial',
+          organisations: { type: 'agence' },
+        },
+      ],
+      error: null,
+    });
+    orgChain.single.mockResolvedValueOnce({
+      data: { id: 'org-1', type: 'agence', actif: true },
+      error: null,
+    });
+    const res = await patch({ type: 'agence' });
+    expect(res.status).toBe(200);
+    expect(auditInsert).not.toHaveBeenCalled();
+  });
+
+  it('UPDATE refusé par la base : aucune trace', async () => {
+    lieuxEq.mockResolvedValueOnce({ count: 0, error: null });
+    usersEq.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'u-mgr',
+          role: 'traiteur_manager',
+          organisations: { type: 'traiteur' },
+        },
+      ],
+      error: null,
+    });
+    orgChain.single.mockResolvedValueOnce({
+      data: null,
+      error: { code: '22P02', message: 'valeur invalide' },
+    });
+    const res = await patch({ type: 'agence' });
+    expect(res.status).toBe(422);
+    expect(auditInsert).not.toHaveBeenCalled();
+  });
+
+  it('lecture des membres en échec : 500, jamais d’UPDATE', async () => {
+    lieuxEq.mockResolvedValueOnce({ count: 0, error: null });
+    usersEq.mockResolvedValueOnce({
+      data: null,
+      error: { code: '08006', message: 'connexion' },
+    });
+    const res = await patch({ type: 'agence' });
+    expect(res.status).toBe(500);
+    expect(orgChain.update).not.toHaveBeenCalled();
   });
 });

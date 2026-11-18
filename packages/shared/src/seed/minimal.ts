@@ -152,7 +152,7 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
     ['id'],
   );
 
-  // ── 3. Users (4 staff + 11 clients) ───────────────────────────────────────
+  // ── 3. Users (3 staff + 12 clients) ───────────────────────────────────────
   await upsert(
     client,
     'plateforme.users',
@@ -160,9 +160,12 @@ export async function seedMinimal(client: pg.Client): Promise<void> {
       user('user_admin', 'org_savr', 'admin_savr', 'Valentin', 'Admin'),
       user('user_ops1', 'org_savr', 'ops_savr', 'Ops', 'Un'),
       user('user_ops2', 'org_savr', 'ops_savr', 'Ops', 'Deux'),
+      // Persona jwt_commercial : commercial d'un traiteur (Kaspia). Un rôle client
+      // n'existe que dans une organisation de son type (garde rôle ↔ type,
+      // migration 20261118200000 ; arbitrage Val 2026-11-18, ex-org_savr M0.7).
       user(
         'user_commercial',
-        'org_savr',
+        'org_tr_kaspia',
         'traiteur_commercial',
         'Commercial',
         'Savr',

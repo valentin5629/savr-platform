@@ -36,10 +36,13 @@ BEGIN
 END $$;
 
 -- ── SETUP (namespace b23c) ──────────────────────────────────────────────────
+-- Organisation de type client_organisateur : les comptes A et B en ont le rôle,
+-- et un rôle client n'existe que dans une organisation de son type (garde
+-- 20261118200000, CDC §09 §2).
 SELECT test_as_superuser();
 
 INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, email_principal)
-VALUES ('b23c0001-0000-0000-0000-000000000001'::uuid, 'Sécu Org', 'traiteur', true, false, '77700000000001', 'secu@test.com');
+VALUES ('b23c0001-0000-0000-0000-000000000001'::uuid, 'Sécu Org', 'client_organisateur', true, false, '77700000000001', 'secu@test.com');
 
 -- admin (impersonateur), userA + userB (deux clients impersonés distincts)
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role) VALUES

@@ -378,10 +378,12 @@ async function main(): Promise<void> {
       (await scalar('select count(*) n from plateforme.users')) === 15,
     );
     check(
-      'staff users = 4 (org_savr)',
+      // 3 depuis le 2026-11-18 : le commercial (traiteur_commercial) est passé
+      // chez Kaspia (garde rôle ↔ type d'organisation, migration 20261118200000).
+      'staff users = 3 (org_savr)',
       (await scalar(
         `select count(*) n from plateforme.users where organisation_id = '${seedUuid('org_savr')}'`,
-      )) === 4,
+      )) === 3,
     );
     check(
       'lieux = 6',

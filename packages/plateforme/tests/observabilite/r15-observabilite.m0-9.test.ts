@@ -235,7 +235,12 @@ describe('M0.9 R15 / OBS-03 — audit_log catalogue §07/06', () => {
     authAs('admin_savr');
     mockChain.single
       .mockResolvedValueOnce({
-        data: { id: 'u-1', role: 'traiteur_commercial', actif: true },
+        data: {
+          id: 'u-1',
+          role: 'traiteur_commercial',
+          actif: true,
+          organisations: { type: 'traiteur' },
+        },
         error: null,
       })
       .mockResolvedValueOnce({

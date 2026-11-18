@@ -8,8 +8,12 @@
  *    direct `POST /api/v1/admin/users` (compte créé + lien d'activation envoyé
  *    côté serveur, BL-P1-BOA-09, §06.06 §8). Paramètres > Utilisateurs fait
  *    choisir l'organisation ; la fiche organisation l'impose (`organisationId`).
- *    Rôles proposés = ceux passés par l'appelant (le serveur ré-applique les
- *    gardes : admin_savr réservé à un admin_savr, rôles du type d'organisation).
+ *    Rôles proposés = ceux passés par l'appelant. Le serveur ré-applique les
+ *    gardes : admin_savr réservé à un admin_savr ; rôle client conforme au type
+ *    de l'organisation (`lib/roles-type-organisation.ts`, tenu aussi en base
+ *    par `trg_users_role_suit_type_organisation` depuis le 2026-11-18). Les
+ *    Paramètres proposent tous les rôles : un rôle hors du type de
+ *    l'organisation choisie revient en 422, message affiché tel quel.
  *  - forme CARTE inline (`InviterUtilisateurCarte`) : « Mon organisation » des
  *    espaces traiteur et gestionnaire, rôle imposé par l'endpoint ou le corps
  *    envoyé. Succès = Toast 4 s, erreur = bandeau inline (R-UI-1 H1).

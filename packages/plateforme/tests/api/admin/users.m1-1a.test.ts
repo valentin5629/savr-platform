@@ -137,7 +137,7 @@ describe('M1.1a / Users / Invitation', () => {
     });
     // Nom de l'organisation pour le template d'invitation (ONB-04).
     mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
-      data: { nom: 'Traiteur Test' },
+      data: { nom: 'Traiteur Test', type: 'traiteur' },
       error: null,
     });
 
@@ -273,7 +273,11 @@ describe('M0.4 — gating ops users (BL-P1-AUTH-03)', () => {
   it('M0.4 — BL-P1-AUTH-03 : ops_savr réassigne un rôle NON-admin → 200', async () => {
     setupAuth('ops_savr');
     mockSupabaseChain.single.mockResolvedValueOnce({
-      data: { id: 'user-1', role: 'traiteur_commercial' },
+      data: {
+        id: 'user-1',
+        role: 'traiteur_commercial',
+        organisations: { type: 'traiteur' },
+      },
       error: null,
     });
     mockSupabaseChain.single.mockResolvedValueOnce({
@@ -438,7 +442,7 @@ describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
       error: null,
     });
     mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
-      data: { nom: 'Traiteur Martin SAS' },
+      data: { nom: 'Traiteur Martin SAS', type: 'traiteur' },
       error: null,
     });
 
@@ -490,3 +494,168 @@ describe('M0.4 — email invitation admin (BL-P1-ONB-04)', () => {
 // `/admin/organisations/{id}/coefficients-perte-labo` (BL-P2-32) et sont couverts
 // par tests/api/admin/coefficients-perte-labo.m0-6.test.ts (403 ops, 201 admin,
 // contrôle type=traiteur, 404, 409, bornes année, annee_application).
+
+// ── Rôle ↔ type d'organisation (CDC §09 §2, revue sécurité 2026-11-18) ───────
+// Avant : la route ne vérifiait que la liste des rôles et la réserve admin_savr ;
+// un traiteur_manager se créait dans une organisation de gestionnaire de lieux.
+
+describe('Rôle ↔ type d’organisation — POST /api/v1/admin/users', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const corps = (role: string, organisation_id = 'org-gl') => ({
+    email: 'x@exemple.fr',
+    prenom: 'X',
+    nom: 'Y',
+    role,
+    organisation_id,
+  });
+
+  it('traiteur_manager dans une organisation de gestionnaire de lieux → 422, aucun compte créé', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { nom: 'Viparis', type: 'gestionnaire_lieux' },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/users', corps('traiteur_manager')),
+    );
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toContain('Traiteur (manager)');
+    expect(json.error).toContain('Gestionnaire de lieux');
+    expect(mockAdminCreateUser).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.eq).toHaveBeenCalledWith('id', 'org-gl');
+  });
+
+  it('organisation introuvable → 422, aucun compte créé', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/users', corps('agence', 'org-absente')),
+    );
+    expect(res.status).toBe(422);
+    expect(mockAdminCreateUser).not.toHaveBeenCalled();
+  });
+
+  it('lecture de l’organisation en échec → 500, aucun compte créé', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { code: '08006', message: 'connexion' },
+    });
+    const { POST } = await import('@/app/api/v1/admin/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/users', corps('agence')),
+    );
+    expect(res.status).toBe(500);
+    expect(mockAdminCreateUser).not.toHaveBeenCalled();
+  });
+
+  it('équipe Savr : ops_savr dans l’organisation interne (type agence) → 201', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.maybeSingle.mockResolvedValueOnce({
+      data: { nom: 'Savr', type: 'agence' },
+      error: null,
+    });
+    mockAdminCreateUser.mockResolvedValue({
+      data: { user: { id: 'new-ops' } },
+      error: null,
+    });
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: { id: 'new-ops', role: 'ops_savr' },
+      error: null,
+    });
+    const { POST } = await import('@/app/api/v1/admin/users/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/admin/users', corps('ops_savr', 'org-savr')),
+    );
+    expect(res.status).toBe(201);
+    expect(mockAdminCreateUser).toHaveBeenCalled();
+  });
+});
+
+describe('Rôle ↔ type d’organisation — PATCH /api/v1/admin/users/[id]', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('commercial traiteur passé en agence → 422, aucune écriture', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'user-1',
+        role: 'traiteur_commercial',
+        actif: true,
+        organisations: { type: 'traiteur' },
+      },
+      error: null,
+    });
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/user-1', {
+        role: 'agence',
+        motif: 'Changement de rôle demandé',
+      }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: string }).error).toContain('Agence');
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalled();
+  });
+
+  it('type d’organisation illisible : un rôle client est refusé (422)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single.mockResolvedValueOnce({
+      data: {
+        id: 'user-1',
+        role: 'traiteur_commercial',
+        actif: true,
+        organisations: null,
+      },
+      error: null,
+    });
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/user-1', {
+        role: 'traiteur_manager',
+        motif: 'Changement de rôle demandé',
+      }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(422);
+    expect(mockSupabaseChain.update).not.toHaveBeenCalled();
+  });
+
+  it('rôle inchangé : un compte ancien hors de son type reste modifiable (prénom)', async () => {
+    setupAuth('admin_savr');
+    mockSupabaseChain.single
+      .mockResolvedValueOnce({
+        data: {
+          id: 'user-1',
+          role: 'traiteur_commercial',
+          actif: true,
+          organisations: { type: 'agence' },
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { id: 'user-1', prenom: 'Nouveau', role: 'traiteur_commercial' },
+        error: null,
+      });
+    const { PATCH } = await import('@/app/api/v1/admin/users/[id]/route.js');
+    const res = await PATCH(
+      makeReq('PATCH', '/api/v1/admin/users/user-1', {
+        prenom: 'Nouveau',
+        role: 'traiteur_commercial',
+      }),
+      { params: Promise.resolve({ id: 'user-1' }) },
+    );
+    expect(res.status).toBe(200);
+    expect(mockSupabaseChain.update).toHaveBeenCalled();
+  });
+});

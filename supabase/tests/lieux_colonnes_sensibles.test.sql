@@ -51,7 +51,8 @@ SELECT test_as_superuser();
 -- Organisation cliente + un lieu rattaché + un lieu NON rattaché. Typée
 -- gestionnaire_lieux : seul ce type peut être rattaché à un lieu (trigger P0047,
 -- 20260929140000). Les rôles testés viennent du claim JWT, pas du type : la RLS
--- et les droits colonne de `lieux` ne lisent jamais `organisations.type`.
+-- et les droits colonne de `lieux` ne lisent jamais `organisations.type`. Le compte
+-- de la ligne `users` a le rôle de ce type (garde rôle ↔ type 20261118200000).
 INSERT INTO plateforme.organisations (id, nom, raison_sociale, type, siret, actif, tarif_refacture_pax_zd)
 VALUES
   ('dd000000-0000-0000-0000-00000000000a'::uuid, 'Organisation Test', 'Organisation Test SARL', 'gestionnaire_lieux', '99999999900001', true, 1.0);
@@ -59,7 +60,7 @@ VALUES
 INSERT INTO plateforme.users (id, organisation_id, email, prenom, nom, role, actif)
 VALUES
   ('dd000000-0000-0000-0000-000000000a01'::uuid, 'dd000000-0000-0000-0000-00000000000a'::uuid,
-   'manager@traiteur.test', 'Manager', 'T', 'traiteur_manager', true);
+   'gestionnaire@lieux.test', 'Gestionnaire', 'L', 'gestionnaire_lieux', true);
 
 INSERT INTO plateforme.lieux
   (id, nom, adresse_acces, code_postal, ville, type_vehicule_max,

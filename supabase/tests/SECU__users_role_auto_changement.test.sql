@@ -87,6 +87,13 @@ INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow, siret, e
 VALUES ('0e5ca1ad-9021-0000-0000-0000000000a1'::uuid, 'Org auto-role', 'traiteur',
         true, false, '77711960000001', 'autorole@test.invalid');
 
+-- Une organisation par type pour les rôles non traiteur : un rôle client n'existe
+-- que dans une organisation de son type (garde 20261118200000, CDC §09 §2).
+INSERT INTO plateforme.organisations (id, nom, type, actif, est_shadow) VALUES
+  ('0e5ca1ad-9021-0000-0000-0000000000a2'::uuid, 'Org auto-role gestionnaire', 'gestionnaire_lieux',  true, false),
+  ('0e5ca1ad-9021-0000-0000-0000000000a3'::uuid, 'Org auto-role agence',       'agence',              true, false),
+  ('0e5ca1ad-9021-0000-0000-0000000000a4'::uuid, 'Org auto-role organisateur', 'client_organisateur', true, false);
+
 -- ⚠ `cgu_accepte_le` / `cgu_version` sont renseignées À DESSEIN, mais PAS pour la
 -- raison qu'on croit. MESURÉ (fixture remise à NULL, migration appliquée) :
 --   not ok 16 · ok 17 · ok 18 · ok 19
@@ -103,11 +110,11 @@ VALUES
    'com@autorole.invalid',  'C', 'OM', 'traiteur_commercial', true, now(), 'v1.0'),
   ('0e5ca1ad-9021-0000-0000-000000000002'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
    'mgr@autorole.invalid',  'M', 'GR', 'traiteur_manager',    true, now(), 'v1.0'),
-  ('0e5ca1ad-9021-0000-0000-000000000003'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+  ('0e5ca1ad-9021-0000-0000-000000000003'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a2'::uuid,
    'gest@autorole.invalid', 'G', 'ES', 'gestionnaire_lieux',  true, now(), 'v1.0'),
-  ('0e5ca1ad-9021-0000-0000-000000000004'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+  ('0e5ca1ad-9021-0000-0000-000000000004'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a3'::uuid,
    'agc@autorole.invalid',  'A', 'GC', 'agence',              true, now(), 'v1.0'),
-  ('0e5ca1ad-9021-0000-0000-000000000005'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+  ('0e5ca1ad-9021-0000-0000-000000000005'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a4'::uuid,
    'clo@autorole.invalid',  'C', 'LO', 'client_organisateur', true, now(), 'v1.0'),
   ('0e5ca1ad-9021-0000-0000-000000000006'::uuid, '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
    'adm@autorole.invalid',  'A', 'DM', 'admin_savr',          true, now(), 'v1.0'),
@@ -158,7 +165,7 @@ SELECT throws_ok(
 --       écrire un collègue (UPDATE 0, RLS). Fermer le self ferme donc tout
 --       pour eux.
 -- =====================================================================
-SELECT test_set_jwt('client_organisateur', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+SELECT test_set_jwt('client_organisateur', '0e5ca1ad-9021-0000-0000-0000000000a4'::uuid,
                     '0e5ca1ad-9021-0000-0000-000000000005'::uuid);
 SELECT throws_ok(
   $$ UPDATE plateforme.users SET role = 'traiteur_manager' WHERE id = auth.uid() $$,
@@ -167,7 +174,7 @@ SELECT throws_ok(
   'P0 — client_organisateur NE PEUT PAS s''auto-promouvoir traiteur_manager'
 );
 
-SELECT test_set_jwt('agence', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+SELECT test_set_jwt('agence', '0e5ca1ad-9021-0000-0000-0000000000a3'::uuid,
                     '0e5ca1ad-9021-0000-0000-000000000004'::uuid);
 SELECT throws_ok(
   $$ UPDATE plateforme.users SET role = 'traiteur_manager' WHERE id = auth.uid() $$,
@@ -176,7 +183,7 @@ SELECT throws_ok(
   'P0 — agence NE PEUT PAS s''auto-promouvoir traiteur_manager'
 );
 
-SELECT test_set_jwt('gestionnaire_lieux', '0e5ca1ad-9021-0000-0000-0000000000a1'::uuid,
+SELECT test_set_jwt('gestionnaire_lieux', '0e5ca1ad-9021-0000-0000-0000000000a2'::uuid,
                     '0e5ca1ad-9021-0000-0000-000000000003'::uuid);
 SELECT throws_ok(
   $$ UPDATE plateforme.users SET role = 'traiteur_manager' WHERE id = auth.uid() $$,

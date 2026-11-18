@@ -37,9 +37,11 @@
 -- Jetons du code de vérification : admin_savr en aal1 dont le compte a un
 -- facteur vérifié (refusé) ; traiteur d'une organisation qui exige le code,
 -- compte au code activé, en aal1 (refusé) puis en aal2 (admis).
--- Jeton 15 : rôle traiteur sur l'organisation du gestionnaire G. Cas théorique
--- (le rôle suit le type de l'organisation, et seul un gestionnaire peut être
--- rattaché à un lieu), gardé pour figer que la branche « lieu » de la règle ne
+-- Jeton 15 : rôle traiteur sur l'organisation du gestionnaire G. Atteignable
+-- par une saisie du back-office : ni la base ni POST /api/v1/admin/users
+-- n'imposent que le rôle suive le type de l'organisation (mesuré par la revue
+-- sécurité du 2026-11-18) ; seul le rattachement à un lieu est réservé aux
+-- gestionnaires (déclencheur). Fige que la branche « lieu » de la règle ne
 -- dépend pas du rôle, comme dans f_collecte_visible.
 -- =============================================================================
 
@@ -65,7 +67,7 @@ INSERT INTO _vpe_jetons VALUES
   (12, 'admin_savr',          NULL, 'f7e10000-0000-0000-0000-00000000bbbb', 'aal1', false, 'admin_savr, code activé, session sans code'),
   (13, 'traiteur_manager',    'f7e10000-0000-0000-0000-0000000000a1', 'f7e10000-0000-0000-0000-00000000cccc', 'aal1', true,  'T1, code exigé et activé, session sans code'),
   (14, 'traiteur_manager',    'f7e10000-0000-0000-0000-0000000000a1', 'f7e10000-0000-0000-0000-00000000cccc', 'aal2', true,  'T1, code exigé et activé, session avec code'),
-  (15, 'traiteur_manager',    'f7e10000-0000-0000-0000-0000000000a4', NULL, 'aal1', false, 'rôle traiteur sur l''organisation de G (cas théorique)');
+  (15, 'traiteur_manager',    'f7e10000-0000-0000-0000-0000000000a4', NULL, 'aal1', false, 'rôle traiteur sur l''organisation de G (saisie possible au back-office)');
 GRANT SELECT ON _vpe_jetons TO authenticated;
 
 CREATE OR REPLACE FUNCTION _vpe_claims(p_n int)

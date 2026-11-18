@@ -1850,6 +1850,30 @@
       "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (2-3 liste blanche exacte de 36 colonnes, 10 fermées ; 59 non-vacuité ; 60-64 gestionnaire, traiteur manager, traiteur commercial, client organisateur, agence : aucune des 7 colonnes lisible ; 65 contrôle positif de la sonde ; 66 jointure ; 67 filtre ; 68-69 admin_savr et ops_savr JWT fermés ; 70 service_role intact ; 71-72 fonctions) + M3.1/fiche_get_surcharge_lue_en_service + M3.1/fiche_get_surcharge_erreur_500 + M3.5/synthese_facteurs_lus_en_service + M3.5/synthese_facteurs_par_lots + M3.5/synthese_facteurs_erreur",
       "statut": "implemented",
       "libelle": "collectes : dirty_tms, nb_camions_demande, incident_imputable_a, annulee_cote_savr_motif, caps_appliques, co2_facteurs_snapshot et lieu_overrides hors du privilège SELECT authenticated (décision Val 2026-11-17), lues en service_role ; la fiche collecte des espaces clients et la synthèse PDF des tableaux de bord les relisent en service_role après la lecture sous RLS."
+    },
+    {
+      "id": "M0.6-collectes-visibilite-par-ensemble",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:518",
+      "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (col_select et cf_select : appartenance aux ensembles rendus une fois par requête par f_evenements_visibles_organisation, f_evenements_visibles_lieux, f_collectes_visibles_client ; f_collecte_visible gardée)",
+      "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (1-15 collectes et 16-30 collecte_flux : même ensemble que f_collecte_visible pour 15 jetons ; 33-42 non-vacuité ; 46-47 plus d'appel ligne à ligne)",
+      "statut": "implemented",
+      "libelle": "collectes et collecte_flux : contrôle de lecture calculé une fois par requête et non plus ligne par ligne (test de charge du 2026-11-18, 79 ms → 4 ms sur savr-dev), même règle que f_collecte_visible."
+    },
+    {
+      "id": "M0.6-evenements-gestionnaire-sans-relecture-collectes",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:198",
+      "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (evt_gestionnaire_select : l'EXISTS sur collectes passe par f_evenements_visibles_lieux)",
+      "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (31-32 evenements des deux gestionnaires : même ensemble que l'ancienne policy ; 41 non-vacuité ; 48 cliquet : aucune policy de lecture d'evenements ni d'organisations_lieux ne relit collectes)",
+      "statut": "implemented",
+      "libelle": "evenements, gestionnaire de lieux : même règle de lecture, sans relire collectes dans une sous-requête (évite la récursion collectes → evenements → collectes)."
+    },
+    {
+      "id": "M0.6-fonctions-visibilite-appel-direct",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:658",
+      "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (trois fonctions SECURITY DEFINER fermées à PUBLIC et anon, ouvertes à authenticated ; f_evenements_visibles_organisation limitée aux événements qui portent une collecte) + supabase/tests/securite_rpc_definer_exposees.test.sql (allowlist T17)",
+      "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (43-45 appel direct des trois fonctions : rien de plus que ce que le jeton lit, 15 jetons dont comptes au code activé en aal1 et aal2)",
+      "statut": "implemented",
+      "libelle": "Appelées directement (PostgREST /rpc), les fonctions de visibilité ne rendent que des identifiants que le jeton lit déjà (revue sécurité du 2026-11-18)."
     }
   ],
   "cdc_source_hash": {

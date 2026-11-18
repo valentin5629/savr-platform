@@ -4,7 +4,15 @@
  * (loadEvolution), Top listes (loadBlocs), route consolidée traiteur
  * (loadTraiteurDashboard : cartes + évolution + blocs).
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Interrupteur de la facturation : forcé à « active » pour ces cas, qui
+// couvrent le chemin de lecture conservé pour V1.1 ; forçable par cas
+// (facturation hors plateforme, décision Val 2026-10-22).
+const interrupteur = vi.hoisted(() => ({ active: true }));
+vi.mock('@/lib/facturation-plateforme.js', () => ({
+  facturationPlateformeActive: () => interrupteur.active,
+}));
 import {
   loadEvolution,
   loadBlocs,

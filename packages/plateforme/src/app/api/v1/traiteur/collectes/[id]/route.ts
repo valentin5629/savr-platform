@@ -6,6 +6,7 @@ import {
   type ClientRole,
 } from '@/lib/api-auth.js';
 import { serverError } from '@/lib/api-helpers.js';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme.js';
 import { validerChampsTexteLibre } from '@/lib/champs-texte-libre.js';
 import { refusHeureCollecte } from '@/lib/heure-collecte.js';
 import { refusPaxCollecte } from '@/lib/pax-collecte.js';
@@ -103,43 +104,54 @@ export async function GET(
     pdf_url_savr: string | null;
     pdf_url_pennylane: string | null;
   };
-  const { data: fcData } = await createSupabaseServerClient()
-    .from('factures_collectes')
-    .select(
-      'facture:factures(id, numero_facture, statut, pdf_url_savr, pdf_url_pennylane)',
-    )
-    .eq('collecte_id', id);
+  //
+  // Facturation hors plateforme (Val 2026-10-22) : la fiche n'affiche pas les
+  // factures, elles ne sont pas lues. Lecture lancée en même temps que celle de
+  // l'organisation programmatrice ci-dessous (test de charge du 2026-11-18).
+  const facturesLues = facturationPlateformeActive()
+    ? createSupabaseServerClient()
+        .from('factures_collectes')
+        .select(
+          'facture:factures(id, numero_facture, statut, pdf_url_savr, pdf_url_pennylane)',
+        )
+        .eq('collecte_id', id)
+    : Promise.resolve({ data: [] });
+
+  // Badge « Programmée par » (§06.04, ajout 2026-05-07) — seulement quand
+  // l'événement a été programmé par un TIERS (agence / gestionnaire de lieux).
+  // Lecture service-role bornée à CETTE organisation et à 3 colonnes, car le
+  // traiteur n'a pas de SELECT RLS sur une organisation qui n'est pas la sienne.
+  const parUnTiers =
+    contexte.traiteurOperationnelId != null &&
+    contexte.organisationProgrammatriceId !== contexte.traiteurOperationnelId;
+  const [{ data: fcData }, orgProgLue] = await Promise.all([
+    facturesLues,
+    parUnTiers
+      ? admin
+          .from('organisations')
+          .select('nom, type, email_principal')
+          .eq('id', contexte.organisationProgrammatriceId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
   const factures: FactureInfo[] = (
     (fcData ?? []) as Array<{ facture: FactureInfo | FactureInfo[] | null }>
   )
     .map((f) => (Array.isArray(f.facture) ? f.facture[0] : f.facture))
     .filter((f): f is FactureInfo => f != null && f.statut !== 'brouillon');
 
-  // Badge « Programmée par » (§06.04, ajout 2026-05-07) — seulement quand
-  // l'événement a été programmé par un TIERS (agence / gestionnaire de lieux).
-  // Lecture service-role bornée à CETTE organisation et à 3 colonnes, car le
-  // traiteur n'a pas de SELECT RLS sur une organisation qui n'est pas la sienne.
-  let programmee_par: {
+  const orgProg = orgProgLue.data as {
+    nom: string;
+    type: string;
+    email_principal: string | null;
+  } | null;
+  const programmee_par: {
     nom: string;
     type: string;
     email: string | null;
-  } | null = null;
-  if (
-    contexte.traiteurOperationnelId != null &&
-    contexte.organisationProgrammatriceId !== contexte.traiteurOperationnelId
-  ) {
-    const { data: orgProg } = await admin
-      .from('organisations')
-      .select('nom, type, email_principal')
-      .eq('id', contexte.organisationProgrammatriceId)
-      .maybeSingle();
-    if (orgProg)
-      programmee_par = {
-        nom: orgProg.nom,
-        type: orgProg.type,
-        email: orgProg.email_principal,
-      };
-  }
+  } | null = orgProg
+    ? { nom: orgProg.nom, type: orgProg.type, email: orgProg.email_principal }
+    : null;
 
   return NextResponse.json({
     data: { ...fiche, programmee_par, factures },

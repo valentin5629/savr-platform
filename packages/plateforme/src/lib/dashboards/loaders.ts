@@ -19,6 +19,7 @@ import { logger } from '@savr/shared/src/logger/index.js';
 import { messageErreur } from '@/lib/api-helpers.js';
 import { FLUX_ZD_CODES } from '@/lib/libelles/flux.js';
 import { estUuid } from '@/lib/filtre-csv.js';
+import { facturationPlateformeActive } from '@/lib/facturation-plateforme.js';
 import { lireParPages, TAILLE_PAGE } from '@/lib/pdf/selection-par-pages.js';
 import { aDesConvives, paxCumules, ratioParPax } from '@/lib/dashboard-kpi.js';
 import {
@@ -138,7 +139,17 @@ export interface Co2Methode {
  * client service_role (tables RLS ops/admin). Best-effort : toute erreur retombe
  * sur les constantes ADEME du trigger m4_3 (jamais bloquant pour l'affichage).
  */
+// Cache process de la méthode CO₂, comme celui des facteurs d'équivalence
+// (`lireFacteursCo2`, même TTL) : paramètres globaux, quasi immuables, lus à
+// chaque chargement de tableau de bord (test de charge du 2026-11-18).
+let _methodeCo2Cache: { at: number; val: Co2Methode } | null = null;
+
 export async function lireMethodeCo2(): Promise<Co2Methode> {
+  if (
+    _methodeCo2Cache &&
+    Date.now() - _methodeCo2Cache.at < FACTEURS_CO2_TTL_MS
+  )
+    return _methodeCo2Cache.val;
   // ag = repli FAO 2023 (identique au COALESCE du trigger trg_co2_ag_cloture).
   const methode: Co2Methode = {
     forfait: { km: 50, fe_camion: 2.1 },
@@ -147,10 +158,30 @@ export async function lireMethodeCo2(): Promise<Co2Methode> {
   };
   try {
     const admin = createAdminSupabaseClient();
-    const { data: div } = await admin
-      .from('parametres_co2_divers')
-      .select('cle, valeur')
-      .in('cle', Object.values(FORFAIT_KEYS));
+    // Trois lectures indépendantes : lancées ensemble.
+    const [divRes, fcRes, agRes] = await Promise.all([
+      admin
+        .from('parametres_co2_divers')
+        .select('cle, valeur')
+        .in('cle', Object.values(FORFAIT_KEYS)),
+      admin
+        .from('parametres_facteurs_co2')
+        .select(
+          'code_flux, nom_flux, fe_evite_kg_t, fe_induit_kg_t, energie_primaire_evitee_kwh_t',
+        )
+        .eq('actif', true),
+      // Facteur ANTI-GASPI par repas (méthode « évité seul » V1) — même source
+      // que le trigger trg_co2_ag_cloture : parametres_facteurs_co2_ag, actif le
+      // + récent.
+      admin
+        .from('parametres_facteurs_co2_ag')
+        .select('facteur_co2_evite_par_repas_kg, source_donnee')
+        .eq('actif', true)
+        .order('date_maj', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    const div = divRes.data;
     if (Array.isArray(div)) {
       const byCle = new Map(
         div.map((r) => [
@@ -163,12 +194,7 @@ export async function lireMethodeCo2(): Promise<Co2Methode> {
       if (Number.isFinite(km) && km! > 0) methode.forfait.km = km!;
       if (Number.isFinite(fe) && fe! > 0) methode.forfait.fe_camion = fe!;
     }
-    const { data: fc } = await admin
-      .from('parametres_facteurs_co2')
-      .select(
-        'code_flux, nom_flux, fe_evite_kg_t, fe_induit_kg_t, energie_primaire_evitee_kwh_t',
-      )
-      .eq('actif', true);
+    const fc = fcRes.data;
     if (Array.isArray(fc)) {
       methode.flux = fc.map((r) => {
         const row = r as Record<string, unknown>;
@@ -181,15 +207,7 @@ export async function lireMethodeCo2(): Promise<Co2Methode> {
         };
       });
     }
-    // Facteur ANTI-GASPI par repas (méthode « évité seul » V1) — même source que
-    // le trigger trg_co2_ag_cloture : parametres_facteurs_co2_ag, actif le + récent.
-    const { data: agRow } = await admin
-      .from('parametres_facteurs_co2_ag')
-      .select('facteur_co2_evite_par_repas_kg, source_donnee')
-      .eq('actif', true)
-      .order('date_maj', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const agRow = agRes.data;
     if (agRow) {
       const row = agRow as Record<string, unknown>;
       const f = Number(row.facteur_co2_evite_par_repas_kg);
@@ -197,6 +215,10 @@ export async function lireMethodeCo2(): Promise<Co2Methode> {
       const src = row.source_donnee;
       methode.ag.source = typeof src === 'string' && src.trim() ? src : null;
     }
+    // Ne met en cache que les lectures toutes réussies (une erreur → réessai au
+    // prochain appel plutôt que de figer les défauts ADEME pendant 5 min).
+    if (!divRes.error && !fcRes.error && !agRes.error)
+      _methodeCo2Cache = { at: Date.now(), val: methode };
   } catch {
     // conserve les défauts ADEME (jamais bloquant)
   }
@@ -284,34 +306,42 @@ export async function loadKpiTraiteur(
   // carte Marge, §06.11 diff #7). La colonne est hors GRANT SELECT authenticated
   // (20260918100000) : lecture par la fonction gardée, qui ne rend la valeur
   // qu'au traiteur propriétaire.
-  let tarif_refacture_pax_zd: number | null = null;
-  if (!isAgence) {
-    const { data: tarif, error: tarifError } = await supabase.rpc(
-      'f_tarif_refacture_pax_zd',
-      { p_organisation_id: ctx.organisationId },
-    );
-    if (tarifError) throw loaderDbError(tarifError, 'dashboards.kpi_traiteur');
-    tarif_refacture_pax_zd = (tarif as number | null) ?? null;
-  }
+  // Lu en même temps que les collectes, pas avant elles : un aller-retour de
+  // moins vers la base (test de charge du 2026-11-18). Une erreur de lecture du
+  // tarif fait toujours échouer le tableau de bord, une seule fois (élément du
+  // Promise.all) ; la lecture des collectes, elle, reçoit null et n'en rajoute
+  // pas.
+  const tarifLu: Promise<number | null> = isAgence
+    ? Promise.resolve(null)
+    : Promise.resolve(
+        supabase.rpc('f_tarif_refacture_pax_zd', {
+          p_organisation_id: ctx.organisationId,
+        }),
+      ).then(({ data, error }) => {
+        if (error) throw loaderDbError(error, 'dashboards.kpi_traiteur');
+        return (data as number | null) ?? null;
+      });
 
   // Lignes mensuelles recalculées depuis les collectes filtrées (les vues
   // mensuelles ne savent pas filtrer par lieu ni par client, cf. kpi-collectes),
   // marge comprise pour le traiteur ; facteurs et méthode CO₂ (client
   // service_role séparé) lus en parallèle.
-  const [kpi, facteurs_co2, co2_methode] = await Promise.all([
-    loadKpiCollectes(supabase, ctx, {
-      from,
-      to,
-      type,
-      compare: params.compare,
-      filtres: params.filtres ?? FILTRES_GLOBAUX_VIDES,
-      ...(isAgence ? {} : { marge: { tarif: tarif_refacture_pax_zd } }),
-    }).catch((e: unknown) => {
-      throw loaderDbError(e, 'dashboards.kpi_traiteur');
-    }),
-    lireFacteursCo2(),
-    lireMethodeCo2(),
-  ]);
+  const [kpi, facteurs_co2, co2_methode, tarif_refacture_pax_zd] =
+    await Promise.all([
+      loadKpiCollectes(supabase, ctx, {
+        from,
+        to,
+        type,
+        compare: params.compare,
+        filtres: params.filtres ?? FILTRES_GLOBAUX_VIDES,
+        ...(isAgence ? {} : { marge: { tarif: tarifLu.catch(() => null) } }),
+      }).catch((e: unknown) => {
+        throw loaderDbError(e, 'dashboards.kpi_traiteur');
+      }),
+      lireFacteursCo2(),
+      lireMethodeCo2(),
+      tarifLu,
+    ]);
 
   return {
     data: kpi.data,
@@ -1484,7 +1514,8 @@ export interface TraiteurDashboardPayload {
   kpi: KpiLoaderResult;
   evolution: EvolutionResult;
   blocs: BlocsResult;
-  /** ZD only — badge « en attente de facturation » (null en AG). */
+  /** ZD only — badge « en attente de facturation » (null en AG, et quand la
+   *  facturation est hors plateforme). */
   marge: { nb_en_attente: number } | null;
   /** AG only — pack unique actif (null en ZD). */
   pack: PackAgResult | null;
@@ -1513,7 +1544,11 @@ export async function loadTraiteurDashboard(
     loadKpiTraiteur(supabase, ctx, { from, to, type, compare: 'n1', filtres }),
     loadEvolution(supabase, ctx, { type, from, to, ...filtres }),
     loadBlocs(supabase, ctx, { type, from, to, ...filtres }),
-    isZd
+    // Badge « en attente de facturation » : invisible quand la facturation est
+    // hors plateforme (Val 2026-10-22). Son décompte n'est alors pas lu : il
+    // passait le contrôle d'accès sur toutes les collectes ZD clôturées
+    // (test de charge du 2026-11-18).
+    isZd && facturationPlateformeActive()
       ? loadMargeAttente(supabase, { from, to, filtres })
       : Promise.resolve(null),
     isZd ? Promise.resolve(null) : loadPackAg(ctx),

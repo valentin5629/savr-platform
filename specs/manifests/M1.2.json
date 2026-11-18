@@ -289,7 +289,7 @@
     },
     {
       "id": "M1.2-pax-par-collecte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:63 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1180 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1457",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:63 + specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1179 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1457",
       "artefact": "supabase/migrations/20261021073000_plateforme_collectes_pax.sql + packages/plateforme/src/lib/pax-collecte.ts + packages/plateforme/src/components/programmation/carte-collecte.tsx + packages/plateforme/src/app/(programmation)/programmer/nouveau/page.tsx + packages/plateforme/src/app/(programmation)/programmer/[evenement_id]/ajouter-collecte/page.tsx + packages/plateforme/src/app/api/v1/programmation/evenements/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/collectes/route.ts + packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts + packages/plateforme/src/components/collecte/editer-collecte-form.tsx + packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts + packages/plateforme/src/app/(programmation)/programmer/confirmation/page.tsx + packages/plateforme/src/lib/programmation/recap-email.ts + packages/plateforme/src/components/collecte/fiche-collecte-client-panel.tsx + packages/plateforme/src/components/collecte/fiche-collecte-client-onglets.tsx + packages/plateforme/src/app/api/v1/admin/collectes/route.ts + packages/plateforme/src/app/api/v1/traiteur/collectes/route.ts + packages/plateforme/src/app/api/v1/agence/collectes/route.ts + packages/plateforme/src/app/api/v1/gestionnaire/collectes/route.ts + packages/plateforme/src/app/api/v1/organisateur/collectes/route.ts + packages/plateforme/src/components/admin/collectes-table.tsx + packages/plateforme/src/app/(admin)/admin/clients/[id]/onglets.tsx + packages/plateforme/src/components/collecte/liste-collectes-client.tsx + packages/plateforme/src/app/(client-organisateur)/organisateur/collectes/page.tsx + packages/plateforme/src/components/admin/collecte-detail-panel.tsx",
       "test": "M1.2/pax_par_collecte — formulaire de programmation > le nombre de convives se saisit avec la date de la collecte (carte de l’écran 2), plus à l’écran 1 + M1.2/pax_par_collecte — création + M1.2/pax_par_collecte — modification + M1.2/pax_par_collecte — ajouter une collecte : le pax + M3.1 / EditerCollecteForm — un seul email par enregistrement > M1.2/pax_par_collecte — le pax part dans la requête collecte, jamais dans celle de l’événement + M3.1 / EditerCollecteForm — un seul email par enregistrement > M1.2/pax_par_collecte — un pax vidé ou à 0 est refusé à l’écran, rien n’est envoyé + supabase/tests/collectes_pax.test.sql + supabase/tests/collectes_modifiees_apres_envoi.test.sql + M1.2/pax_par_collecte — écran de confirmation : convives + M1.2/pax_par_collecte — email récapitulatif : tarif ZD + M1.2/pax_par_collecte — pop-up fiche collecte client : pax + M1.2/pax_par_collecte — listes de collectes : le pax de la collecte, jamais celui de l’événement + M1.2/pax_par_collecte — liste Admin : le pax de la collecte (650) + M1.2/pax_par_collecte — onglet Collectes : le pax de la collecte (650) + M1.2/pax_par_collecte — liste agence (composant commun du traiteur) + M1.2/pax_par_collecte — liste organisateur : le pax de la collecte (650) + M3.2/collectes_route_colonnes_liste_traiteur + M1.2/pax_par_collecte — fiche Admin : titre, en-tête",
       "statut": "implemented",
@@ -297,7 +297,7 @@
     },
     {
       "id": "M1.2-pax-par-collecte-transmission",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:388 + specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:400",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:389 + specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:401",
       "artefact": "packages/adapters/src/outbox-worker.ts + packages/adapters/src/index.ts + supabase/migrations/20261021073000_plateforme_collectes_pax.sql",
       "test": "type_tms=a_toutes — consigne, départ et arrivée (l’association) atteignent l’adapter + type_tms=mts1 — consigne, départ et arrivée (l’association) atteignent l’adapter + cliquet — chaque champ mappé fait effectivement varier le PUT",
       "statut": "implemented",
@@ -321,7 +321,7 @@
     },
     {
       "id": "M1.2-pax-evenement-regle-revisee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1182 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1457",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1181 + specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1457",
       "artefact": "supabase/migrations/20261022150000_plateforme_pax_evenement_regle_du_jour.sql + packages/shared/src/seed/evenements-multi-collectes.ts",
       "test": "supabase/tests/collectes_pax.test.sql « pax_par_collecte_evenement_calcule — deux ZD du même jour » + supabase/tests/collectes_pax.test.sql « deux AG du même jour » + SEED-EMC-5b + SEED-EMC-5c",
       "statut": "implemented",
@@ -337,7 +337,7 @@
     },
     {
       "id": "M1.2-pax-par-collecte-lots-2-3",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1182",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:1181",
       "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql + packages/plateforme/src/lib/dashboard-kpi.ts + packages/plateforme/src/lib/dashboards/loaders.ts + packages/plateforme/src/app/api/v1/gestionnaire/dashboard/route.ts + packages/plateforme/src/lib/dashboards/cockpit-derive.ts",
       "test": "Lot3/kpi_pax_deux_soirees + Lot3/kpi_zd_kg_par_pax_filtre_partiel + Lot3/gestionnaire_kpi_zd_filtre_partiel + Lot3/admin_kpi_et_vous_pax_collectes + supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-1 : deux soirées » « L3-VUE-9 : marge de mars »",
       "statut": "implemented",
@@ -364,7 +364,7 @@
     },
     {
       "id": "M1.2-collecte-contacts-transmission",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:394",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:395",
       "artefact": "packages/adapters/src/outbox-worker.ts",
       "test": "M1.2-collecte-contacts-transmission — le transporteur reçoit les contacts de LA collecte",
       "statut": "implemented",
@@ -497,13 +497,13 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c046b6db11c125810733f77fa3c2d5d2ea454fff7f57c93e943788700655fd3d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "76f54805ba3b544c8ce647c4db0c59664ac879a99adc7ef8af42ca7a2491b6d0",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "2b58ff8a992e7624367be488e51e4c56d8adcd6fb8794b01d4ddb7054cb16412",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "49dfee43bf6424dca60788935ece5e0062ab663f792af690375119020c128f1d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "e8d7be8481cbf3a042b5e018aa0383323665d48144fef7f7424273641127bd41",
-    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "5666b09d1e5e2d18e36d8d59423e51db80347d1e4658a3ff1c4d1b9173cbba2e",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "5d2befe83cc7cf041eede0ebb7f727bf7d2cb47af4b950d3666b9fcdd695593d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "f0b2d988921012e2e6d6ec00199103f530694a67fe8f603da786ba2aee19be96",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/05 - Espace client gestionnaire de lieux.md": "6148d210f6ccb69bfb9eb4441a00b1b5366e03a4d957e78af1ec5cffe8e5cae2",
+    "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "0a427736db98fe318f63d449ed5d19f87daa7e318b8649f1c09ed23747317d5c",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "2a9b0a10448a18585a0d99dfd3104281ba1dd72812d0e6e4a61ca880d6858f22"
   }
 }

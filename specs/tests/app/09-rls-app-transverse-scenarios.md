@@ -583,7 +583,33 @@ Scénario : photo_aucun_repas_lecture_equipe_savr_seule
   Étant donné une collecte AG `realisee_sans_collecte` portant `aucun_repas_photo_url`
   Quand un rôle client (traiteur, agence, gestionnaire, client organisateur) lit la collecte par PostgREST
   Alors `aucun_repas_photo_url` ne lui est pas servie
-  Et `admin_savr` et `ops_savr` la lisent
+  Et `admin_savr` et `ops_savr` la lisent par le back-office (routes en service_role) ; en accès direct à l'API de la base, la colonne leur est fermée aussi
+```
+
+```gherkin
+# Source : §09 « Table collectes », privilège colonne (demande Val 2026-11-17)
+# Couche : db + api
+# Priorité : P1-critique
+
+Scénario : collectes_colonnes_internes_hors_privilege_client
+  Étant donné une collecte portant `notes_internes` et `motif_override_prestataire`
+  Quand un rôle client (traiteur manager ou commercial, agence, gestionnaire, client organisateur) lit la collecte par PostgREST
+  Alors la lecture de `notes_internes` ou de `motif_override_prestataire` est refusée (42501)
+  Et les autres colonnes de la liste blanche restent lisibles
+  Et la réponse d'un PATCH client de la collecte ne contient aucune de ces colonnes
+```
+
+```gherkin
+# Source : §09 « Table collectes », privilège colonne (décision Val 2026-11-17, « On ferme tout »)
+# Couche : db + api
+# Priorité : P1-critique
+
+Scénario : collectes_sept_colonnes_hors_privilege_client
+  Étant donné une collecte portant `dirty_tms`, `nb_camions_demande`, `incident_imputable_a`, `annulee_cote_savr_motif`, `caps_appliques`, `co2_facteurs_snapshot` et `lieu_overrides`
+  Quand un rôle client (traiteur manager ou commercial, agence, gestionnaire, client organisateur) lit la collecte par PostgREST
+  Alors la lecture de chacune de ces colonnes est refusée (42501), y compris comme filtre
+  Et la fiche collecte affiche toujours le lieu corrigé des surcharges saisies à la programmation
+  Et l'annexe de la synthèse PDF imprime toujours le référentiel des facteurs
 ```
 
 ```gherkin

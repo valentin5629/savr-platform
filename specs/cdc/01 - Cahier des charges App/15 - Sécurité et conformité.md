@@ -129,7 +129,7 @@ Tous les droits RGPD sont exercés via :
 
 Un document "Politique de confidentialité" doit être rédigé et publié avant le go-live. Il documente : les données collectées, leur usage, la durée de conservation, les sous-traitants, les droits des utilisateurs et le contact DPO (ou contact RGPD si pas de DPO désigné).
 
-**Format** : page web accessible sans authentification (`/confidentialite`) + lien sous les écrans de connexion et d'inscription, dans le menu de l'utilisateur (pied de la barre latérale) et dans le pied de page des emails envoyés par la plateforme. L'email de réinitialisation du mot de passe part par Resend depuis le 2026-11-06 (Supabase ne fabrique plus que le lien, `auth.admin.generateLink`), avec le gabarit `reset_password` en base : il porte le lien dans le pied de page commun des emails (`packages/shared/src/email/enveloppe.ts`). Le gabarit `supabase/templates/recovery.html` ne sert plus qu'à un envoi déclenché directement par Supabase Auth (console, instance locale).
+**Format** : page web accessible sans authentification (`/confidentialite`) + lien discret « Mentions légales · Confidentialité » (petit texte gris, une ligne) tout en bas des écrans de connexion et d'inscription, en bas de l'onglet « Mon profil » de Paramètres de chaque espace client et de « Mon profil » Admin (nouvel onglet), et dans le pied de page des emails envoyés par la plateforme. Plus de lien dans le menu de l'utilisateur (décision Val 2026-11-16 : accès facile exigé par la loi, pas d'affichage visible). L'email de réinitialisation du mot de passe part par Resend depuis le 2026-11-06 (Supabase ne fabrique plus que le lien, `auth.admin.generateLink`), avec le gabarit `reset_password` en base : il porte le lien dans le pied de page commun des emails (`packages/shared/src/email/enveloppe.ts`). Le gabarit `supabase/templates/recovery.html` ne sert plus qu'à un envoi déclenché directement par Supabase Auth (console, instance locale).
 
 **À faire avant go-live** : rédiger ce document (hors scope CDC technique, à déléguer à un juriste ou rédiger avec l'aide de Claude).
 
@@ -229,7 +229,7 @@ Actions obligatoires avant mise en production avec clients réels :
 - [ ] DPA Pennylane signé
 - [ ] **Confirmation écrite Pennylane : statut certification PDP + date activation** — bloquant absolu si clients ETI/GE (Viparis, Lenôtre, Potel & Chabot) avant sept 2026 (2026-04-28)
 - [ ] Test bout en bout Pennylane sandbox : émission Savr → API v2 → Factur-X → PPF DGFiP
-- [x] Politique de confidentialité rédigée et publiée (page `/confidentialite`, liens connexion, menu utilisateur, emails)
+- [x] Politique de confidentialité rédigée et publiée (page `/confidentialite`, liens connexion, bas de « Mon profil », emails)
 - [ ] Mentions légales publiées
 - [ ] CGU rédigées et publiées (Draft V1 disponible — voir [[CGU Savr V1 - Draft]])
 - [ ] Watermark activé sur tous les PDFs

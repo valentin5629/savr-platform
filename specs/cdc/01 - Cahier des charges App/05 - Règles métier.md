@@ -493,8 +493,7 @@ Le traiteur peut modifier librement les informations de toute collecte non encor
 5. Disponible dans l'espace client du traiteur
 
 **Adaptation du contenu selon habilitation** :
-- Association habilitée 2041-GE-SD : l'attestation inclut les mentions légales permettant la défiscalisation 60% du donateur (montant estimé, référence article 238 bis CGI, numéro d'habilitation)
-- Association non habilitée : l'attestation reste un document officiel de traçabilité (volumes, association destinataire, date) sans mention fiscale ni montant défiscalisable
+- Association habilitée ou non : le Rapport de don n'imprime aucune mention fiscale (décision Val 2026-11-16) ; l'habilitation reste figée en base. Le reçu fiscal (n° 2041-MEC-SD) est établi par l'association bénéficiaire.
 
 ### Rapport de recyclage ZD
 
@@ -740,7 +739,7 @@ collectes.volume_estime_repas = round(0.10 × collectes.pax)   -- pax de la coll
 
 **Au passage en `realisee`** (webhook S5 `collecte-terminee` TMS) :
 - 1 ligne `collecte_flux` par flux **effectivement pesé** par le chauffeur (peut être 1, 2, 3, 4 ou 5 lignes selon ce qui a été collecté).
-- Un flux non pesé n'apparaît pas dans `collecte_flux` (vs `poids_reel_kg = 0`).
+- Un flux non pesé vaut 0 kg dans `collecte_flux` dès qu'un autre flux du même enlèvement est pesé (« non pesé = il n'y en avait pas », Val 2026-11-16). Aucun flux pesé : aucune ligne, jamais de bordereau à 0 kg ; mission finie, alerte in-app `pesees_absentes`.
 
 **Affichage rapport RSE** :
 - Un flux pesé à `0 kg` est listé "0 kg collecté" (transparent — montre la consigne suivie sans matière à trier).
@@ -974,7 +973,7 @@ Confirmation par email avec lien de validation avant premier accès. **Le SIRET 
 
 ### Étape 2 — Avant première collecte (completion progressive)
 
-**La programmation n'est jamais bloquée par l'absence de SIRET ni d'entité de facturation** (arbitrage Val 2026-09-28). Les informations ci-dessous sont à compléter avant la **première facture** : sans `siret_verification = 'verifie'`, la collecte est programmée et réalisée, mais la facture n'est pas émise (cf. étape 3), et l'attestation de don AG est différée + alerte Ops `attestation_ag_siret_donateur_manquant` (résolue automatiquement à l'émission). Si l'organisation n'a aucune entité active, une entité par défaut vide est créée à la volée (`siret=''`, `en_attente`). **Étendu 2026-05-07 : règle bloquante identique pour les 3 types d'organisations programmatrices** (traiteur, agence, gestionnaire de lieux).
+**La programmation n'est jamais bloquée par l'absence de SIRET ni d'entité de facturation** (arbitrage Val 2026-09-28). Les informations ci-dessous sont à compléter avant la **première facture** : sans `siret_verification = 'verifie'`, la collecte est programmée et réalisée, mais la facture n'est pas émise (cf. étape 3), ; le Rapport de don AG, qui n'imprime plus le donateur, n'attend pas (décision Val 2026-11-16) : le donateur est figé s'il est connu, vide sinon. Si l'organisation n'a aucune entité active, une entité par défaut vide est créée à la volée (`siret=''`, `en_attente`). **Étendu 2026-05-07 : règle bloquante identique pour les 3 types d'organisations programmatrices** (traiteur, agence, gestionnaire de lieux).
 
 | Champ | Niveau |
 |-------|--------|
@@ -1244,7 +1243,7 @@ END IF;
 - **Contestation pesée** : délai **48h après réception du rapport de collecte** pour le traiteur (décision Val 2026-04-28) — la collecte reste `cloturee` (statut `en_reexamen` supprimé, audit sobriété §04 2026-05-25 D1), correction par édition Admin + recalcul, régénération bordereau + rapport + facture avec avoir si nécessaire
 - **Équivalent roll** : saisi par le chauffeur TMS (pas 0,25 jusqu'à 2, puis pas 0,5) pour déclaration visuelle rapide sans pesée systématique
 - **Bordereaux** : générés automatiquement à la clôture ZD, snapshot producteur/transporteur/exutoire, versionnés si correction
-- **Attestations de don** : générées pour **100% des collectes AG** (dès que le poids est saisi, décision Val 2026-11-04), avec mention fiscale uniquement si association habilitée 2041-GE
+- **Attestations de don** : générées pour **100% des collectes AG** (dès que le poids est saisi, décision Val 2026-11-04), sans mention fiscale (décision Val 2026-11-16)
 - **Onboarding 100% automatisé V1** : création de compte libre, complétion progressive, aucune validation Admin amont. Facturation automatique dès clôture (contrôles SIRET/TVA/CGV). Admin peut désactiver a posteriori
 - **Multi-domaines email** : table N-N `organisations_domaines_email` (1 organisation peut avoir plusieurs domaines email, 1 domaine pointé sur 1 organisation max)
 - **Notifications V1** : email transactionnel uniquement, destinataire = programmeur de la collecte, événements déclencheurs métier + système. *(Template « plaque chauffeur » T+3h retiré V1 — la notification client de plaque a été supprimée ; la plaque reste saisie côté TMS pour traçabilité interne uniquement, cf. matrice §9.)*

@@ -637,7 +637,7 @@
     },
     {
       "id": "M3.1-lieux-select-traiteur-operationnel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:297",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:299",
       "artefact": "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
       "test": "supabase/tests/lieux_traiteur_operationnel.test.sql",
       "statut": "implemented",
@@ -670,7 +670,7 @@
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:294-299",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:296-301",
       "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
       "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
       "statut": "implemented",
@@ -918,7 +918,7 @@
     },
     {
       "id": "M3.1-popup-attestation-donneur-ordre-reservee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:272",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:274",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
       "statut": "implemented",
@@ -1119,7 +1119,7 @@
     },
     {
       "id": "M3.1-marge-zd-pax-collectes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:636",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md:635",
       "artefact": "supabase/migrations/20261025230000_plateforme_v_kpi_traiteur_pax_collecte.sql (v_kpi_traiteur.marge_zd_ht)",
       "test": "supabase/tests/v_kpi_traiteur_pax_collecte.test.sql « L3-VUE-9 : marge de mars » + supabase/tests/m3_5_kpi_views_rls.test.sql « T3 : marge ZD »",
       "statut": "implemented",
@@ -1162,12 +1162,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "c046b6db11c125810733f77fa3c2d5d2ea454fff7f57c93e943788700655fd3d",
-    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "76f54805ba3b544c8ce647c4db0c59664ac879a99adc7ef8af42ca7a2491b6d0",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "2b58ff8a992e7624367be488e51e4c56d8adcd6fb8794b01d4ddb7054cb16412",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "49dfee43bf6424dca60788935ece5e0062ab663f792af690375119020c128f1d",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "fb8024c0a2c6d9a9d1fd1eb17748f1a02959f1dfee4bbdc6c96e77b6227e5d3a",
-    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "27bcbb66811a4478865192a2c60b32af6aa929b4f90215c41a4be0479e52f039"
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "5d2befe83cc7cf041eede0ebb7f727bf7d2cb47af4b950d3666b9fcdd695593d",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "f0b2d988921012e2e6d6ec00199103f530694a67fe8f603da786ba2aee19be96",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "2a9b0a10448a18585a0d99dfd3104281ba1dd72812d0e6e4a61ca880d6858f22",
+    "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "39b63ee0a2f7ac5509638a68ad975409ede85f601b8e0a7da6db32f2747d634d"
   }
 }

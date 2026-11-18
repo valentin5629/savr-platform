@@ -275,27 +275,42 @@ const ACTIONS_TRAITEUR = {
 // Lieu et type d'événement du formulaire, chargés une fois par utilisateur
 // simulé (le formulaire les charge à l'ouverture).
 function referentiels(etat) {
-  if (etat.referentiels) return etat.referentiels;
-  const lieux = lireJson(
-    appeler(etat, 'GET', '/api/v1/programmation/lieux', {
-      nom: 'GET /api/v1/programmation/lieux',
-      sla: 'recherche',
-      nature: 'lecture',
-    }),
-  );
-  const types = lireJson(
-    appeler(etat, 'GET', '/api/v1/programmation/types-evenements', {
+  // `false` : déjà lus, et VIDES pour ce compte (réponses 200). Plus de nouvel
+  // essai à chaque action : mesuré le 2026-11-18, 35 essais vides sur 75 qui
+  // gonflaient les lectures « recherche » et faisaient échouer `checks` en
+  // boucle. Une réponse en erreur, elle, sera retentée.
+  if (etat.referentiels !== undefined) return etat.referentiels || null;
+  const resLieux = appeler(etat, 'GET', '/api/v1/programmation/lieux', {
+    nom: 'GET /api/v1/programmation/lieux',
+    sla: 'recherche',
+    nature: 'lecture',
+  });
+  const resTypes = appeler(
+    etat,
+    'GET',
+    '/api/v1/programmation/types-evenements',
+    {
       nom: 'GET /api/v1/programmation/types-evenements',
       sla: 'recherche',
       nature: 'lecture',
-    }),
+    },
   );
+  const lieux = lireJson(resLieux);
+  const types = lireJson(resTypes);
   const lieu = Array.isArray(lieux) && lieux[0];
   const type = Array.isArray(types) && types[0];
   const ok = check(null, {
     'référentiels du formulaire disponibles': () => Boolean(lieu && type),
   });
-  if (!ok) return null;
+  if (!ok) {
+    if (resLieux.status === 200 && resTypes.status === 200) {
+      etat.referentiels = false;
+      console.warn(
+        `[${etat.compte.email}] formulaire sans ${lieu ? "type d'événement" : 'lieu'} : ce compte ne crée aucun brouillon.`,
+      );
+    }
+    return null;
+  }
   etat.referentiels = { lieuId: lieu.id, typeEvenementId: type.id };
   return etat.referentiels;
 }

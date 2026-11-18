@@ -115,8 +115,9 @@ deux écrans, 15 à 30 s par défaut).
 - `requetes_par_nature` : mix réel (voir « Mix réel » plus haut).
 - Une catégorie sans aucune requête passe son seuil sans rien dire
   (comportement de k6) : vérifier qu'elle a un nombre de requêtes dans le
-  résumé. Si les référentiels du formulaire manquent, seul le seuil `checks`
-  le signale.
+  résumé. Un compte dont le formulaire n'a ni lieu ni type d'événement ne crée
+  aucun brouillon : le seuil `checks` échoue et le journal du run nomme le
+  compte (une ligne « formulaire sans … »).
 - Scénario 4 : la ligne « Dégradation » n'agit pas sur le code de sortie
   (limite de k6) ; la lire, ou `resultats/s4-degradation.json`.
 - `resultats/s1-base.csv` : connexions (critère : < 80 % de `max_connexions`)

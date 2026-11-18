@@ -197,8 +197,10 @@ export interface KpiCollectesParams {
   /** 'n1' : rend aussi la période précédente équivalente (variation). */
   compare?: string | null;
   filtres: FiltresGlobaux;
-  /** Traiteur seul : tarif de refacturation, pour la marge ZD (§06.04). */
-  marge?: { tarif: number | null };
+  /** Traiteur seul : tarif de refacturation, pour la marge ZD (§06.04). Peut
+   *  être une promesse : le tarif est alors lu pendant la lecture des collectes,
+   *  pas avant elle (un aller-retour de moins vers la base). */
+  marge?: { tarif: number | null | PromiseLike<number | null> };
 }
 
 /**
@@ -308,8 +310,9 @@ export async function loadKpiCollectes(
     }
   }
 
+  const marge = params.marge ? { tarif: await params.marge.tarif } : undefined;
   const factures = new Map<string, number>();
-  if (params.marge && params.marge.tarif != null) {
+  if (marge && marge.tarif != null) {
     const idsZd = lignes
       .filter((c) => c.type === 'zero_dechet')
       .map((c) => c.id);
@@ -361,13 +364,13 @@ export async function loadKpiCollectes(
   return {
     data: lignesKpiMensuelles(
       collectes.filter((c) => dans(c, from, to)),
-      params.marge,
+      marge,
     ),
     ...(win
       ? {
           previous: lignesKpiMensuelles(
             collectes.filter((c) => dans(c, win.from, win.to)),
-            params.marge,
+            marge,
           ),
         }
       : {}),

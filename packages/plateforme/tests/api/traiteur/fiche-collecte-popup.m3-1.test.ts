@@ -15,6 +15,14 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+
+// Interrupteur de la facturation : forcé à « active » pour ces cas, qui
+// couvrent le chemin de lecture conservé pour V1.1 ; forçable par cas
+// (facturation hors plateforme, décision Val 2026-10-22).
+const interrupteur = vi.hoisted(() => ({ active: true }));
+vi.mock('@/lib/facturation-plateforme.js', () => ({
+  facturationPlateformeActive: () => interrupteur.active,
+}));
 import {
   makeClient,
   ligneCollecte,
@@ -984,6 +992,32 @@ describe('M3.1 / factures de la fiche — cloisonnement (revue sécurité 2026-0
         (f) => f.numero_facture,
       ),
     ).toEqual(['FZD-2']);
+  });
+
+  it('facturation hors plateforme : aucune facture servie, factures non lues', async () => {
+    interrupteur.active = false;
+    try {
+      rls.results.collectes = { data: ligneCollecte(), error: null };
+      rls.results.factures_collectes = {
+        data: [
+          {
+            facture: {
+              id: 'f2',
+              numero_facture: 'FZD-2',
+              statut: 'emise',
+              pdf_url_savr: 'f2.pdf',
+              pdf_url_pennylane: null,
+            },
+          },
+        ],
+        error: null,
+      };
+      const { json } = await getFiche();
+      expect(json.data.factures).toEqual([]);
+      expect(rls.calls).not.toContain('factures_collectes');
+    } finally {
+      interrupteur.active = true;
+    }
   });
 });
 

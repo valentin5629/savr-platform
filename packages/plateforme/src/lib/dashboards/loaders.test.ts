@@ -7,6 +7,14 @@
  * benchmark, marge en attente) via un faux client Supabase (chaînage + rpc).
  */
 import { describe, it, expect, vi } from 'vitest';
+
+// Interrupteur de la facturation : forcé à « active » pour ces cas, qui
+// couvrent le chemin de lecture conservé pour V1.1 ; forçable par cas
+// (facturation hors plateforme, décision Val 2026-10-22).
+const interrupteur = vi.hoisted(() => ({ active: true }));
+vi.mock('@/lib/facturation-plateforme.js', () => ({
+  facturationPlateformeActive: () => interrupteur.active,
+}));
 import {
   topLieuxFrom,
   aggregateActeurs,
@@ -529,5 +537,32 @@ describe('loaders — I/O (faux Supabase)', () => {
     expect(res.evolution.series).toEqual([]);
     expect(res.marge).toEqual({ nb_en_attente: 0 });
     expect(res.pack).toBeNull(); // pack = AG only (aucun appel service_role en ZD)
+  });
+
+  it('loadTraiteurDashboard (ZD), facturation hors plateforme : marge null, décompte non lu', async () => {
+    interrupteur.active = false;
+    try {
+      const lectures: string[] = [];
+      const supabase = makeSupabase({
+        tables: { collectes: [] },
+        rpc: { f_tarif_refacture_pax_zd: 12 },
+      });
+      const from = supabase.from.bind(supabase);
+      supabase.from = ((t: string) => {
+        lectures.push(t);
+        return from(t);
+      }) as typeof supabase.from;
+      const res = await loadTraiteurDashboard(supabase, CTX_TRAITEUR, {
+        from: '2026-01-01',
+        to: '2026-06-30',
+        type: 'zero_dechet',
+      });
+      expect(res.marge).toBeNull();
+      // Cartes, évolution et Top listes : 3 lectures de collectes ; le
+      // décompte « en attente de facturation » en aurait fait une 4e.
+      expect(lectures.filter((t) => t === 'collectes')).toHaveLength(3);
+    } finally {
+      interrupteur.active = true;
+    }
   });
 });

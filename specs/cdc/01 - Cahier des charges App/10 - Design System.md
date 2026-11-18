@@ -461,9 +461,10 @@ Desktop-first, adaptation mobile soignée. Tous les écrans fonctionnent sur mob
 - **Tableaux** : sous 640px, ligne → card verticale (champs clés visibles, secondaires en accordéon "Voir plus"). La première colonne fait le titre de la carte, sans étiquette ; statut et type se placent en pastilles à droite du titre quand la liste le déclare ; 4 lignes clés au plus, les suivantes sous « Voir plus » (une carte qui n'aurait qu'une ligne à révéler les montre toutes) ; actions au pied. Une ligne sans valeur n'est pas affichée *(décision Val 2026-11-14, lot socle téléphone)*.
 - **Filtres** : sous 640px, la ligne de filtres d'une `FilterBar` est repliée derrière un bouton « Filtres » ; un point orange signale un filtre posé *(décision Val 2026-11-14)*.
 - **Formulaires** : champs pleine largeur ; > 6 champs → stepper. Sous 640px, le texte de tout champ de saisie fait 16 px (en dessous, Safari sur iPhone agrandit la page au focus et ne revient pas) *(décision Val 2026-11-14)*.
-- **Modals** : sur mobile → Sheet (panel montant depuis le bas).
+- **Modals** : sur mobile → Sheet (panel montant depuis le bas). Sous 640px, une grande fiche défile d'un bloc, en-tête et onglets compris ; la croix de fermeture et le pied d'actions restent à l'écran *(décision Val 2026-11-14)*.
 - **Boutons** : hauteur min 44px.
 - **Dashboard KPIs** : 1 col mobile / 2 tablet / 3-4 desktop.
+- **Graphiques** : sous 640px, un graphique mensuel garde une largeur lisible (35 rem) et défile sur le côté ; un histogramme peut n'afficher qu'un libellé d'axe sur trois *(décision Val 2026-11-14)*.
 
 ---
 

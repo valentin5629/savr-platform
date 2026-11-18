@@ -219,6 +219,8 @@ Policy héritée de `evenements` via `evenement_id`. Même logique de filtrage. 
 > ⚠ **Depuis le 2026-09-15 (migration `20260915160000`), `authenticated` n'a plus les privilèges `UPDATE` ni `INSERT` sur `plateforme.collectes`** (REVOKE table-level, sans re-GRANT — arbitrage Val). Les policies `col_update_client`, `col_update_commercial` et `col_insert` sont **conservées mais inertes** : un appel PostgREST direct lève `42501` (insufficient_privilege) avant l'évaluation RLS. Toute écriture de `collectes` passe par les routes API Next sous `service_role`, seules à émettre l'outbox E1/E2, tracer `audit_log` et poser `dirty_tms`. **Ces routes réappliquent elles-mêmes le périmètre d'écriture de ces policies** (sous `service_role`, aucune RLS ne le fait à leur place). Modification, annulation et confirmation d'un brouillon : `traiteur_manager`, `traiteur_commercial` (révision Val 2026-10-30), `agence` et `gestionnaire_lieux` sont limités aux événements dont `organisation_id` est celui de l'appelant. Hors périmètre, la route répond 403 (« Modification non autorisée », « Annulation non autorisée », « Confirmation non autorisée ») ; collecte ou événement hors de la lecture de l'appelant : 404. Ajout d'une collecte à un événement existant : périmètre de `col_insert`, soit l'organisation de l'événement pour tous les rôles — un `traiteur_commercial` peut ajouter une collecte à l'événement d'un collègue (décision Val). Suppression d'un brouillon : périmètre propre, cf. « Périmètre du DELETE » de la table `evenements` (`created_by` pour `traiteur_commercial`, `agence` et `gestionnaire_lieux`). `SELECT` (`col_select`) et `DELETE` (`col_delete_brouillon`) restent accordés.
 > Motif : la RLS filtre les LIGNES, jamais les COLONNES — un client légitime pouvait écrire n'importe quelle colonne de sa propre collecte, dont `lieu_overrides`, et la valeur atteignait le transporteur via l'outbox. Preuve : `supabase/tests/SECU__collectes_ecriture_client_fermee.test.sql` (28 assertions).
 
+> **Privilège colonne (2026-11-17, demande Val)** : la RLS filtre les lignes, pas les colonnes. Le SELECT table-level d'`authenticated` sur `plateforme.collectes` est retiré au profit d'une liste blanche de 43 colonnes (migration `20261117230000`), ramenée à 36 le même jour (migration `20261117233000`, décision Val « On ferme tout »). **Hors privilège** : `notes_internes`, `motif_override_prestataire`, `aucun_repas_photo_url`, `dirty_tms`, `nb_camions_demande`, `incident_imputable_a`, `annulee_cote_savr_motif`, `caps_appliques`, `co2_facteurs_snapshot`, `lieu_overrides` — aucun lecteur client. Ce privilège vaut pour **tous** les rôles PG `authenticated`, staff compris : `admin_savr` et `ops_savr` lisent ces colonnes par les routes du back-office (service_role), pas en accès direct. Toute colonne ajoutée à `collectes` est fermée par défaut ; l'ouvrir à un client est une ouverture d'accès (décision Val). Les routes `PATCH /api/v1/{traiteur,agence,gestionnaire}/collectes/{id}` répondent l'identifiant et les champs modifiables, jamais la ligne entière. Preuve : `supabase/tests/SECU__collectes_select_liste_blanche.test.sql` (72 assertions).
+
 > **Restriction DELETE 2026-06-07 (test scenarios §06.04 F5, arbitrage Val)** : la policy DELETE `collectes` est limitée à `statut = 'brouillon'` pour les rôles traiteur (créateur ou manager) — une collecte poussée TMS ne peut être que **annulée** (statut `annulee` → E3 `DELETE /collectes/:id` systématique vers TMS si `statut_tms ≠ non_envoye`, tous acteurs : traiteur, Ops, Admin). pgTAP : `test_collectes_delete_brouillon_only` (allow brouillon créateur, deny programmee+ manager et commercial). Cf. §06.04 policy ÉCRITURE + §05 §Annulation.
 
 ### Table `factures`
@@ -377,7 +379,7 @@ CREATE POLICY t_select ON plateforme.tournees FOR SELECT
 
 **Justification écriture admin_savr only** : impact direct sur le calcul du Taux de recyclage figé sur les futures collectes clôturées + audit réglementaire requis. Restreint Val + Louis.
 
-**Lecture indirecte** : tous les rôles lecteurs de `collectes` accèdent au snapshot via `collectes.caps_appliques jsonb` (figé à la clôture, jamais réécrit).
+**Lecture indirecte** : le snapshot `collectes.caps_appliques jsonb` (figé à la clôture, jamais réécrit) porte les taux appliqués à chaque collecte. Depuis le 2026-11-17 (décision Val, migration `20261117233000`), la colonne est hors du privilège de lecture d'`authenticated` : aucun rôle ne la lit par l'API de la base ; elle est lue en service_role pour fabriquer le rapport de recyclage, par lequel ces taux parviennent aux clients.
 
 ### Table `parametres_taux_recyclage_history` *(ajout 2026-05-06 — audit trail)*
 
@@ -391,7 +393,7 @@ CREATE POLICY t_select ON plateforme.tournees FOR SELECT
 
 ### Tables Facteurs CO₂ *(ajout 2026-06-04, Sujet 3)*
 
-Même politique que `parametres_taux_recyclage` (écriture `admin_savr`, lecture `ops_savr`, lecture indirecte des autres rôles via le snapshot `collectes.co2_facteurs_snapshot` figé à la clôture).
+Même politique que `parametres_taux_recyclage` (écriture `admin_savr`, lecture `ops_savr`). Le snapshot `collectes.co2_facteurs_snapshot` porte les facteurs figés de chaque collecte ; depuis le 2026-11-17 (décision Val, migration `20261117233000`) il est hors du privilège de lecture d'`authenticated` et lu en service_role : les facteurs parviennent aux clients par les PDF (rapport de recyclage, annexe de la synthèse des tableaux de bord), fabriqués côté serveur pour les seules collectes que le demandeur voit.
 
 `parametres_facteurs_co2`, `parametres_mix_emballages` et `parametres_facteurs_co2_ag` *(AG, ajout 2026-06-04 bis)* :
 
@@ -417,7 +419,7 @@ Même politique que `parametres_taux_recyclage` (écriture `admin_savr`, lecture
 | ops_savr | ALL | — | — | — |
 | autres | — | — | — | — |
 
-**Notes** : (1) la ligne `emballage` de `parametres_facteurs_co2` est maintenue par le trigger `fn_recompute_emballage_fe` — l'API rejette l'écriture directe de ses `fe_induit`/`fe_evite` (cf. §08 9ter.1). (2) `parametres_co2_divers` est audité via `audit_log` (pas de table history dédiée). (3) Lecture indirecte tous rôles : grandeurs CO₂ figées sur `collectes` (`co2_*`, `energie_primaire_evitee_kwh`, `co2_facteurs_snapshot`) selon RLS habituelle `collectes`, sans accès aux tables de référence.
+**Notes** : (1) la ligne `emballage` de `parametres_facteurs_co2` est maintenue par le trigger `fn_recompute_emballage_fe` — l'API rejette l'écriture directe de ses `fe_induit`/`fe_evite` (cf. §08 9ter.1). (2) `parametres_co2_divers` est audité via `audit_log` (pas de table history dédiée). (3) Lecture indirecte tous rôles : grandeurs CO₂ figées sur `collectes` (`co2_*`, `energie_primaire_evitee_kwh`) selon RLS habituelle `collectes`, sans accès aux tables de référence ; `co2_facteurs_snapshot` n'est plus lisible par l'API de la base depuis le 2026-11-17 (hors GRANT SELECT authenticated), il est lu en service_role pour les PDF.
 
 ### Table `coefficients_perte_labo` *(ajout 2026-05-22)*
 

@@ -155,7 +155,8 @@ Scénario : attestation_don_ag_batch_avec_snapshot
   Quand le cron `batch-pdf-j1` (toutes les 15 min) tourne
   Alors une `attestations_don` est créée : statut "emise", association_habilitation snapshotée, volume_repas = 120
   Et le PDF inclut la ligne CO₂e évité = 120 × 2,04 = 244,8 kg (snapshot `co2_facteurs_snapshot` type anti_gaspi)
-  Et la mention fiscale 2041-GE est présente (association habilitée)
+  Et l'équivalence « ≈ N km en voiture » est calculée à l'impression au facteur 0,256 kgCO₂e/km (244,8 ÷ 0,256 ≈ 956 km)
+  Et aucune mention fiscale n'est imprimée (ni 2041-GE, ni 238 bis, ni donateur, ni signature) ; `association_habilitation` reste snapshotée en base (décision Val 2026-11-16)
 ```
 
 ```gherkin
@@ -865,6 +866,8 @@ Scénario : benchmark_grain_collecte_type_taille_pax_zero
 # Couche : db
 # Priorité : P2-important
 
+# @deprecated 2026-11-16 — le Rapport de don n'imprime plus aucune mention fiscale (fiche M2.4_20261116_rapports-de-don-illustres) : un changement d'habilitation n'a plus d'effet sur le document
+@deprecated
 Scénario : attestation_valide_apres_perte_habilitation
   Étant donné une attestation émise avec mention 2041-GE (association habilitée au moment T)
   Quand l'association perd son habilitation
@@ -1178,7 +1181,7 @@ Scénario : logo_client_qui_peut_remplacer_ou_seulement_deposer
 Scénario : logo_client_cascade_et_attestation
   Étant donné un événement programmé par l'agence WPM (logo agence) avec un logo client déposé sur l'événement
   Quand l'attestation de don d'une de ses collectes AG est produite
-  Alors l'en-tête porte le logo client déposé à côté du logo Savr, jamais le logo du traiteur
+  Alors le bandeau porte le logo client déposé et le logo du traiteur (décision Val 2026-11-16, remplace « jamais le logo du traiteur »)
   Et un fichier de plus de 1 Mo est refusé au dépôt
 ```
 
@@ -1258,4 +1261,34 @@ Scénario : revenus_statuts_comptes_et_annulation_tardive
   Alors Kaspia compte 3 collectes pour 1 180 € HT (600 + 130 + 450)
   Et ni le brouillon, ni le refus, ni l'annulation non tardive ne sont comptés, et aucune facture n'est lue
   Et une annulation antérieure au 2026-11-03 (annulation_tardive NULL) n'est pas comptée
+```
+
+### Ajouts cdc-patch-divergences 2026-11-18 — rapports de don illustrés et rapport d'événement @2 (M2.4_20261116, M3.2_20261112)
+
+```gherkin
+# Source : §12 §1.3-bis rapport sans excédent illustré (décision Val 2026-11-16)
+# Couche : pdf
+# Priorité : P2-important
+
+Scénario : rapport_sans_excedent_associations_proches
+  Étant donné une collecte AG `realisee_sans_collecte` programmée par Kaspia sur un lieu géolocalisé
+  Quand le rapport sans excédent est produit
+  Alors il tient sur une page : bandeau (logos du client et du traiteur), constat « Événement sans excédent alimentaire » et « Ce document atteste que Kaspia a bien mandaté Savr… »
+  Et « Vos excédents auraient profité à… » liste les deux associations actives les plus proches du lieu (vol d'oiseau), associations sans coordonnées écartées
+  Et lieu sans coordonnées : associations actives de la région du lieu, par nom ; aucune : la section disparaît
+  Et ni heure, ni chauffeur, ni plaque, ni motif, ni référence de facture ne sont imprimés
+```
+
+```gherkin
+# Source : §12 §1.7 rapport de recyclage de l'événement @2 (décisions Val 2026-11-12)
+# Couche : pdf
+# Priorité : P2-important
+
+Scénario : rapport_evenement_annexe_tous_bordereaux
+  Étant donné un événement avec 3 collectes ZD réalisées, dont 2 bordereautées (la seconde en version 2)
+  Quand un gestionnaire de lieu tiers demande le rapport de recyclage de l'événement
+  Alors la page 1 porte le sur-titre « Rapport de recyclage · Bilan de l'événement » et le radar de l'événement entier, légende « Votre événement »
+  Et l'annexe liste les numéros et dates des 2 bordereaux (dernière version de chacun, ordre des collectes), relus en service-role quel que soit le demandeur
+  Et CO₂ induit et CO₂ évité sont présentés séparément, sans bilan net, et un flux non pesé vaut 0 kg
+  Et il n'y a plus de tableau du détail des collectes
 ```

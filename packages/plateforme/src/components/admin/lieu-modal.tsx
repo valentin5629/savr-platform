@@ -471,12 +471,6 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     );
   }
 
-  const CHAMP_SUPP = {
-    adresse_acces: 'adresse_acces',
-    code_postal: 'code_postal',
-    ville: 'ville',
-  } as const;
-
   function setAdresseSupp(i: number, champ: keyof AdresseSupp, v: string) {
     setValues((prev) => ({
       ...prev,
@@ -485,7 +479,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       ),
     }));
     if (champ !== 'libelle') {
-      const cle = `${CHAMP_SUPP[champ]}_${i + 2}`;
+      const cle = `${champ}_${i + 2}`;
       setErrors((e) =>
         cle in e
           ? Object.fromEntries(Object.entries(e).filter(([c]) => c !== cle))

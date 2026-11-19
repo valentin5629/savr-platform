@@ -20,8 +20,8 @@
       "bytes": 26980
     },
     "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": {
-      "sha256": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
-      "bytes": 361863
+      "sha256": "b0a6b6936c1ee4d7dfcfd9027e608721209f2cc444e6a7bc82a20f4a31e9a7f3",
+      "bytes": 362287
     },
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": {
       "sha256": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
@@ -48,8 +48,8 @@
       "bytes": 99047
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": {
-      "sha256": "424b3c10f7ba6447c8fe44c8b77afae2ac99b83cd8933b200a49a7bfb52f75e2",
-      "bytes": 176384
+      "sha256": "6c01fe1968e87938059fb5c97ebb242bda713c932c5ca6a31a943b42694d3845",
+      "bytes": 176783
     },
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/08 - Génération et édition facture (Admin).md": {
       "sha256": "05539f712e35566191aa2b0d163e7b47f2d58bd83109da5ab6e2c2b16a18fd76",
@@ -124,8 +124,8 @@
       "bytes": 2752
     },
     "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": {
-      "sha256": "45914422dddb113b5eaaeca2c75ad8de5e3874b61e709d432b3eb56a0748016e",
-      "bytes": 136259
+      "sha256": "6963c51b9049f248f9308b251576f493f70b8996d94a7c3323ac8099476a6fd6",
+      "bytes": 136927
     },
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": {
       "sha256": "39b63ee0a2f7ac5509638a68ad975409ede85f601b8e0a7da6db32f2747d634d",
@@ -192,8 +192,8 @@
       "bytes": 80405
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.06-back-office-admin-scenarios.md": {
-      "sha256": "4d6f18c573fec18c9614e04ba91053fd3446c6d26a761fb0caf2948456c72f83",
-      "bytes": 103376
+      "sha256": "56f15058576630d0442fc4df499ab03d8ae988ab14b1ae4c1d0250434a2c1e11",
+      "bytes": 104618
     },
     "specs/cdc/01 - Cahier des charges App/tests/06.08-generation-edition-facture-scenarios.md": {
       "sha256": "c4b66eda61f4190685d6473ea2283679ad76f33391f106501a8db490353312d2",
@@ -212,8 +212,8 @@
       "bytes": 66392
     },
     "specs/cdc/01 - Cahier des charges App/tests/09-rls-app-transverse-scenarios.md": {
-      "sha256": "557f04bc481ba748d3bb7a6a6246ba399236faeba728e35ae3b2678debcc5e28",
-      "bytes": 48016
+      "sha256": "4d3663241cbcfe3b173bf21af55afd0cf9d2685a6c12498c4a32a79778096355",
+      "bytes": 48543
     },
     "specs/cdc/01 - Cahier des charges App/tests/11-12-dashboards-reporting-scenarios.md": {
       "sha256": "ee1f2ba8c9b491196b5d541f46f2a97bb5f4e999cc2d9777d23d204a25ec1cf8",

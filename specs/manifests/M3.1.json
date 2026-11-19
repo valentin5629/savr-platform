@@ -637,7 +637,7 @@
     },
     {
       "id": "M3.1-lieux-select-traiteur-operationnel",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:299",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:300",
       "artefact": "supabase/migrations/20260921140000_plateforme_lieux_select_traiteur_operationnel.sql",
       "test": "supabase/tests/lieux_traiteur_operationnel.test.sql",
       "statut": "implemented",
@@ -670,7 +670,7 @@
     },
     {
       "id": "M3.1-lieux-autocomplete-preuve-comportement",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:296-301",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:297-302",
       "artefact": "supabase/tests/programmation_lieux_autocompletion.test.sql",
       "test": "lieux_autocompletion_comportement_sous_rls — le traiteur opérationnel se voit proposer le lieu, le concurrent non",
       "statut": "implemented",
@@ -702,7 +702,7 @@
     },
     {
       "id": "M3.1-fiche-benchmark-colonnes-canoniques",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2197-2238",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2199-2240",
       "artefact": "supabase/migrations/20260922100000_plateforme_benchmark_single_collecte_colonnes_canoniques.sql",
       "test": "M3.1/fiche_bloc3_ratio_et_repere",
       "statut": "implemented",
@@ -806,7 +806,7 @@
     },
     {
       "id": "M3.1-fiche-get-sans-notes-ni-prestataire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1542",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1544",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts",
       "test": "M3.1/fiche_get_sans_notes_ni_prestataire",
       "statut": "implemented",
@@ -830,7 +830,7 @@
     },
     {
       "id": "M3.1-edition-notes-internes-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1542",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1544",
       "artefact": "packages/plateforme/src/app/api/v1/traiteur/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/agence/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/gestionnaire/collectes/[id]/route.ts, packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts, packages/plateforme/src/components/collecte/editer-collecte-form.tsx",
       "test": "M3.1/edition_notes_internes_refusee",
       "statut": "implemented",
@@ -918,7 +918,7 @@
     },
     {
       "id": "M3.1-popup-attestation-donneur-ordre-reservee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:274",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:275",
       "artefact": "packages/plateforme/src/lib/collectes/fiche-client.ts, packages/plateforme/src/lib/collectes/rapport-download.ts, packages/plateforme/src/components/collecte/fiche-collecte-client-bilan.tsx",
       "test": "M3.1/fiche_get_attestation_donneur_ordre_reservee",
       "statut": "implemented",
@@ -1162,12 +1162,12 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b0a6b6936c1ee4d7dfcfd9027e608721209f2cc444e6a7bc82a20f4a31e9a7f3",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "5d2befe83cc7cf041eede0ebb7f727bf7d2cb47af4b950d3666b9fcdd695593d",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/04 - Espace client traiteur.md": "f0b2d988921012e2e6d6ec00199103f530694a67fe8f603da786ba2aee19be96",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "45914422dddb113b5eaaeca2c75ad8de5e3874b61e709d432b3eb56a0748016e",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6963c51b9049f248f9308b251576f493f70b8996d94a7c3323ac8099476a6fd6",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "39b63ee0a2f7ac5509638a68ad975409ede85f601b8e0a7da6db32f2747d634d"
   }
 }

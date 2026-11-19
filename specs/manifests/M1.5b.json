@@ -78,7 +78,7 @@
     },
     {
       "id": "M1.5b-photo-entity-type",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:823",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:824",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
       "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
@@ -134,7 +134,7 @@
     },
     {
       "id": "M1.5b-photo-aucun-repas-lecture-equipe-savr",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:823",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:824",
       "artefact": "supabase/migrations/20261117230000_plateforme_collectes_select_liste_blanche.sql (aucun_repas_photo_url hors GRANT SELECT authenticated ; vue v_collectes_gestionnaire_lieux : colonne rendue à NULL) + packages/plateforme/src/lib/collectes/champs-editables.ts (reponseCollecteModifiee : réponse des PATCH traiteur, agence et gestionnaire réduite à l'id et aux champs éditables)",
       "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (11, 16, 21, 25, 29 : photo illisible par les cinq rôles clients ; 31-36 : vue du gestionnaire ; 50-51 : ops_savr fermé en direct, service_role intact) + packages/plateforme/tests/api/collectes/patch-client-reponse-reduite.test.ts",
       "statut": "implemented",
@@ -235,7 +235,7 @@
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "0a427736db98fe318f63d449ed5d19f87daa7e318b8649f1c09ed23747317d5c",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "45914422dddb113b5eaaeca2c75ad8de5e3874b61e709d432b3eb56a0748016e",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6963c51b9049f248f9308b251576f493f70b8996d94a7c3323ac8099476a6fd6",
     "specs/cdc/01 - Cahier des charges App/Adapter MTS-1 (MyTroopers) — relevé as-built Bubble.md": "74daf2715fd6f297a8b3be432208509b853797757ae226402e8f04f04f906b20"
   }
 }

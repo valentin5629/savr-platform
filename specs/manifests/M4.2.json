@@ -152,7 +152,7 @@
     },
     {
       "id": "M4.2-flux-referentiel-exutoires-codes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1038",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1040",
       "artefact": "supabase/migrations/20261004203000_plateforme_flux_dechets_exutoires_codes.sql (flux_dechets : + code_traitement ; exutoire, adresse, code déchet, code de traitement et filière des 5 flux)",
       "test": "flux_referentiel_adresse_decoupable + flux_referentiel_codes + flux_referentiel_lisible_client",
       "statut": "partial",
@@ -160,7 +160,7 @@
     },
     {
       "id": "M4.2-flux-referentiel-unite-kg",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1065-1069",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1067-1071",
       "artefact": "supabase/migrations/20261006130000_plateforme_flux_dechets_emballage_unite_kg.sql (flux_dechets : unité de mesure des Emballages passée de bac à kg)",
       "test": "flux_referentiel_unite_kg",
       "statut": "implemented",
@@ -194,7 +194,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b0a6b6936c1ee4d7dfcfd9027e608721209f2cc444e6a7bc82a20f4a31e9a7f3",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "a367a24b1a6706640aa94445706da0296cd02b73fa28a710bb01025b1db67d69"
   }
 }

@@ -90,7 +90,7 @@
     },
     {
       "id": "BL-P1-ONB-05",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1006",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1007",
       "artefact": "packages/plateforme/src/lib/onboarding-guards.ts (requireCompletedOrganisation : résout l'entité de facturation active de l'orga programmatrice, la crée à la volée si absente, SIRET NON exigé pour programmer — décision Val 2026-09-28, _Divergences/M1.2_20260928 ; requireValidatedOrganisation : gate push Pennylane, SIRET vérifié) + câblage des 3 sites inline dédupliqués : programmation/evenements/route.ts, programmation/evenements/[id]/confirmer/route.ts, lib/facturation/validation-admin.ts",
       "test": "packages/plateforme/tests/lib/onboarding-guards.m0-4.test.ts « M0.4 — requireCompletedOrganisation / requireValidatedOrganisation (BL-P1-ONB-05) »",
       "statut": "implemented",
@@ -98,7 +98,7 @@
     },
     {
       "id": "BL-P1-AUTH-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1024",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1025",
       "artefact": "packages/plateforme/src/app/auth/impersonate-callback/route.ts + supabase/migrations/20260701120000_plateforme_r14_impersonation_claim.sql + packages/plateforme/src/app/api/auth/exit-impersonation/route.ts + packages/plateforme/src/components/ui/impersonation-banner-mount.tsx (monté layout racine) + packages/plateforme/src/app/api/v1/admin/users/[id]/impersoner/route.ts",
       "test": "packages/plateforme/tests/api/auth/impersonate.test.ts « M0.4 — impersonate callback / exit impersonation » + supabase/tests/r14_impersonation_claim.test.sql (hook injecte impersonator_id, fenêtre 1h) + packages/plateforme/src/components/ui/impersonation-banner-mount.test.tsx « M0.6 — bandeau impersonation » + supabase/tests/audit_trail.m0-10.test.sql (T14/T15 : action en session impersonée → audit_log.impersonator_id=admin ET user_id=user impersoné, chaîne bout-en-bout §09 §7 l.904)",
       "statut": "implemented",
@@ -106,7 +106,7 @@
     },
     {
       "id": "BL-P1-AUTH-02",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:274",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:275",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql (att_admin scindé SELECT/INSERT/UPDATE, pas de DELETE)",
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny : DELETE admin_savr filtré, attestation conservée)",
       "statut": "implemented",
@@ -114,7 +114,7 @@
     },
     {
       "id": "BL-P1-AUTH-03",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:150",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:151",
       "artefact": "packages/plateforme/src/app/api/v1/admin/users/[id]/route.ts (ops peut suspendre/réassigner rôle non-admin ; seule promotion admin_savr réservée admin)",
       "test": "packages/plateforme/tests/api/admin/users.m1-1a.test.ts « M0.4 — gating ops users (BL-P1-AUTH-03) » (ops réassigne non-admin→200, ops promeut admin→403, ops touche admin→403, admin promeut→200)",
       "statut": "implemented",
@@ -122,7 +122,7 @@
     },
     {
       "id": "BL-P1-AUTH-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:171",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:172",
       "artefact": "supabase/tests/m1_7_facturation.test.sql + supabase/tests/r14_tournee_siblings.test.sql",
       "test": "supabase/tests/m1_7_facturation.test.sql (test_factures_vue_client_non_vide_manager) + supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -146,7 +146,7 @@
     },
     {
       "id": "M0.4-ecriture-directe-collectes-evenements-revoke",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1068",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1069",
       "artefact": "supabase/migrations/20260915160000_plateforme_collectes_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE sur collectes) ; supabase/migrations/20260915190000_plateforme_evenements_ecriture_client_fermee.sql (REVOKE INSERT, UPDATE, DELETE sur evenements) ; packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (écriture par fn_modifier_evenement sous service_role)",
       "test": "SECU__rls_09_ecriture_directe_revoke.test.sql (A1-A5 : 5 rôles clients × INSERT/UPDATE/DELETE evenements + INSERT/UPDATE collectes → 42501 « permission denied for table » ; A6 SELECT filtré ; A7 service_role écrit ; A8 policies conservées ; B1-B5 manager_update_dans_fenetre_edition_ok moitié DB) + edition-evenement.m1-2.test.ts « manager_update_dans_fenetre_edition_ok — la route réussit et n’écrit JAMAIS par le client de session »",
       "statut": "partial",
@@ -162,7 +162,7 @@
     },
     {
       "id": "M0.4-ecriture-evenements-predicats-par-route",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:195-198",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:196-199",
       "artefact": "packages/plateforme/src/app/api/v1/programmation/evenements/[id]/route.ts (PATCH : périmètre org / created_by commercial → 403, f_collecte_editable → 422, écriture fn_modifier_evenement service_role, audit_log user_id + impersonator_id) ; packages/plateforme/src/app/api/v1/programmation/evenements/route.ts (POST gestionnaire_lieux : lieu du parc → 403, traiteur opérant obligatoire actif/traiteur/non shadow → 422/403) ; packages/plateforme/src/app/api/v1/admin/evenements/[id]/route.ts (forçage staff sans garde de fenêtre) ; packages/plateforme/src/lib/api-auth.ts (claim impersonator_id exposé au contexte)",
       "test": "supabase/tests/SECU__rls_09_ecriture_par_route_predicats.test.sql (C0 RPC d'écriture non exécutable par la session ; C1-C9 prédicats sur vrais statuts sous authenticated + lookups/écriture service_role + audit_log impersonator_id) + edition-evenement.m1-2.test.ts « traiteur_operationnel_ne_peut_pas_modifier_programmation_tierce — 403, rien n’est écrit », « manager_update_hors_fenetre_denied — 422, rien n’est écrit », « agence_update_hors_fenetre_denied — 422, rien n’est écrit », « admin_update_hors_fenetre_reste_possible — la route back-office écrit sans garde de fenêtre », « commercial_update_sa_collecte_dans_fenetre — 200, écriture par la RPC service_role », « gestionnaire_insert_evenement_lieu_hors_perimetre_refuse — 403, aucun INSERT », « gestionnaire_insert_evenement_traiteur_shadow_refuse — 403, aucun INSERT », « commercial_update_collecte_d_un_collegue_refuse — 403 malgré la même organisation, rien n’est écrit », « impersonation_journalisee — audit_log porte user_id = identité assumée ET impersonator_id = admin »",
       "statut": "implemented",
@@ -170,7 +170,7 @@
     },
     {
       "id": "M0.4-ecriture-directe-factures-revoke",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:230",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:231",
       "artefact": "supabase/migrations/20260923150000_plateforme_factures_ecriture_client_fermee.sql (REVOKE INSERT, DELETE sur plateforme.factures pour authenticated + anon ; UPDATE volontairement CONSERVÉ)",
       "test": "SECU__factures_ecriture_client_fermee.test.sql (27 assertions. A1-A2 privilèges retirés, A3 assertion POSITIVE : UPDATE conservé, A4 cliquet colonne-level INSERT, A5 non-régression des 26 colonnes SELECT, A6 service_role intact, A7 compte TOTAL des policies (détecte aussi un ajout), A8 fac_admin bien FOR ALL, A9 anon ; B1-B3 : admin_savr INSERT hors séquence / INSERT sans numéro / DELETE → 42501 « permission denied for table factures », les 3 écritures qui aboutissaient avant ; B4-B5 ops_savr et traiteur_manager : le no-op silencieux devient refus franc ; B6 non-régression de l'UPDATE ops_savr ; B7a/B7b épinglent le résiduel assumé (admin_savr renumérote encore en direct ; B7b est un oracle d'effet) ; B8-B10 non-régression lecture (table 26 colonnes, v_factures_client, marge_logistique masquée) ; C1-C4 service_role écrit toujours et f_attribuer_numero_facture fonctionne ; C5-C6 motif : aucun trigger d'audit, l'écriture directe ne laisse aucune ligne d'audit_log ; C7 frontière du motif : numero_facture reste UNIQUE). Contre-épreuve : 8 rouges exactement (A1 A2 A4 + B1-B5). Recalage dans la même PR : rls_0_4_smoke.test.sql T57.",
       "statut": "implemented",
@@ -291,7 +291,7 @@
     },
     {
       "id": "M0.4-outbox-events-lecture-admin-seul",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:562",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:563",
       "artefact": "supabase/tests/rls_0_4_smoke.test.sql (preuve par rôle de la policy outbox_admin_read, inchangée : la file d'envoi n'est lue par aucun rôle autre que admin_savr — ops_savr, traiteur_commercial, agence, gestionnaire_lieux, client_organisateur, en plus de traiteur_manager déjà couvert par T12 —, un appel sans jeton (anon) est refusé faute de droit sur la table (42501 : un contrôle du droit, pas de la policy), et l'Admin lit bien l'ordre de la fixture ; aucune migration dans ce lot)",
       "test": "T12a outbox_denied_ops_savr + T12b outbox_denied_traiteur_commercial + T12c outbox_denied_agence + T12d outbox_denied_gestionnaire_lieux + T12e outbox_denied_client_organisateur + T12f outbox_denied_anon + T13a outbox_admin_read_voit_l_ordre",
       "statut": "implemented",
@@ -372,7 +372,7 @@
     },
     {
       "id": "M0.4-code-verification-base",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:139",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:140",
       "artefact": "supabase/migrations/20261104200000_plateforme_code_verification_base.sql (plateforme.f_code_verification_ok, règle intégrée à la requête, et f_code_verification_active, SECURITY DEFINER, seule à lire auth.mfa_factors ; policy RESTRICTIVE code_verification_equipe_savr FOR ALL TO authenticated sur chaque table de plateforme et shared ; même règle en tête des 13 fonctions SECURITY DEFINER et dans le WHERE des 4 vues security_invoker = false ouvertes à authenticated)",
       "test": "supabase/tests/SECU__code_verification_base.test.sql (1-11 la règle cas par cas ; 12-18 cliquets : chaque table porte la policy, chaque fonction SECURITY DEFINER et chaque vue « droits du propriétaire » ouvertes à authenticated appellent la règle, EXECUTE exact des deux fonctions ; 19-30 balayage de toutes les tables en lecture et en écriture pour admin_savr puis ops_savr, sans code refusé, avec code identique à avant, non-vacuité mesurée ; 31-34 création et modification d'une association ; 35-104 les 13 fonctions et les 4 vues, refus sans code et résultat identique avec code)",
       "statut": "implemented",
@@ -381,7 +381,7 @@
     },
     {
       "id": "M0.4-code-verification-organisation-base",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:139",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:140",
       "artefact": "supabase/migrations/20261110200000_plateforme_code_verification_organisation.sql (colonne organisations.code_verification_obligatoire, faux par défaut, hors listes blanches SELECT et UPDATE de authenticated ; claim code_verification_obligatoire posé par fn_custom_access_token pour une organisation cochée seule ; plateforme.f_code_verification_ok étendue à ces sessions hors impersonation ; claim impersonator_id réservé à la session ouverte par l'Admin, app_metadata.impersonation_session_id égal au session_id du jeton) + packages/plateforme/src/app/auth/impersonate-callback/route.ts et packages/plateforme/src/app/api/auth/exit-impersonation/route.ts (impersonation_session_id posé puis retiré)",
       "test": "supabase/tests/SECU__code_verification_organisation.test.sql (1-4 la case, ni lisible ni modifiable par authenticated ; 5-9 bis le hook, dont une autre session du compte pendant l'impersonation ; 10-18 la règle cas par cas ; 19-24 de bout en bout sur organisations) + supabase/tests/SECU__admin_only_cols_insert.test.sql (cas 20, matrice d'écriture) + supabase/tests/r14_impersonation_claim.test.sql (AUTH-01e autre session, AUTH-01f flag sans session) + packages/plateforme/tests/api/auth/impersonate.test.ts « M0.4 — impersonate callback (BL-P1-AUTH-01) »",
       "statut": "implemented",
@@ -423,11 +423,19 @@
       "statut": "partial",
       "ref_divergence": "_Divergences/SECU-RGPD_20261105_politique-confidentialite.md",
       "libelle": "Purge ou anonymisation automatique à l'échéance des durées du §15 3.2 (comptes fermés, contacts du carnet, contacts des événements, chauffeurs). Dette code notée par la fiche : aucune échéance n'arrive avant 2030 ; rien n'est codé au sync du 2026-11-11 (seule f_purge_logs existe, sur integrations_logs)."
+    },
+    {
+      "id": "M0.4-role-suit-type-organisation",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:130",
+      "artefact": "supabase/migrations/20261118200000_plateforme_users_role_suit_type_organisation.sql (déclencheur AFTER INSERT / UPDATE OF role, organisation_id, SECURITY INVOKER, refus 23514 ; réécriture des rôles au changement de type) + packages/plateforme/src/lib/roles-type-organisation.ts + routes POST/PATCH /api/v1/admin/users et PATCH /api/v1/admin/organisations/[id]",
+      "test": "supabase/tests/SECU__users_role_type_organisation.test.sql (41 cas : 10-21 sous authenticated avec JWT simulé, refus entre collègues, RLS avant la garde, type d’une autre organisation non révélé, ops sans code ; 1-9 et 22-41 sous service_role ou postgres, la garde vaut pour tout appelant) + users.m1-1a.test.ts « traiteur_manager dans une organisation de gestionnaire de lieux → 422, aucun compte créé », « commercial traiteur passé en agence → 422, aucune écriture » + organisations-type-lieux.test.ts « traiteur → agence : une trace user_role_modifie par compte réécrit, l’équipe Savr exclue »",
+      "statut": "implemented",
+      "libelle": "Un rôle client n'existe que dans une organisation de son type (traiteur → traiteur_manager, traiteur_commercial ; agence ; gestionnaire_lieux ; client_organisateur), pour tout appelant ; un changement de type réécrit les rôles que le nouveau type n'admet plus, tracés user_role_modifie ; équipe Savr non contrôlée (revue sécurité 2026-11-18, livré par #823)."
     }
   ],
   "cdc_source_hash": {
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "45914422dddb113b5eaaeca2c75ad8de5e3874b61e709d432b3eb56a0748016e",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6963c51b9049f248f9308b251576f493f70b8996d94a7c3323ac8099476a6fd6",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "39b63ee0a2f7ac5509638a68ad975409ede85f601b8e0a7da6db32f2747d634d",
     "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md": "a0393e4232581e0d67fdd8fa9d50d2fe1b09de63d3ee7568226600047af12e72",
     "specs/cdc/01 - Cahier des charges App/CGU Savr V1 - Draft.md": "65d4294693e6845c0397fd2253a3991e236824254fd28cb5f4051c965b1d5993"

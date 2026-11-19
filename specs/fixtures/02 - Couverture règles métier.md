@@ -144,9 +144,9 @@ Convention d'ID : slugs déterministes (cf. [[05 - Spec d'injection]]). `★` = 
 | Règle | Objet fixture | Dataset |
 |---|---|---|
 | Cloisonnement cross-org | ≥ 2 traiteurs + 2 gestionnaires + 1 agence dans `seed_minimal` | ★ |
-| `f_is_staff()` canonique (F2 RLS) | 4 users staff (admin, ops ×2, commercial) | ★ |
+| `f_is_staff()` canonique (F2 RLS) | 3 users staff (admin, ops ×2) | ★ |
 | `cf_update_staff` pesées admin+ops (F1 RLS) | flux modifiables par staff | ★ |
-| `users` SELECT org-wide commercial (F4 RLS — demande Val) | user `staff_commercial_01` | ★ |
+| `users` SELECT org-wide commercial (F4 RLS — demande Val) | `traiteur_commercial` de Kaspia (`user_commercial`, persona `jwt_commercial`) | ★ |
 | Gestionnaire org-wide : invitation/désactivation users (F5 §06.05) | 2 users Viparis | ★ |
 | Factures SELECT self + `f_fichier_visible` (F6 §06.05) | factures Viparis vs factures Kaspia | ★ |
 | Brouillons tiers exclus (F3 §06.05) | `col_brouillon_tiers` | ★ |

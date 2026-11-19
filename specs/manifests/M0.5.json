@@ -250,7 +250,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b0a6b6936c1ee4d7dfcfd9027e608721209f2cc444e6a7bc82a20f4a31e9a7f3",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "5d2befe83cc7cf041eede0ebb7f727bf7d2cb47af4b950d3666b9fcdd695593d",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "0a427736db98fe318f63d449ed5d19f87daa7e318b8649f1c09ed23747317d5c"
   }

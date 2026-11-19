@@ -127,6 +127,7 @@ Rôle retiré : `gestionnaire_lieux_commandeur` (besoin métier initial couvert 
 - Passage `traiteur_commercial` → `traiteur_manager` : demande adressée à l'Admin Savr (pas de self-upgrade)
 - **`client_organisateur` : jamais self-service** (absent de l'enum `type_profil`) — création par l'**Admin Savr uniquement** via le back-office §06.06 (CRUD users/orgas), email de bienvenue standard à la création du compte. *(Précisé 2026-06-10, challenge onboarding.)*
 - **`admin_savr`** : création manuelle (seed + Admin existant), jamais self-service.
+- **Rôle ↔ type d'organisation (invariant, revue sécurité 2026-11-18)** : un rôle client n'existe que dans une organisation de son type — `traiteur` → `traiteur_manager`, `traiteur_commercial` ; `agence` → `agence` ; `gestionnaire_lieux` → `gestionnaire_lieux` ; `client_organisateur` → `client_organisateur`. Tenu en base pour tout appelant (déclencheur `trg_users_role_suit_type_organisation`, refus 23514, à l'écriture et au changement de rôle ou d'organisation) et par les routes Admin (422). L'équipe Savr (`admin_savr`, `ops_savr`) n'est pas contrôlée tant qu'elle reste rattachée à l'organisation interne « Savr » (cf. §04 `users`).
 
 > **Invariant V1 — 1 user = 1 organisation (tranché Val 2026-06-10)** : `users.organisation_id` est singulier, le claim JWT aussi ; **aucune table N-N `users ↔ organisations`** (ne pas en créer). Multi-orga = email distinct par orga. Cf. [[04 - Data Model#Table : `users`]].
 

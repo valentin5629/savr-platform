@@ -62,8 +62,8 @@ describe('M1.1b / adressesLivraisonDuLieu', () => {
       ...CARROUSEL,
       libelle_adresse_1: null,
     });
-    expect(nomAdresseLivraison(n1)).toBe('Adresse n° 1');
-    expect(nomAdresseLivraison(n2)).toBe('Adresse n° 2 · Livraison');
+    expect(nomAdresseLivraison(n1!)).toBe('Adresse n° 1');
+    expect(nomAdresseLivraison(n2!)).toBe('Adresse n° 2 · Livraison');
   });
 
   it('reconnaît une adresse aux espaces et à la casse près', () => {

@@ -265,7 +265,7 @@
       "id": "M5.2-sortie-hors-depot-chemin-reel",
       "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:10",
       "artefact": "apps/migration-bubble/src/base.ts",
-      "test": "M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; aucune sortie dans le dépôt › compare les chemins réels",
+      "test": "M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; aucune sortie dans le dépôt",
       "statut": "implemented",
       "libelle": "Garde « hors dépôt » sur les chemins réels (lien symbolique, sous-dossier « ..x »), appliquée aux dossiers de travail, de répétition et de décisions"
     }

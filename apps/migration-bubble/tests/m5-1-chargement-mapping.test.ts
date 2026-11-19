@@ -790,6 +790,16 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
       ],
       ['identifiant-mal-recopie', 'fiche inconnue : type à reporter', 'agence'],
     ]);
+    // Sur une fiche écartée par Val (donnée de test), le type ne compte pas.
+    expect(
+      monde(
+        { entreprises: [alpha, alphaBis, cousin, beta] },
+        decisions({
+          types: [[id(beta), 'agence']],
+          exclusions: [[id(beta), 'oui']],
+        }),
+      ).blocages,
+    ).toEqual([]);
     // Sur la tête du groupe, le type s'applique sans blocage.
     const juste = monde(
       { entreprises: [alpha, alphaBis, cousin, beta] },
@@ -915,15 +925,20 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
       'Email de contact': 'a@test-demo.example',
     });
     const id = (l: Record<string, string>) => l['unique id']!;
+    const collecteTest = collecte({ 'Nom du client': 'Client de test' });
+    const collecteGardee = collecte({ 'Nom du client': 'Client Oméga' });
     const plan = monde(
       {
         entreprises: [alpha, alphaBis, cousin, beta, test],
-        collectes_ag: [collecte({ 'Nom du client': 'Client de test' })],
+        collectes_ag: [collecteTest, collecteGardee],
       },
       decisions({
         clients: [[id(cousin), 'distinct']],
         types: [[id(beta), 'traiteurs']],
-        exclusions: [[id(test), 'non']],
+        exclusions: [
+          [id(test), 'non'],
+          [id(collecteGardee), 'non'],
+        ],
       }),
     );
     const client = (l: Record<string, string>) =>
@@ -937,6 +952,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
     ).toEqual([
       ['entreprise', 'Test Démo', 'non'],
       ['collecte', 'Client de test', ''],
+      ['collecte', 'Client Oméga', 'non'],
     ]);
     expect(plan.tables.organisations.map((o) => o.nom)).toContain('Test Démo');
   });

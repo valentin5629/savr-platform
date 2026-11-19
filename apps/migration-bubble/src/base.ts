@@ -144,6 +144,25 @@ export function exigerHorsDepot(dossier: string, racineDepot: string): void {
     );
 }
 
+/**
+ * Dossiers de travail désignés par l'environnement (dossier, sous-dossier de
+ * la répétition, dossier des décisions), chacun refusé s'il est dans le dépôt.
+ */
+export function dossiersDeTravail(
+  env: Record<string, string | undefined>,
+  dossierParDefaut: string,
+  racineDepot: string,
+): { dossier: string; sortie: string; decisions: string } {
+  const dossier = env.MIGRATION_BUBBLE_DOSSIER ?? dossierParDefaut;
+  const sortie = join(
+    dossier,
+    env.MIGRATION_BUBBLE_REPETITION ?? 'repetition-1',
+  );
+  const decisions = env.MIGRATION_BUBBLE_DECISIONS ?? sortie;
+  for (const d of [dossier, sortie, decisions]) exigerHorsDepot(d, racineDepot);
+  return { dossier, sortie, decisions };
+}
+
 // ── Schéma technique ─────────────────────────────────────────────────────────
 
 /**

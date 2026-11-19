@@ -17,7 +17,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { connecter, exigerHorsDepot } from './base';
+import { connecter, dossiersDeTravail } from './base';
 import { jouerChecks } from './checks';
 import { importer } from './importer';
 import { ecrireRapport } from './rapport';
@@ -37,16 +37,11 @@ async function main(): Promise<number> {
   const [commande, ...options] = process.argv.slice(2);
   const env = process.env;
   const adresseBase = env.MIGRATION_BUBBLE_DATABASE_URL;
-  const dossier =
-    env.MIGRATION_BUBBLE_DOSSIER ??
-    join(homedir(), 'Documents', 'savr-migration-bubble');
-  const sortie = join(
-    dossier,
-    env.MIGRATION_BUBBLE_REPETITION ?? 'repetition-1',
+  const { dossier, sortie, decisions } = dossiersDeTravail(
+    env,
+    join(homedir(), 'Documents', 'savr-migration-bubble'),
+    fileURLToPath(new URL('../../..', import.meta.url)),
   );
-  const decisions = env.MIGRATION_BUBBLE_DECISIONS ?? sortie;
-  for (const d of [dossier, sortie, decisions])
-    exigerHorsDepot(d, fileURLToPath(new URL('../../..', import.meta.url)));
 
   switch (commande) {
     case 'importer': {

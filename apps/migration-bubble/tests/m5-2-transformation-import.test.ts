@@ -18,6 +18,7 @@ import {
   exigerBaseJetable,
   exigerBaseLocale,
   exigerDeclencheursActifs,
+  dossiersDeTravail,
   exigerHorsDepot,
   verifierInventaireDeclencheurs,
   type ClientBase,
@@ -983,6 +984,36 @@ describe('M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; a
     expect(() =>
       exigerHorsDepot(join(racine, 'ailleurs', 'repetition-2'), depot),
     ).not.toThrow();
+  });
+
+  it('contrôle aussi le sous-dossier de la répétition et le dossier des décisions désignés par l’environnement', () => {
+    const racine = realpathSync(mkdtempSync(join(tmpdir(), 'garde-env-')));
+    const depot = join(racine, 'depot');
+    const travail = join(racine, 'travail');
+    mkdirSync(depot);
+    const refus = /dans le dépôt, qui est public/;
+    expect(dossiersDeTravail({}, travail, depot)).toEqual({
+      dossier: travail,
+      sortie: join(travail, 'repetition-1'),
+      decisions: join(travail, 'repetition-1'),
+    });
+    expect(() =>
+      dossiersDeTravail(
+        { MIGRATION_BUBBLE_REPETITION: '../depot/repetition-2' },
+        travail,
+        depot,
+      ),
+    ).toThrow(refus);
+    expect(() =>
+      dossiersDeTravail(
+        { MIGRATION_BUBBLE_DECISIONS: join(depot, 'decisions') },
+        travail,
+        depot,
+      ),
+    ).toThrow(refus);
+    expect(() =>
+      dossiersDeTravail({ MIGRATION_BUBBLE_DOSSIER: depot }, travail, depot),
+    ).toThrow(refus);
   });
 });
 

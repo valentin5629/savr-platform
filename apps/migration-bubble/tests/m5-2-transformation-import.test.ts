@@ -2,6 +2,17 @@
  * M5.2 — transformation des collectes et des packs, garde « base locale »,
  * écriture idempotente, coupure des déclencheurs. Fixtures inventées.
  */
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -14,6 +25,7 @@ import {
   exigerBaseJetable,
   exigerBaseLocale,
   exigerDeclencheursActifs,
+  dossiersDeTravail,
   exigerHorsDepot,
   verifierInventaireDeclencheurs,
   type ClientBase,
@@ -642,6 +654,25 @@ describe('M5.2 / collectes — données personnelles', () => {
         .length,
     ).toBe(1000);
   });
+
+  it('nom du point de dépôt recopié dans les notes internes : borné à 200 caractères, sans caractère de contrôle', () => {
+    const long = `Point\tinconnu ${'z'.repeat(400)}`;
+    const plan = monde({
+      collectes_ag: [collecte({ 'Point de dépot': long })],
+      collectes_zd: [collecte({ Type: 'DECHET', 'Point de dépot': long })],
+    });
+    const lignes = plan.tables.collectes.flatMap((c) =>
+      (c.notes_internes as string)
+        .split('\n')
+        .filter((n) => /^(Point de dépôt|Exutoire): /.test(n)),
+    );
+    expect(lignes).toHaveLength(2);
+    for (const ligne of lignes) {
+      const nom = ligne.replace(/^(Point de dépôt|Exutoire): /, '');
+      expect(nom).toHaveLength(200);
+      expect(nom).toMatch(/^Point inconnu z+$/);
+    }
+  });
 });
 
 describe('M5.2 / packs — crédits recomptés, jamais débités par déclencheur', () => {
@@ -936,6 +967,83 @@ describe('M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; a
       `${depot}/../sorties`,
     ])
       expect(() => exigerHorsDepot(dehors, depot)).not.toThrow();
+  });
+
+  it('compare les chemins réels : un lien symbolique vers le dépôt et un sous-dossier nommé « ..x » sont refusés', () => {
+    const racine = realpathSync(mkdtempSync(join(tmpdir(), 'garde-depot-')));
+    const depot = join(racine, 'depot');
+    mkdirSync(join(depot, '..cache'), { recursive: true });
+    symlinkSync(depot, join(racine, 'raccourci'));
+    for (const dedans of [
+      join(depot, '..cache'),
+      join(depot, '..cache', 'repetition-2'),
+      join(racine, 'raccourci'),
+      // Dossier pas encore créé, sous un lien vers le dépôt.
+      join(racine, 'raccourci', 'repetition-2'),
+    ])
+      expect(() => exigerHorsDepot(dedans, depot)).toThrow(
+        /dans le dépôt, qui est public/,
+      );
+    // Un lien vers le dépôt, donné comme racine, est résolu de même.
+    expect(() =>
+      exigerHorsDepot(join(depot, 'sorties'), join(racine, 'raccourci')),
+    ).toThrow(/dans le dépôt, qui est public/);
+    expect(() =>
+      exigerHorsDepot(join(racine, 'ailleurs', 'repetition-2'), depot),
+    ).not.toThrow();
+  });
+
+  it('refuse un dossier écrit dans une autre casse que le dépôt, ou placé dans un autre dépôt git (le clone principal vu d’un worktree)', () => {
+    const racine = realpathSync(mkdtempSync(join(tmpdir(), 'garde-git-')));
+    const depot = join(racine, 'Depot');
+    const clone = join(racine, 'Clone');
+    mkdirSync(join(clone, 'sous', 'dossier'), { recursive: true });
+    mkdirSync(depot);
+    writeFileSync(join(depot, '.git'), 'gitdir: ailleurs\n');
+    mkdirSync(join(clone, '.git'));
+    const refus = /dans le dépôt, qui est public/;
+    // Disque insensible à la casse (cas du Mac) : « depot » désigne « Depot ».
+    if (existsSync(join(racine, 'depot')))
+      expect(() =>
+        exigerHorsDepot(join(racine, 'depot', 'sorties'), depot),
+      ).toThrow(refus);
+    expect(() => exigerHorsDepot(join(clone, 'sorties'), depot)).toThrow(refus);
+    expect(() =>
+      exigerHorsDepot(join(clone, 'sous', 'dossier'), depot),
+    ).toThrow(refus);
+    expect(() =>
+      exigerHorsDepot(join(racine, 'ailleurs'), depot),
+    ).not.toThrow();
+  });
+
+  it('contrôle aussi le sous-dossier de la répétition et le dossier des décisions désignés par l’environnement', () => {
+    const racine = realpathSync(mkdtempSync(join(tmpdir(), 'garde-env-')));
+    const depot = join(racine, 'depot');
+    const travail = join(racine, 'travail');
+    mkdirSync(depot);
+    const refus = /dans le dépôt, qui est public/;
+    expect(dossiersDeTravail({}, travail, depot)).toEqual({
+      dossier: travail,
+      sortie: join(travail, 'repetition-1'),
+      decisions: join(travail, 'repetition-1'),
+    });
+    expect(() =>
+      dossiersDeTravail(
+        { MIGRATION_BUBBLE_REPETITION: '../depot/repetition-2' },
+        travail,
+        depot,
+      ),
+    ).toThrow(refus);
+    expect(() =>
+      dossiersDeTravail(
+        { MIGRATION_BUBBLE_DECISIONS: join(depot, 'decisions') },
+        travail,
+        depot,
+      ),
+    ).toThrow(refus);
+    expect(() =>
+      dossiersDeTravail({ MIGRATION_BUBBLE_DOSSIER: depot }, travail, depot),
+    ).toThrow(refus);
   });
 });
 

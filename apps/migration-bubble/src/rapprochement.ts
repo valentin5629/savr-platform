@@ -170,12 +170,8 @@ export function decisionsSansObjet(
     .map(([cle]) => cle);
 }
 
-/**
- * Groupe final de chaque fiche : la décision de Val si elle existe (`distinct`
- * pour la séparer, ou la clé de la fiche à rejoindre), sinon le groupe proposé
- * quand il est `auto`, sinon la fiche seule.
- */
-export function appliquerDecisions(
+/** Fiche que chaque fiche rejoint directement : décision de Val, sinon groupe `auto`, sinon elle-même. */
+function liensDirects(
   propositions: Proposition[],
   decisions: Map<string, string>,
 ): Map<string, string> {
@@ -188,6 +184,19 @@ export function appliquerDecisions(
       direct.set(p.cle, decision);
     else direct.set(p.cle, p.niveau === 'auto' ? p.groupePropose : p.cle);
   }
+  return direct;
+}
+
+/**
+ * Groupe final de chaque fiche : la décision de Val si elle existe (`distinct`
+ * pour la séparer, ou la clé de la fiche à rejoindre), sinon le groupe proposé
+ * quand il est `auto`, sinon la fiche seule.
+ */
+export function appliquerDecisions(
+  propositions: Proposition[],
+  decisions: Map<string, string>,
+): Map<string, string> {
+  const direct = liensDirects(propositions, decisions);
   // Une fiche peut rejoindre une fiche elle-même rattachée ailleurs : on suit la chaîne.
   const final = new Map<string, string>();
   for (const cle of direct.keys()) {
@@ -200,4 +209,113 @@ export function appliquerDecisions(
     final.set(cle, courant);
   }
   return final;
+}
+
+/**
+ * Chaînes de rattachement qui reviennent sur elles-mêmes (deux fiches qui se
+ * désignent l'une l'autre, ou plus) : aucune n'a de tête, elles resteraient
+ * séparées sans le dire. Chaque boucle est rendue par ses clés, dans l'ordre de
+ * la chaîne. Une fiche qui se désigne elle-même n'en est pas une.
+ */
+export function decisionsEnBoucle(
+  propositions: Proposition[],
+  decisions: Map<string, string>,
+): string[][] {
+  const direct = liensDirects(propositions, decisions);
+  const boucles = new Map<string, string[]>();
+  for (const depart of direct.keys()) {
+    const chemin: string[] = [];
+    let courant = depart;
+    while (direct.get(courant) !== courant && !chemin.includes(courant)) {
+      chemin.push(courant);
+      courant = direct.get(courant)!;
+    }
+    if (direct.get(courant) === courant) continue;
+    const boucle = chemin.slice(chemin.indexOf(courant));
+    const cle = [...boucle].sort().join('\n');
+    if (!boucles.has(cle)) boucles.set(cle, boucle);
+  }
+  return [...boucles.values()];
+}
+
+const RANG_A_FAIRE = {
+  'à décider': 0,
+  'fusion d’office, à vérifier': 1,
+  'rien à faire': 2,
+} as const;
+const RANG_NIVEAU: Record<string, number> = {
+  distinct: 0,
+  a_revoir: 1,
+  auto: 2,
+};
+const sansCasseNiAccents = (texte: unknown) =>
+  String(texte ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Mn}/gu, '');
+const comparer = (a: (string | number)[], b: (string | number)[]) => {
+  for (let i = 0; i < a.length; i++)
+    if (a[i] !== b[i]) return a[i]! < b[i]! ? -1 : 1;
+  return 0;
+};
+
+/**
+ * Fichier à valider des lieux ou des clients, rangé par dossier (forme posée à
+ * la main dans les fichiers de la répétition 1, 2026-11-19). Un dossier = les
+ * fiches reliées par leurs rapprochements proposés (`auto` et `a_revoir`).
+ * Colonnes ajoutées en tête : `dossier` (D001…), `fiches_dossier`, `a_faire`.
+ * Ordre : à décider, puis fusions d'office, puis fiches seules ; à l'intérieur,
+ * par nom (sans casse ni accents) de la première fiche du fichier d'origine ;
+ * dans un dossier, par niveau (distinct, a_revoir, auto) puis par nom.
+ */
+export function rangerParDossier(
+  lignes: Record<string, unknown>[],
+  colonneCle: string,
+): Record<string, unknown>[] {
+  const cles = lignes.map((l) => String(l[colonneCle]));
+  const position = new Map(cles.map((c, i) => [c, i]));
+  const liens = lignes
+    .filter((l) => l.niveau === 'auto' || l.niveau === 'a_revoir')
+    .map((l) => [String(l[colonneCle]), String(l.groupe_propose)]) as [
+    string,
+    string,
+  ][];
+  const tete = regrouper(cles, liens, (membres) => membres[0]!);
+  const dossiers = new Map<string, Record<string, unknown>[]>();
+  for (const l of lignes) {
+    const t = tete.get(String(l[colonneCle]))!;
+    dossiers.set(t, [...(dossiers.get(t) ?? []), l]);
+  }
+  const aFaire = (membres: Record<string, unknown>[]) =>
+    membres.length === 1
+      ? 'rien à faire'
+      : membres.some((m) => m.niveau === 'a_revoir')
+        ? 'à décider'
+        : 'fusion d’office, à vérifier';
+  const rangs = (l: Record<string, unknown>) => [
+    RANG_NIVEAU[String(l.niveau)] ?? 3,
+    sansCasseNiAccents(l.nom),
+    position.get(String(l[colonneCle]))!,
+  ];
+  return [...dossiers]
+    .map(([t, membres]) => ({
+      membres,
+      aFaire: aFaire(membres),
+      ordre: [
+        RANG_A_FAIRE[aFaire(membres)],
+        sansCasseNiAccents(membres[0]!.nom),
+        position.get(t)!,
+      ],
+    }))
+    .sort((a, b) => comparer(a.ordre, b.ordre))
+    .flatMap(({ membres, aFaire }, i) =>
+      [...membres]
+        .sort((a, b) => comparer(rangs(a), rangs(b)))
+        .map((l) => ({
+          dossier: `D${String(i + 1).padStart(3, '0')}`,
+          fiches_dossier: membres.length,
+          a_faire: aFaire,
+          ...l,
+        })),
+    );
 }

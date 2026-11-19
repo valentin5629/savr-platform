@@ -6,15 +6,35 @@
 
 export type Ligne = Record<string, string>;
 
-export function lireCsv(texte: string): {
+/**
+ * Séparateur d'un fichier rempli à la main : la virgule, ou le point-virgule
+ * qu'Excel en français met à la place. Lu sur la ligne d'en-tête.
+ */
+export function separateurEntete(texte: string): ',' | ';' {
+  const entete = texte.split(/\r?\n/, 1)[0] ?? '';
+  const compte = (c: string) => entete.split(c).length - 1;
+  return compte(';') > compte(',') ? ';' : ',';
+}
+
+export function lireCsv(
+  texte: string,
+  separateur: ',' | ';' = ',',
+): {
   colonnes: string[];
   lignes: Ligne[];
+  /** Lignes non vides dont le nombre de cellules n'est pas celui de l'en-tête. */
+  irregulieres: number;
+  /** Un guillemet ouvert n'a jamais été fermé : la fin du fichier a été lue comme une seule cellule. */
+  guillemetOuvert: boolean;
+  /** Un guillemet au milieu d'une cellule non entourée de guillemets : des lignes ont pu être fusionnées. */
+  guillemetMalPlace: boolean;
 } {
   const brut = texte.charCodeAt(0) === 0xfeff ? texte.slice(1) : texte;
   const tableau: string[][] = [];
   let ligne: string[] = [];
   let cellule = '';
   let entreGuillemets = false;
+  let guillemetMalPlace = false;
   for (let i = 0; i < brut.length; i++) {
     const c = brut[i]!;
     if (entreGuillemets) {
@@ -23,8 +43,10 @@ export function lireCsv(texte: string): {
         i++;
       } else if (c === '"') entreGuillemets = false;
       else cellule += c;
-    } else if (c === '"') entreGuillemets = true;
-    else if (c === ',') {
+    } else if (c === '"') {
+      if (cellule !== '') guillemetMalPlace = true;
+      entreGuillemets = true;
+    } else if (c === separateur) {
       ligne.push(cellule);
       cellule = '';
     } else if (c === '\n' || c === '\r') {
@@ -40,13 +62,17 @@ export function lireCsv(texte: string): {
     tableau.push(ligne);
   }
   const colonnes = tableau[0] ?? [];
-  const lignes = tableau
-    .slice(1)
-    .filter((l) => l.some((v) => v !== ''))
-    .map((l) =>
-      Object.fromEntries(colonnes.map((nom, i) => [nom, l[i] ?? ''])),
-    );
-  return { colonnes, lignes };
+  const nonVides = tableau.slice(1).filter((l) => l.some((v) => v !== ''));
+  const lignes = nonVides.map((l) =>
+    Object.fromEntries(colonnes.map((nom, i) => [nom, l[i] ?? ''])),
+  );
+  return {
+    colonnes,
+    lignes,
+    irregulieres: nonVides.filter((l) => l.length !== colonnes.length).length,
+    guillemetOuvert: entreGuillemets,
+    guillemetMalPlace,
+  };
 }
 
 export function ecrireCsv(

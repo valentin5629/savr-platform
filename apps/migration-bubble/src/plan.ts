@@ -42,9 +42,11 @@ export interface Contexte {
     clients: Map<string, string>;
     /** identifiant Bubble d'un client → type d'organisation validé par Val. */
     types: Map<string, string>;
-    /** Identifiants Bubble (clients ou collectes) écartés par Val : données de test. */
-    exclusions: Set<string>;
+    /** Identifiant Bubble (client ou collecte) → `oui` (écarté par Val : donnée de test) ou `non`. */
+    exclusions: Map<string, string>;
   };
+  /** Fichiers de décision mal lus (colonne absente, décisions contradictoires) : rejoints aux blocages des décisions du plan. */
+  blocagesDecisions: string[];
   /** Répétition : appliquer le type proposé par règle quand Val n'a pas encore validé. */
   appliquerTypesProposes: boolean;
   typeEvenementAutreId: string;
@@ -104,6 +106,12 @@ export interface Plan {
    */
   blocages: string[];
   /**
+   * Décisions de Val mal lues ou qui ne s'appliqueraient à rien (fiche inconnue,
+   * boucle, type mal placé) : elles arrêtent l'import AVANT la réécriture des
+   * fichiers à valider, qui sinon les effacerait.
+   */
+  blocagesDecisions: string[];
+  /**
    * Email Bubble du commercial et du compte créateur, par événement importé : ce
    * qui permettra de rendre son historique au commercial à son inscription
    * (décision Val 2026-11-15). Gardé dans le schéma technique, fermé aux clients.
@@ -127,6 +135,7 @@ export function planVide(): Plan {
     rejets: [],
     listings: {},
     blocages: [],
+    blocagesDecisions: [],
     auteursEvenements: [],
     aValider: { lieux: [], clients: [], types: [], exclusions: [] },
   };

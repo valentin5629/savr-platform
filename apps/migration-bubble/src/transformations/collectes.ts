@@ -36,6 +36,9 @@ import {
   type UsageReferentiel,
 } from './referentiels';
 
+/** Longueur d'un nom recopié de Bubble dans les notes internes d'une collecte. */
+const LONGUEUR_NOM_NOTE = 200;
+
 export type StatutCible =
   | 'programmee'
   | 'cloturee'
@@ -127,14 +130,15 @@ export function lireCollectes(
     const rejeter = (motif: string) =>
       plan.rejets.push({ sourceType: 'collecte', bubbleId, motif });
     const nomClient = normaliserNom(ligne['Nom du client']);
-    const exclue = ctx.decisions.exclusions.has(bubbleId);
-    if (exclue || /\b(test|tests)\b/.test(nomClient))
+    const decision = ctx.decisions.exclusions.get(bubbleId) ?? '';
+    const exclue = decision === 'oui';
+    if (decision !== '' || /\b(test|tests)\b/.test(nomClient))
       plan.aValider.exclusions.push({
         source: 'collecte',
         bubble_id: bubbleId,
         nom: ligne['Nom du client'] ?? '',
         motif_propose: 'nom du client évoquant un test',
-        exclure: exclue ? 'oui' : '',
+        exclure: decision,
       });
     if (exclue || clients.clientExclu(ligne['User entreprise'] ?? '')) {
       rejeter('écartée par décision (donnée de test)');
@@ -349,6 +353,8 @@ export function transformerCollectes(
       (l['Transporteur'] ?? '').trim(),
     );
     const pointDepot = texteOuNull(l['Point de dépot']);
+    // Recopié dans les notes internes : borné, sans caractère de contrôle (C32).
+    const pointDepotNote = texteBorne(l['Point de dépot'], LONGUEUR_NOM_NOTE);
     const associationId =
       c.type === 'anti_gaspi' && pointDepot
         ? deps.associationParNom.get(pointDepot)
@@ -418,12 +424,14 @@ export function transformerCollectes(
           texteOuNull(l['MTS_1_tour_or_customer_order_id']),
           texteOuNull(l['Everest_mission_ref']),
         ),
-        c.type === 'zero_dechet' && pointDepot
-          ? `Exutoire: ${pointDepot}`
+        c.type === 'zero_dechet' && pointDepotNote
+          ? `Exutoire: ${pointDepotNote}`
           : null,
         // Association ou transporteur nommés par Bubble mais absents de l'attribution.
-        c.type === 'anti_gaspi' && pointDepot && !(attribuee && associationId)
-          ? `Point de dépôt: ${pointDepot}`
+        c.type === 'anti_gaspi' &&
+        pointDepotNote &&
+        !(attribuee && associationId)
+          ? `Point de dépôt: ${pointDepotNote}`
           : null,
         transporteur && !attribuee ? `Transporteur: ${transporteur.nom}` : null,
         texteOuNull(l['formule']) ? `Formule: ${l['formule']!.trim()}` : null,

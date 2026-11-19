@@ -235,6 +235,70 @@
       "test": "M5.1 / référentiels — associations, transporteurs, contacts › contacts du carnet : dédoublonnés par organisation et téléphone puis par nom",
       "statut": "implemented",
       "libelle": "Contacts dédoublonnés ; non repris au-delà de 5 ans sans usage"
+    },
+    {
+      "id": "M5.1-decisions-point-virgule",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/importer.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › lit un fichier de décision à points-virgules (Excel en français) comme à virgules",
+      "statut": "implemented",
+      "libelle": "Fichiers de décision lus à la virgule ou au point-virgule (Excel en français), séparateur lu sur la ligne d'en-tête"
+    },
+    {
+      "id": "M5.1-decisions-illisibles-bloquantes",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/importer.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › colonne de clé ou de décision introuvable, décisions contradictoires, valeur inattendue",
+      "statut": "implemented",
+      "libelle": "Colonne de clé ou de décision introuvable, décisions contradictoires, valeur inattendue : blocage qui nomme le fichier"
+    },
+    {
+      "id": "M5.1-type-sur-fiche-regroupee",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › un type validé posé sur une fiche regroupée dans une autre, ou sur une fiche inconnue, bloque en nommant la ligne",
+      "statut": "implemented",
+      "libelle": "Type validé posé sur une fiche regroupée ou inconnue : blocage qui nomme la ligne"
+    },
+    {
+      "id": "M5.1-decisions-en-boucle",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/rapprochement.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › deux fiches qui se désignent l’une l’autre, ou une chaîne qui revient sur elle-même, bloquent",
+      "statut": "implemented",
+      "libelle": "Décisions de regroupement en boucle : blocage qui nomme les clés ; une fiche qui se désigne elle-même reste seule"
+    },
+    {
+      "id": "M5.1-fichiers-a-valider-par-dossier",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/rapprochement.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › fichiers à valider rangés par dossier",
+      "statut": "implemented",
+      "libelle": "Fichiers à valider des lieux et des clients rangés par dossier : dossier, fiches_dossier, a_faire en tête"
+    },
+    {
+      "id": "M5.1-decisions-reportees",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/transformations/organisations.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › une relance reporte les décisions déjà lues dans les fichiers régénérés",
+      "statut": "implemented",
+      "libelle": "Décisions déjà lues (groupe_decide, type_valide, exclure) reportées dans les fichiers régénérés, telles que lues"
+    },
+    {
+      "id": "M5.1-decisions-fichier-mal-forme",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/csv.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › fichier mal formé",
+      "statut": "implemented",
+      "libelle": "Fichier de décision mal formé (guillemet jamais refermé ou mal placé, ligne au mauvais nombre de cellules, colonne en double) : blocage, jamais zéro décision en silence"
+    },
+    {
+      "id": "M5.1-decisions-inapplicables-avant-reecriture",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/importer.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › une décision qui ne s’appliquerait à rien",
+      "statut": "implemented",
+      "libelle": "Décision inapplicable (fiche inconnue, exclusion comprise ; boucle ; type mal placé) : l'import s'arrête avant la réécriture des fichiers à valider"
     }
   ],
   "cdc_source_hash": {

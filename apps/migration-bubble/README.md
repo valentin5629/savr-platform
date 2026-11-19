@@ -68,8 +68,20 @@ proposé par règle tant que Val ne l'a pas validé (répétitions) ;
 - `passages/passage-<horodatage>.json`, `checks.json`, `rapport.md` (auquel
   `notes.md`, s'il existe, est joint).
 
-Ces quatre fichiers sont relus au passage suivant : une décision prise une fois
-est rejouée à chaque répétition. Après un changement de décision, repartir d'une
+Les fichiers des lieux et des clients sont rangés par dossier (`dossier`,
+`fiches_dossier`, `a_faire` en tête) : les fiches reliées par un rapprochement
+proposé, « à décider » d'abord, puis « fusion d'office, à vérifier », puis
+« rien à faire ».
+
+Ces quatre fichiers sont relus au passage suivant (virgule ou point-virgule) :
+une décision prise une fois est rejouée à chaque répétition, et recopiée dans
+les fichiers régénérés. Une décision mal lue ou qui ne s'appliquerait à rien
+arrête l'import en la nommant, avant toute réécriture des fichiers à valider :
+fichier mal formé (colonne introuvable ou en double, guillemet non refermé ou mal placé,
+ligne au mauvais nombre de cellules), deux décisions différentes pour une
+fiche, valeur inattendue, fiche inconnue, type posé sur une fiche regroupée
+dans une autre, fiches qui se désignent l'une l'autre. Une fiche qui se
+désigne elle-même reste seule. Après un changement de décision, repartir d'une
 base remise à zéro (un regroupement défait laisserait l'ancienne ligne en base ;
 l'import le signale par « disparues du plan »).
 

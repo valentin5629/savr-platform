@@ -40,12 +40,18 @@ export function AdresseAutocompleteInput({
   placeholder,
   onChange,
   onSelect,
+  required,
+  maxLength,
+  error,
 }: {
   id: string;
   value: string;
   placeholder?: string;
   onChange: (value: string) => void;
   onSelect: (suggestion: SuggestionAdresse) => void;
+  required?: boolean;
+  maxLength?: number;
+  error?: boolean;
 }) {
   const [suggestions, setSuggestions] = React.useState<SuggestionAdresse[]>([]);
   const [open, setOpen] = React.useState(false);
@@ -117,6 +123,9 @@ export function AdresseAutocompleteInput({
         // Désactive l'autofill navigateur, qui se superposerait à la liste.
         autoComplete="off"
         placeholder={placeholder}
+        required={required}
+        maxLength={maxLength}
+        error={error}
         value={value}
         onChange={(e) => {
           saisieUtilisateur.current = true;

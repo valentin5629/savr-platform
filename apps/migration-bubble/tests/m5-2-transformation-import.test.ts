@@ -599,6 +599,58 @@ describe('M5.2 / collectes — données personnelles', () => {
     });
   });
 
+  it('téléphone des contacts sur place d’une collecte passée par une agence : le carnet du traiteur d’abord, celui de l’agence ensuite', () => {
+    // Le carnet Bubble ne rattache un contact qu'à une entreprise : une agence n'a de
+    // carnet que si Val la regroupe avec l'entreprise du même nom.
+    const gamma = agence();
+    const gammaEntreprise = entreprise({
+      'Raison sociale': 'Agence Gamma',
+      'Email de contact': 'contact@agence-gamma.example',
+      SIRET: '33333333300033',
+      Identifiant: 'GAM',
+    });
+    const decisions = {
+      lieux: new Map(),
+      types: new Map(),
+      exclusions: new Set<string>(),
+      clients: new Map([[gamma['unique id']!, gammaEntreprise['unique id']!]]),
+    };
+    const plan = monde(
+      {
+        entreprises: [entreprise(), gammaEntreprise],
+        agences: [gamma],
+        contacts: [
+          // Même nom chez le traiteur et chez l'agence : le traiteur l'emporte.
+          contact({ PrenomNom: 'Alex Surplace', Numero: '0600000031' }),
+          contact({
+            PrenomNom: 'Alex Surplace',
+            Numero: '0600000032',
+            'Entreprise liée': 'Agence Gamma',
+          }),
+          // Connu de l'agence seulement : son numéro est pris.
+          contact({
+            PrenomNom: 'Charlie Secours',
+            Numero: '0600000033',
+            'Entreprise liée': 'Agence Gamma',
+          }),
+        ],
+        collectes_ag: [collecte({ Agence: gamma['unique id']! })],
+      },
+      { decisions },
+    );
+    const gammaId = seule(
+      plan.tables.organisations.filter((o) => o.nom === 'Agence Gamma'),
+    ).id;
+    expect(seule(plan.tables.evenements).organisation_id).toBe(gammaId);
+    expect(
+      plan.tables.contacts_traiteurs.map((c) => c.telephone).sort(),
+    ).toEqual(['+33600000031', '+33600000032', '+33600000033']);
+    expect(seule(plan.tables.collecte_contacts)).toMatchObject({
+      contact_principal_telephone: '+33600000031',
+      contact_secours_telephone: '+33600000033',
+    });
+  });
+
   it('collecte de plus de 5 ans : ni nom de contact, ni commercial, ni consigne libre ; poids et lieu gardés', () => {
     const t = transporteur();
     const commun = {

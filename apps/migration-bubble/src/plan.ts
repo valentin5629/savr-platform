@@ -42,9 +42,11 @@ export interface Contexte {
     clients: Map<string, string>;
     /** identifiant Bubble d'un client → type d'organisation validé par Val. */
     types: Map<string, string>;
-    /** Identifiants Bubble (clients ou collectes) écartés par Val : données de test. */
-    exclusions: Set<string>;
+    /** Identifiant Bubble (client ou collecte) → `oui` (écarté par Val : donnée de test) ou `non`. */
+    exclusions: Map<string, string>;
   };
+  /** Fichiers de décision mal lus (colonne absente, décisions contradictoires) : rejoints aux blocages du plan. */
+  blocagesDecisions: string[];
   /** Répétition : appliquer le type proposé par règle quand Val n'a pas encore validé. */
   appliquerTypesProposes: boolean;
   typeEvenementAutreId: string;

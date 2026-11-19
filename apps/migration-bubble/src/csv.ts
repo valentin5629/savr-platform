@@ -6,7 +6,20 @@
 
 export type Ligne = Record<string, string>;
 
-export function lireCsv(texte: string): {
+/**
+ * Séparateur d'un fichier rempli à la main : la virgule, ou le point-virgule
+ * qu'Excel en français met à la place. Lu sur la ligne d'en-tête.
+ */
+export function separateurEntete(texte: string): ',' | ';' {
+  const entete = texte.split(/\r?\n/, 1)[0] ?? '';
+  const compte = (c: string) => entete.split(c).length - 1;
+  return compte(';') > compte(',') ? ';' : ',';
+}
+
+export function lireCsv(
+  texte: string,
+  separateur: ',' | ';' = ',',
+): {
   colonnes: string[];
   lignes: Ligne[];
 } {
@@ -24,7 +37,7 @@ export function lireCsv(texte: string): {
       } else if (c === '"') entreGuillemets = false;
       else cellule += c;
     } else if (c === '"') entreGuillemets = true;
-    else if (c === ',') {
+    else if (c === separateur) {
       ligne.push(cellule);
       cellule = '';
     } else if (c === '\n' || c === '\r') {

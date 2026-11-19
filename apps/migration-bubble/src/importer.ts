@@ -20,7 +20,7 @@ import {
   type Requeteur,
 } from './base';
 import { construirePlan } from './construire-plan';
-import { ecrireCsv, lireCsv } from './csv';
+import { ecrireCsv, lireCsv, separateurEntete } from './csv';
 import { situerAdresses } from './geocodage';
 import { identifiantCible } from './identifiants';
 import {
@@ -98,18 +98,52 @@ async function compter(
   return comptes;
 }
 
-function lireDecisions(
+/**
+ * Décisions de Val dans un fichier à valider (virgule ou point-virgule). Une
+ * décision qui ne peut pas être lue n'est jamais perdue en silence : colonne
+ * absente, deux décisions différentes pour une même fiche ou valeur hors de
+ * `valeursPermises` ajoutent un blocage qui nomme le fichier.
+ */
+export function lireDecisions(
   dossier: string,
   fichier: string,
   cle: string,
   valeur: string,
+  blocages: string[],
+  valeursPermises?: string[],
 ): Map<string, string> {
   const chemin = join(dossier, fichier);
   const decisions = new Map<string, string>();
   if (!existsSync(chemin)) return decisions;
-  for (const l of lireCsv(readFileSync(chemin, 'utf8')).lignes)
-    if ((l[valeur] ?? '').trim() !== '')
-      decisions.set(l[cle]!, l[valeur]!.trim());
+  const texte = readFileSync(chemin, 'utf8');
+  const { colonnes, lignes } = lireCsv(texte, separateurEntete(texte));
+  const absentes = [cle, valeur].filter((c) => !colonnes.includes(c));
+  if (absentes.length > 0) {
+    blocages.push(
+      `${fichier} : colonne(s) ${absentes.join(', ')} introuvable(s) dans la ligne d'en-tête, aucune décision lue`,
+    );
+    return decisions;
+  }
+  const doublons = new Set<string>();
+  for (const l of lignes) {
+    const id = (l[cle] ?? '').trim();
+    const brute = (l[valeur] ?? '').trim();
+    const v = valeursPermises ? brute.toLowerCase() : brute;
+    if (v === '') continue;
+    if ((decisions.get(id) ?? v) !== v) doublons.add(id);
+    decisions.set(id, v);
+  }
+  if (doublons.size > 0)
+    blocages.push(
+      `${fichier} : fiche(s) portant deux décisions différentes (colonne ${valeur}) : ${[...doublons].join(', ')}`,
+    );
+  const horsListe = valeursPermises
+    ? [...decisions].filter(([, v]) => !valeursPermises.includes(v))
+    : [];
+  if (horsListe.length > 0)
+    blocages.push(
+      `${fichier} : valeur(s) inattendue(s) dans ${valeur} (attendu : ${valeursPermises!.join(' ou ')}) : ${horsListe.map(([id]) => id).join(', ')}`,
+    );
   return decisions;
 }
 
@@ -161,26 +195,45 @@ async function lireContexte(
     [identifiantCible('organisation', 'savr')],
   );
   const d = options.dossierDecisions;
+  const blocagesDecisions: string[] = [];
+  const exclusions = lireDecisions(
+    d,
+    'exclusions.csv',
+    'bubble_id',
+    'exclure',
+    blocagesDecisions,
+    ['oui', 'non'],
+  );
   return {
     jourReference: temps!.jour as string,
     instantImport: temps!.instant as string,
     domainesExclus: new Set([...publics, ...jetables, 'gosavr.io']),
     geocodes,
     decisions: {
-      lieux: lireDecisions(d, 'lieux-a-valider.csv', 'cle', 'groupe_decide'),
+      lieux: lireDecisions(
+        d,
+        'lieux-a-valider.csv',
+        'cle',
+        'groupe_decide',
+        blocagesDecisions,
+      ),
       clients: lireDecisions(
         d,
         'clients-a-valider.csv',
         'bubble_id',
         'groupe_decide',
+        blocagesDecisions,
       ),
-      types: lireDecisions(d, 'type_overrides.csv', 'bubble_id', 'type_valide'),
-      exclusions: new Set(
-        [...lireDecisions(d, 'exclusions.csv', 'bubble_id', 'exclure')]
-          .filter(([, v]) => v.toLowerCase() === 'oui')
-          .map(([cle]) => cle),
+      types: lireDecisions(
+        d,
+        'type_overrides.csv',
+        'bubble_id',
+        'type_valide',
+        blocagesDecisions,
       ),
+      exclusions,
     },
+    blocagesDecisions,
     appliquerTypesProposes: options.appliquerTypesProposes,
     typeEvenementAutreId: autre.id as string,
     fluxParCode: flux,
@@ -380,6 +433,9 @@ export async function importer(options: OptionsImport): Promise<BilanPassage> {
     const plan = await chrono('transformations', () =>
       construirePlan(sources, ctx),
     );
+
+    // Un fichier de décision mal lu n'est pas réécrit : les décisions qu'il porte seraient perdues.
+    if (ctx.blocagesDecisions.length > 0) exigerAucunBlocage(plan);
 
     // Sorties hors dépôt : fichiers à valider, listes de complétion, bilan du passage.
     const sortie = options.dossierSortie;

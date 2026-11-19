@@ -8,7 +8,8 @@
  *   2. la base porte le marqueur que seul `base-jetable.sh` pose — une base
  *      distante atteinte par un tunnel local ne l'a pas.
  */
-import { isAbsolute, relative, resolve } from 'node:path';
+import { existsSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import pg from 'pg';
 
@@ -115,17 +116,28 @@ export async function connecter(
   return client;
 }
 
+/** Chemin réel, liens symboliques résolus, même pour un dossier pas encore créé (par son parent existant). */
+function cheminReel(chemin: string): string {
+  const absolu = resolve(chemin);
+  let existant = absolu;
+  while (!existsSync(existant) && dirname(existant) !== existant)
+    existant = dirname(existant);
+  return join(realpathSync(existant), relative(existant, absolu));
+}
+
 /**
  * Le dossier de travail (exports lus, cache, fichiers à valider, rapports)
  * porte des données réelles : il ne doit jamais se trouver dans le dépôt, qui
- * est public.
+ * est public. Comparé sur les chemins réels : un lien symbolique vers le dépôt
+ * est refusé, un sous-dossier nommé « ..x » aussi.
  */
 export function exigerHorsDepot(dossier: string, racineDepot: string): void {
-  const interieur = relative(resolve(racineDepot), resolve(dossier));
-  if (
-    interieur === '' ||
-    (!interieur.startsWith('..') && !isAbsolute(interieur))
-  )
+  const interieur = relative(cheminReel(racineDepot), cheminReel(dossier));
+  const dehors =
+    isAbsolute(interieur) ||
+    interieur === '..' ||
+    interieur.startsWith(`..${sep}`);
+  if (!dehors)
     throw new BaseRefusee(
       `Dossier de travail refusé : « ${dossier} » est dans le dépôt, qui est public. ` +
         'Les sorties de l’import portent des données réelles.',

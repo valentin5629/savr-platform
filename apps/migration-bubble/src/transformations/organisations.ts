@@ -18,8 +18,10 @@ import {
 import { ajouterAuListing, type Contexte, type Plan } from '../plan';
 import {
   appliquerDecisions,
+  decisionsEnBoucle,
   decisionsSansObjet,
   proposer,
+  rangerParDossier,
   ressemblanceNoms,
 } from '../rapprochement';
 
@@ -141,14 +143,18 @@ export function transformerOrganisations(
     })),
   ].filter((f) => {
     // Candidats « donnée de test », proposés à Val ; rien n'est écarté sans sa décision.
-    const exclue = ctx.decisions.exclusions.has(f.cle);
-    if (exclue || /\b(test|tests|demo|savr)\b/.test(normaliserNom(f.nom)))
+    const decision = ctx.decisions.exclusions.get(f.cle) ?? '';
+    const exclue = decision === 'oui';
+    if (
+      decision !== '' ||
+      /\b(test|tests|demo|savr)\b/.test(normaliserNom(f.nom))
+    )
       plan.aValider.exclusions.push({
         source: f.source,
         bubble_id: f.cle,
         nom: f.nom,
         motif_propose: 'nom évoquant un test ou Savr',
-        exclure: exclue ? 'oui' : '',
+        exclure: decision,
       });
     if (exclue) {
       nomsExclus.add(normaliserNom(f.nom));
@@ -173,7 +179,12 @@ export function transformerOrganisations(
   const sansObjet = decisionsSansObjet(propositions, ctx.decisions.clients);
   if (sansObjet.length > 0)
     plan.blocages.push(
-      `clients-a-valider.csv : ${sansObjet.length} décision(s) désignent une fiche inconnue (colonne groupe_decide)`,
+      `clients-a-valider.csv : ${sansObjet.length} décision(s) désignent une fiche inconnue (colonne groupe_decide) : ${sansObjet.join(', ')}`,
+    );
+  const boucles = decisionsEnBoucle(propositions, ctx.decisions.clients);
+  if (boucles.length > 0)
+    plan.blocages.push(
+      `clients-a-valider.csv : ${boucles.length} boucle(s) de fiches qui se désignent l'une l'autre (colonne groupe_decide), aucune ne serait regroupée : ${boucles.map((b) => b.join(' → ')).join(' ; ')}`,
     );
   const typesInconnus = [...ctx.decisions.types.values()].filter(
     (t) => !TYPES_VALIDES.has(t.trim()),
@@ -183,6 +194,22 @@ export function transformerOrganisations(
       `type_overrides.csv : ${typesInconnus.length} type(s) validé(s) inconnu(s) (attendu : ${[...TYPES_VALIDES].join(', ')})`,
     );
   const parCle = new Map(fiches.map((f) => [f.cle, f]));
+  // type_overrides.csv a une ligne par organisation : un type posé sur une fiche
+  // regroupée dans une autre, ou sur une fiche inconnue, ne s'appliquerait à rien.
+  const typesAReporter = [...ctx.decisions.types]
+    .filter(([cle]) => groupe.get(cle) !== cle)
+    .filter(([cle]) => ctx.decisions.exclusions.get(cle) !== 'oui')
+    .map(([cle, type]) => ({
+      cle,
+      type,
+      ou: groupe.has(cle)
+        ? `regroupée dans ${groupe.get(cle)}`
+        : 'fiche inconnue',
+    }));
+  if (typesAReporter.length > 0)
+    plan.blocages.push(
+      `type_overrides.csv : ${typesAReporter.length} type(s) posé(s) ailleurs que sur la fiche qui reçoit le regroupement, à reporter sur celle-ci : ${typesAReporter.map((t) => `${t.cle} (${t.ou})`).join(', ')}`,
+    );
   const membres = new Map<string, Fiche[]>();
   for (const f of fiches) {
     const chef = groupe.get(f.cle)!;
@@ -243,7 +270,8 @@ export function transformerOrganisations(
       nom: tete.nom,
       type_propose: typePropose,
       regle,
-      type_valide: TYPES_VALIDES.has(typeValide) ? typeValide : '',
+      // Rendu tel que lu, même inconnu (il bloque) : une relance ne l'efface pas.
+      type_valide: typeValide,
     });
 
     const emailPrincipal =
@@ -347,6 +375,17 @@ export function transformerOrganisations(
     }
   }
 
+  // Gardés dans le fichier régénéré, pour qu'une relance ne les efface pas.
+  for (const t of typesAReporter)
+    plan.aValider.types.push({
+      bubble_id: t.cle,
+      source: parCle.get(t.cle)?.source ?? '',
+      nom: parCle.get(t.cle)?.nom ?? '',
+      type_propose: '',
+      regle: `${t.ou} : type à reporter`,
+      type_valide: t.type,
+    });
+
   for (const f of fiches) {
     const p = propositionParCle.get(f.cle)!;
     plan.aValider.clients.push({
@@ -362,6 +401,7 @@ export function transformerOrganisations(
       groupe_decide: ctx.decisions.clients.get(f.cle) ?? '',
     });
   }
+  plan.aValider.clients = rangerParDossier(plan.aValider.clients, 'bubble_id');
 
   // Utilisateurs Bubble : jamais importés, lus pour relier un email à son entreprise.
   const organisationParEmail = new Map<string, string>();

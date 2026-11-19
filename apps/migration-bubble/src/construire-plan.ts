@@ -22,6 +22,7 @@ import {
 
 export function construirePlan(sources: Sources, ctx: Contexte): Plan {
   const plan = planVide();
+  plan.blocages.push(...ctx.blocagesDecisions);
   const nomsLieux = new Set(
     sources.lieux.lignes.map((l) => normaliserNom(l['Nom du lieu'])),
   );

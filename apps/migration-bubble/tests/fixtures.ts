@@ -160,8 +160,9 @@ export function contexte(v: Partial<Contexte> = {}): Contexte {
       lieux: new Map(),
       clients: new Map(),
       types: new Map(),
-      exclusions: new Set(),
+      exclusions: new Map(),
     },
+    blocagesDecisions: [],
     appliquerTypesProposes: false,
     typeEvenementAutreId: '00000000-0000-4000-8000-0000000000a0',
     fluxParCode: {

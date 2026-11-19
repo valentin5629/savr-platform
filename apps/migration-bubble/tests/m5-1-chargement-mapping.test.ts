@@ -2,12 +2,16 @@
  * M5.1 — chargement des exports Bubble, règles de lecture, rapprochement et
  * mapping des référentiels. Fixtures inventées (cf. fixtures.ts).
  */
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { ecrireCsv, lireCsv } from '../src/csv';
 import { lireReponse, situerAdresses } from '../src/geocodage';
 import { ESPACE_MIGRATION, identifiantCible } from '../src/identifiants';
-import { exigerAucunBlocage } from '../src/importer';
+import { exigerAucunBlocage, lireDecisions } from '../src/importer';
 import {
   codePostalVille,
   horodatageParis,
@@ -25,6 +29,7 @@ import {
 } from '../src/normalisation';
 import {
   appliquerDecisions,
+  decisionsEnBoucle,
   decisionsSansObjet,
   distanceMetres,
   ressemblanceNoms,
@@ -320,7 +325,7 @@ describe('M5.1 / clients — organisations, entités, domaines', () => {
       decisions: {
         lieux: new Map(),
         clients: new Map(),
-        exclusions: new Set(),
+        exclusions: new Map(),
         types: new Map([[salon, 'client_organisateur']]),
       },
     });
@@ -459,7 +464,7 @@ describe('M5.1 / clients — organisations, entités, domaines', () => {
       decisions: {
         lieux: new Map(),
         types: new Map(),
-        exclusions: new Set(),
+        exclusions: new Map(),
         clients: new Map([
           [cousin['unique id']!, alpha['unique id']!],
           [alphaBis['unique id']!, 'distinct'],
@@ -547,7 +552,7 @@ describe('M5.1 / clients — organisations, entités, domaines', () => {
         lieux: new Map(),
         clients: new Map(),
         types: new Map(),
-        exclusions: new Set([test['unique id']!]),
+        exclusions: new Map([[test['unique id']!, 'oui']]),
       },
     });
     expect(avec.tables.organisations.map((o) => o.nom)).not.toContain(
@@ -626,7 +631,7 @@ describe('M5.1 / références ambiguës — jamais résolues au hasard', () => {
       { entreprises: [alpha] },
       {
         decisions: {
-          exclusions: new Set(),
+          exclusions: new Map(),
           lieux: new Map([['adresse inconnue', 'distinct']]),
           clients: new Map([[alpha['unique id']!, 'identifiant-mal-recopie']]),
           types: new Map([[alpha['unique id']!, 'traiteurs']]),
@@ -634,9 +639,9 @@ describe('M5.1 / références ambiguës — jamais résolues au hasard', () => {
       },
     );
     expect(plan.blocages).toEqual([
-      'clients-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide)',
+      `clients-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide) : ${alpha['unique id']}`,
       'type_overrides.csv : 1 type(s) validé(s) inconnu(s) (attendu : traiteur, agence, gestionnaire_lieux, client_organisateur)',
-      'lieux-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide)',
+      'lieux-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide) : adresse inconnue',
     ]);
     expect(
       decisionsSansObjet(
@@ -656,6 +661,284 @@ describe('M5.1 / références ambiguës — jamais résolues au hasard', () => {
     expect(() => exigerAucunBlocage(plan)).toThrow(
       'Import arrêté avant toute écriture — 2 point(s) à trancher :\n  - un point\n  - un autre',
     );
+  });
+});
+
+describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
+  const dossierDecisions = (fichiers: Record<string, string>) => {
+    const dossier = mkdtempSync(join(tmpdir(), 'decisions-'));
+    for (const [nom, texte] of Object.entries(fichiers))
+      writeFileSync(join(dossier, nom), texte);
+    return dossier;
+  };
+  /** Trois clients rapprochés (Alpha et sa copie auto, un cousin à revoir), un client seul. */
+  const clientsRapproches = () => {
+    const alpha = entreprise();
+    const alphaBis = entreprise({
+      'Raison sociale': 'TRAITEUR ALPHA ',
+      'Creation Date': 'Jan 5, 2024 9:00 am',
+    });
+    const cousin = entreprise({
+      'Raison sociale': 'Alpha Réceptions',
+      SIRET: '33333333300033',
+      'Creation Date': 'Feb 5, 2024 9:00 am',
+    });
+    const beta = entreprise({
+      'Raison sociale': 'Maison Bêta',
+      SIRET: '22222222200022',
+      'Email de contact': 'a@maison-beta.example',
+    });
+    return { alpha, alphaBis, cousin, beta };
+  };
+  const decisions = (d: {
+    clients?: [string, string][];
+    types?: [string, string][];
+    exclusions?: [string, string][];
+  }) => ({
+    decisions: {
+      lieux: new Map<string, string>(),
+      clients: new Map(d.clients ?? []),
+      types: new Map(d.types ?? []),
+      exclusions: new Map(d.exclusions ?? []),
+    },
+  });
+
+  it('lit un fichier de décision à points-virgules (Excel en français) comme à virgules', () => {
+    const virgule =
+      'bubble_id,nom,type_valide\nb-1,"Maison, Bêta",agence\nb-2,Autre,\n';
+    const pointVirgule =
+      '\ufeffbubble_id;nom;type_valide\r\nb-1;"Maison; Bêta";agence\r\nb-2;Autre;\r\n';
+    for (const texte of [virgule, pointVirgule]) {
+      const blocages: string[] = [];
+      expect(
+        lireDecisions(
+          dossierDecisions({ 'type_overrides.csv': texte }),
+          'type_overrides.csv',
+          'bubble_id',
+          'type_valide',
+          blocages,
+        ),
+      ).toEqual(new Map([['b-1', 'agence']]));
+      expect(blocages).toEqual([]);
+    }
+  });
+
+  it('colonne de clé ou de décision introuvable, décisions contradictoires, valeur inattendue : blocage qui nomme le fichier, jamais zéro décision en silence', () => {
+    const blocages: string[] = [];
+    const dossier = dossierDecisions({
+      'clients-a-valider.csv': 'bubble_id;groupe decide\nb-1;distinct\n',
+      'type_overrides.csv': 'id,type_valide\nb-1,agence\n',
+      'lieux-a-valider.csv': 'cle,groupe_decide\nl-1,distinct\nl-1,l-2\nl-3,\n',
+      'exclusions.csv': 'bubble_id,exclure\nb-1,Oui\nb-2,non\nb-3,x\n',
+    });
+    const lire = (f: string, c: string, v: string, permises?: string[]) =>
+      lireDecisions(dossier, f, c, v, blocages, permises);
+    expect(
+      lire('clients-a-valider.csv', 'bubble_id', 'groupe_decide').size,
+    ).toBe(0);
+    expect(lire('type_overrides.csv', 'bubble_id', 'type_valide').size).toBe(0);
+    lire('lieux-a-valider.csv', 'cle', 'groupe_decide');
+    expect(
+      lire('exclusions.csv', 'bubble_id', 'exclure', ['oui', 'non']),
+    ).toEqual(
+      new Map([
+        ['b-1', 'oui'],
+        ['b-2', 'non'],
+        ['b-3', 'x'],
+      ]),
+    );
+    // Fichier absent (premier passage) : aucune décision, aucun blocage.
+    expect(lire('absent.csv', 'cle', 'groupe_decide').size).toBe(0);
+    expect(blocages).toEqual([
+      "clients-a-valider.csv : colonne(s) groupe_decide introuvable(s) dans la ligne d'en-tête, aucune décision lue",
+      "type_overrides.csv : colonne(s) bubble_id introuvable(s) dans la ligne d'en-tête, aucune décision lue",
+      'lieux-a-valider.csv : fiche(s) portant deux décisions différentes (colonne groupe_decide) : l-1',
+      'exclusions.csv : valeur(s) inattendue(s) dans exclure (attendu : oui ou non) : b-3',
+    ]);
+    // Rejoints aux blocages du plan : l'import s'arrête avant toute écriture.
+    const plan = monde({}, { blocagesDecisions: blocages });
+    expect(plan.blocages).toEqual(blocages);
+    expect(() => exigerAucunBlocage(plan)).toThrow(/clients-a-valider\.csv/);
+  });
+
+  it('un type validé posé sur une fiche regroupée dans une autre, ou sur une fiche inconnue, bloque en nommant la ligne', () => {
+    const { alpha, alphaBis, cousin, beta } = clientsRapproches();
+    const id = (l: Record<string, string>) => l['unique id']!;
+    const plan = monde(
+      { entreprises: [alpha, alphaBis, cousin, beta] },
+      decisions({
+        types: [
+          [id(alpha), 'agence'],
+          [id(alphaBis), 'gestionnaire_lieux'],
+          ['identifiant-mal-recopie', 'agence'],
+        ],
+      }),
+    );
+    expect(plan.blocages).toEqual([
+      `type_overrides.csv : 2 type(s) posé(s) ailleurs que sur la fiche qui reçoit le regroupement, à reporter sur celle-ci : ${id(alphaBis)} (regroupée dans ${id(alpha)}), identifiant-mal-recopie (fiche inconnue)`,
+    ]);
+    // Gardés dans le fichier régénéré, marqués à reporter.
+    expect(
+      plan.aValider.types
+        .filter((t) => t.regle !== 'défaut')
+        .map((t) => [t.bubble_id, t.regle, t.type_valide]),
+    ).toEqual([
+      [
+        id(alphaBis),
+        `regroupée dans ${id(alpha)} : type à reporter`,
+        'gestionnaire_lieux',
+      ],
+      ['identifiant-mal-recopie', 'fiche inconnue : type à reporter', 'agence'],
+    ]);
+    // Sur la tête du groupe, le type s'applique sans blocage.
+    const juste = monde(
+      { entreprises: [alpha, alphaBis, cousin, beta] },
+      decisions({ types: [[id(alpha), 'agence']] }),
+    );
+    expect(juste.blocages).toEqual([]);
+    expect(
+      juste.tables.organisations.find((o) => o.nom === 'Traiteur Alpha')?.type,
+    ).toBe('agence');
+  });
+
+  it('deux fiches qui se désignent l’une l’autre, ou une chaîne qui revient sur elle-même, bloquent ; une fiche qui se désigne elle-même reste seule', () => {
+    const { alpha, alphaBis, cousin, beta } = clientsRapproches();
+    const id = (l: Record<string, string>) => l['unique id']!;
+    const entreprises = [alpha, alphaBis, cousin, beta];
+    const boucle = monde(
+      { entreprises },
+      decisions({
+        clients: [
+          [id(alpha), id(cousin)],
+          [id(cousin), id(alpha)],
+        ],
+      }),
+    );
+    expect(boucle.blocages).toEqual([
+      `clients-a-valider.csv : 1 boucle(s) de fiches qui se désignent l'une l'autre (colonne groupe_decide), aucune ne serait regroupée : ${id(alpha)} → ${id(cousin)}`,
+    ]);
+    const seuleAlpha = monde(
+      { entreprises },
+      decisions({ clients: [[id(alpha), id(alpha)]] }),
+    );
+    expect(seuleAlpha.blocages).toEqual([]);
+    expect(
+      seuleAlpha.correspondances
+        .filter((c) => c.sourceType === 'entreprise' && c.fusionne)
+        .map((c) => c.bubbleId),
+    ).toEqual([id(alphaBis)]);
+
+    const p = (
+      cle: string,
+      niveau: 'auto' | 'a_revoir' | 'distinct',
+      groupePropose = cle,
+    ) => ({
+      cle,
+      niveau,
+      groupePropose,
+      motif: '',
+    });
+    // Chaîne de trois décisions qui revient au départ.
+    expect(
+      decisionsEnBoucle(
+        [p('a', 'a_revoir', 'b'), p('b', 'a_revoir', 'a'), p('c', 'distinct')],
+        new Map([
+          ['a', 'b'],
+          ['b', 'c'],
+          ['c', 'a'],
+        ]),
+      ),
+    ).toEqual([['a', 'b', 'c']]);
+    // Une décision qui renvoie une fiche vers celle qui la rejoint d'office.
+    expect(
+      decisionsEnBoucle(
+        [p('a', 'auto', 'b'), p('b', 'a_revoir', 'a')],
+        new Map([['b', 'a']]),
+      ),
+    ).toEqual([['a', 'b']]);
+    expect(
+      decisionsEnBoucle(
+        [p('a', 'auto', 'b'), p('b', 'a_revoir', 'a')],
+        new Map([['a', 'a']]),
+      ),
+    ).toEqual([]);
+  });
+
+  it('fichiers à valider rangés par dossier : D001…, fiches du dossier, ce qu’il y a à faire, à décider d’abord puis par nom sans accents', () => {
+    const { alpha, alphaBis, cousin, beta } = clientsRapproches();
+    const etoile = entreprise({
+      'Raison sociale': 'Étoile Nord',
+      SIRET: '55555555500055',
+      'Email de contact': 'a@etoile-nord.example',
+    });
+    const plan = monde({
+      entreprises: [beta, etoile, alpha, alphaBis, cousin],
+      agences: [agence(), agence({ Nom: 'agence gamma' })],
+    });
+    expect(Object.keys(plan.aValider.clients[0]!).slice(0, 4)).toEqual([
+      'dossier',
+      'fiches_dossier',
+      'a_faire',
+      'bubble_id',
+    ]);
+    expect(
+      plan.aValider.clients.map((c) => [
+        c.dossier,
+        c.fiches_dossier,
+        c.a_faire,
+        c.nom,
+        c.niveau,
+      ]),
+    ).toEqual([
+      ['D001', 3, 'à décider', 'Alpha Réceptions', 'a_revoir'],
+      ['D001', 3, 'à décider', 'Traiteur Alpha', 'a_revoir'],
+      ['D001', 3, 'à décider', 'TRAITEUR ALPHA', 'auto'],
+      ['D002', 2, 'fusion d’office, à vérifier', 'Agence Gamma', 'distinct'],
+      ['D002', 2, 'fusion d’office, à vérifier', 'agence gamma', 'auto'],
+      ['D003', 1, 'rien à faire', 'Étoile Nord', 'distinct'],
+      ['D004', 1, 'rien à faire', 'Maison Bêta', 'distinct'],
+    ]);
+    // Même forme pour les lieux.
+    expect(Object.keys(plan.aValider.lieux[0]!).slice(0, 4)).toEqual([
+      'dossier',
+      'fiches_dossier',
+      'a_faire',
+      'cle',
+    ]);
+  });
+
+  it('une relance reporte les décisions déjà lues dans les fichiers régénérés, même celles qui bloquent', () => {
+    const { alpha, alphaBis, cousin, beta } = clientsRapproches();
+    const test = entreprise({
+      'Raison sociale': 'Test Démo',
+      SIRET: '44444444400044',
+      'Email de contact': 'a@test-demo.example',
+    });
+    const id = (l: Record<string, string>) => l['unique id']!;
+    const plan = monde(
+      {
+        entreprises: [alpha, alphaBis, cousin, beta, test],
+        collectes_ag: [collecte({ 'Nom du client': 'Client de test' })],
+      },
+      decisions({
+        clients: [[id(cousin), 'distinct']],
+        types: [[id(beta), 'traiteurs']],
+        exclusions: [[id(test), 'non']],
+      }),
+    );
+    const client = (l: Record<string, string>) =>
+      plan.aValider.clients.find((c) => c.bubble_id === id(l));
+    expect(client(cousin)?.groupe_decide).toBe('distinct');
+    expect(
+      plan.aValider.types.find((t) => t.bubble_id === id(beta))?.type_valide,
+    ).toBe('traiteurs');
+    expect(
+      plan.aValider.exclusions.map((e) => [e.source, e.nom, e.exclure]),
+    ).toEqual([
+      ['entreprise', 'Test Démo', 'non'],
+      ['collecte', 'Client de test', ''],
+    ]);
+    expect(plan.tables.organisations.map((o) => o.nom)).toContain('Test Démo');
   });
 });
 
@@ -796,7 +1079,7 @@ describe('M5.1 / lieux — référentiel initié par la migration', () => {
       decisions: {
         clients: new Map(),
         types: new Map(),
-        exclusions: new Set(),
+        exclusions: new Map(),
         lieux: new Map([
           [c, a],
           [b, 'distinct'],

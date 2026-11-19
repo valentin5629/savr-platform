@@ -44,7 +44,9 @@ async function main(): Promise<number> {
     dossier,
     env.MIGRATION_BUBBLE_REPETITION ?? 'repetition-1',
   );
-  exigerHorsDepot(dossier, fileURLToPath(new URL('../../..', import.meta.url)));
+  const decisions = env.MIGRATION_BUBBLE_DECISIONS ?? sortie;
+  for (const d of [dossier, sortie, decisions])
+    exigerHorsDepot(d, fileURLToPath(new URL('../../..', import.meta.url)));
 
   switch (commande) {
     case 'importer': {
@@ -53,7 +55,7 @@ async function main(): Promise<number> {
         dossierExports:
           env.MIGRATION_BUBBLE_EXPORTS ?? join(homedir(), 'Downloads'),
         dossierSortie: sortie,
-        dossierDecisions: env.MIGRATION_BUBBLE_DECISIONS ?? sortie,
+        dossierDecisions: decisions,
         fichierCache: join(dossier, 'cache', 'adresses.json'),
         appliquerTypesProposes: options.includes('--types-proposes'),
         situerLesLieux: !options.includes('--sans-adresses'),

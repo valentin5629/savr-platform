@@ -1182,7 +1182,7 @@
     },
     {
       "id": "M0.6-photos-client-selection-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:807-812",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:814-819",
       "artefact": "supabase/migrations/20261007203000_shared_fichiers_photos_rang_client.sql (colonne shared.fichiers.rang_client, CHECK rangs 1/2 réservés aux photos de collecte, index unique partiel uniq_fichiers_photo_client_rang, policy fichiers_select resserrée par ALTER POLICY)",
       "test": "supabase/tests/SECU__fichiers_photos_selection_client.test.sql",
       "statut": "implemented",
@@ -1376,7 +1376,7 @@
     },
     {
       "id": "M0.6-impersonation-launcher-ui",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1020",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1027",
       "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
       "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
       "statut": "implemented",
@@ -1869,7 +1869,7 @@
     },
     {
       "id": "M0.6-fonctions-visibilite-appel-direct",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:658",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:661",
       "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (trois fonctions SECURITY DEFINER fermées à PUBLIC et anon, ouvertes à authenticated ; f_evenements_visibles_organisation limitée aux événements qui portent une collecte) + supabase/tests/securite_rpc_definer_exposees.test.sql (allowlist T17)",
       "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (43-45 appel direct des trois fonctions : rien de plus que ce que le jeton lit, 15 jetons dont comptes au code activé en aal1 et aal2)",
       "statut": "implemented",
@@ -1883,7 +1883,7 @@
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "424b3c10f7ba6447c8fe44c8b77afae2ac99b83cd8933b200a49a7bfb52f75e2",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "b2378a8d3e0a4542259615e26ad5d1449591e43d212e03ca7f5bdc86128438f4",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "0a427736db98fe318f63d449ed5d19f87daa7e318b8649f1c09ed23747317d5c",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "2a9b0a10448a18585a0d99dfd3104281ba1dd72812d0e6e4a61ca880d6858f22",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "45914422dddb113b5eaaeca2c75ad8de5e3874b61e709d432b3eb56a0748016e",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "39b63ee0a2f7ac5509638a68ad975409ede85f601b8e0a7da6db32f2747d634d",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c26592d4cfedd24f3335e16aa31aa1ae3627fafa57064d593766c60e198763f2",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "f87b3d89f7f28d5d027f788249c74ca4ef84f7e277ad2d00c59b66e984ed959e",

@@ -638,7 +638,7 @@ describe('M5.1 / références ambiguës — jamais résolues au hasard', () => {
         },
       },
     );
-    expect(plan.blocages).toEqual([
+    expect(plan.blocagesDecisions).toEqual([
       `clients-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide) : ${alpha['unique id']}`,
       'type_overrides.csv : 1 type(s) validé(s) inconnu(s) (attendu : traiteur, agence, gestionnaire_lieux, client_organisateur)',
       'lieux-a-valider.csv : 1 décision(s) désignent une fiche inconnue (colonne groupe_decide) : adresse inconnue',
@@ -755,10 +755,51 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
       'lieux-a-valider.csv : fiche(s) portant deux décisions différentes (colonne groupe_decide) : l-1',
       'exclusions.csv : valeur(s) inattendue(s) dans exclure (attendu : oui ou non) : b-3',
     ]);
-    // Rejoints aux blocages du plan : l'import s'arrête avant toute écriture.
+    // Rejoints aux blocages des décisions du plan : l'import s'arrête avant toute écriture.
     const plan = monde({}, { blocagesDecisions: blocages });
-    expect(plan.blocages).toEqual(blocages);
+    expect(plan.blocagesDecisions).toEqual(blocages);
     expect(() => exigerAucunBlocage(plan)).toThrow(/clients-a-valider\.csv/);
+  });
+
+  it('fichier mal formé (guillemet jamais refermé, lignes au mauvais séparateur, cellules en trop, colonne en double) : blocage, jamais zéro décision en silence', () => {
+    const blocages: string[] = [];
+    const dossier = dossierDecisions({
+      'guillemet.csv':
+        'cle,groupe_decide\nl-1,"distinct\nl-2,distinct\nl-3,l-1\n',
+      'melange.csv': 'cle,groupe_decide\nl-1;distinct\nl-2;l-1\n',
+      'trop.csv': 'cle,groupe_decide\nl-1,distinct,en trop\n',
+      'double.csv': 'cle,groupe_decide,groupe_decide\nl-1,distinct,\n',
+    });
+    for (const f of ['guillemet.csv', 'melange.csv', 'trop.csv', 'double.csv'])
+      expect(
+        lireDecisions(dossier, f, 'cle', 'groupe_decide', blocages).size,
+      ).toBe(0);
+    expect(blocages).toEqual([
+      'guillemet.csv : guillemet jamais refermé, aucune décision lue',
+      "melange.csv : 2 ligne(s) dont le nombre de cellules n'est pas celui de l'en-tête, aucune décision lue",
+      "trop.csv : 1 ligne(s) dont le nombre de cellules n'est pas celui de l'en-tête, aucune décision lue",
+      'double.csv : colonne(s) groupe_decide présente(s) deux fois, aucune décision lue',
+    ]);
+  });
+
+  it('une décision qui ne s’appliquerait à rien (exclusion d’une fiche inconnue comprise) bloque avant la réécriture des fichiers à valider, qui l’effacerait', () => {
+    const plan = monde(
+      {},
+      decisions({ exclusions: [['identifiant-mal-recopie', 'oui']] }),
+    );
+    expect(plan.blocagesDecisions).toEqual([
+      'exclusions.csv : 1 décision(s) désignent une fiche inconnue (colonne bubble_id) : identifiant-mal-recopie',
+    ]);
+    expect(plan.blocages).toEqual([]);
+    // Une exclusion sur un client ou une collecte de l'export ne bloque pas.
+    const connue = collecte();
+    expect(
+      monde(
+        { collectes_ag: [connue] },
+        decisions({ exclusions: [[connue['unique id']!, 'oui']] }),
+      ).blocagesDecisions,
+    ).toEqual([]);
+    expect(() => exigerAucunBlocage(plan)).toThrow(/exclusions\.csv/);
   });
 
   it('un type validé posé sur une fiche regroupée dans une autre, ou sur une fiche inconnue, bloque en nommant la ligne', () => {
@@ -774,21 +815,8 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
         ],
       }),
     );
-    expect(plan.blocages).toEqual([
+    expect(plan.blocagesDecisions).toEqual([
       `type_overrides.csv : 2 type(s) posé(s) ailleurs que sur la fiche qui reçoit le regroupement, à reporter sur celle-ci : ${id(alphaBis)} (regroupée dans ${id(alpha)}), identifiant-mal-recopie (fiche inconnue)`,
-    ]);
-    // Gardés dans le fichier régénéré, marqués à reporter.
-    expect(
-      plan.aValider.types
-        .filter((t) => t.regle !== 'défaut')
-        .map((t) => [t.bubble_id, t.regle, t.type_valide]),
-    ).toEqual([
-      [
-        id(alphaBis),
-        `regroupée dans ${id(alpha)} : type à reporter`,
-        'gestionnaire_lieux',
-      ],
-      ['identifiant-mal-recopie', 'fiche inconnue : type à reporter', 'agence'],
     ]);
     // Sur une fiche écartée par Val (donnée de test), le type ne compte pas.
     expect(
@@ -798,14 +826,14 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
           types: [[id(beta), 'agence']],
           exclusions: [[id(beta), 'oui']],
         }),
-      ).blocages,
+      ).blocagesDecisions,
     ).toEqual([]);
     // Sur la tête du groupe, le type s'applique sans blocage.
     const juste = monde(
       { entreprises: [alpha, alphaBis, cousin, beta] },
       decisions({ types: [[id(alpha), 'agence']] }),
     );
-    expect(juste.blocages).toEqual([]);
+    expect(juste.blocagesDecisions).toEqual([]);
     expect(
       juste.tables.organisations.find((o) => o.nom === 'Traiteur Alpha')?.type,
     ).toBe('agence');
@@ -824,14 +852,14 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
         ],
       }),
     );
-    expect(boucle.blocages).toEqual([
+    expect(boucle.blocagesDecisions).toEqual([
       `clients-a-valider.csv : 1 boucle(s) de fiches qui se désignent l'une l'autre (colonne groupe_decide), aucune ne serait regroupée : ${id(alpha)} → ${id(cousin)}`,
     ]);
     const seuleAlpha = monde(
       { entreprises },
       decisions({ clients: [[id(alpha), id(alpha)]] }),
     );
-    expect(seuleAlpha.blocages).toEqual([]);
+    expect(seuleAlpha.blocagesDecisions).toEqual([]);
     expect(
       seuleAlpha.correspondances
         .filter((c) => c.sourceType === 'entreprise' && c.fusionne)
@@ -917,7 +945,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
     ]);
   });
 
-  it('une relance reporte les décisions déjà lues dans les fichiers régénérés, même celles qui bloquent', () => {
+  it('une relance reporte les décisions déjà lues dans les fichiers régénérés, telles que lues', () => {
     const { alpha, alphaBis, cousin, beta } = clientsRapproches();
     const test = entreprise({
       'Raison sociale': 'Test Démo',

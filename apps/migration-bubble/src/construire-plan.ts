@@ -22,7 +22,22 @@ import {
 
 export function construirePlan(sources: Sources, ctx: Contexte): Plan {
   const plan = planVide();
-  plan.blocages.push(...ctx.blocagesDecisions);
+  plan.blocagesDecisions.push(...ctx.blocagesDecisions);
+  const fichesConnues = new Set(
+    [
+      ...sources.entreprises.lignes,
+      ...sources.agences.lignes,
+      ...sources.collectes_ag.lignes,
+      ...sources.collectes_zd.lignes,
+    ].map((l) => (l['unique id'] ?? '').trim()),
+  );
+  const exclusionsSansObjet = [...ctx.decisions.exclusions.keys()].filter(
+    (cle) => !fichesConnues.has(cle),
+  );
+  if (exclusionsSansObjet.length > 0)
+    plan.blocagesDecisions.push(
+      `exclusions.csv : ${exclusionsSansObjet.length} décision(s) désignent une fiche inconnue (colonne bubble_id) : ${exclusionsSansObjet.join(', ')}`,
+    );
   const nomsLieux = new Set(
     sources.lieux.lignes.map((l) => normaliserNom(l['Nom du lieu'])),
   );

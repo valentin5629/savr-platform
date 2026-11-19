@@ -22,6 +22,10 @@ export function lireCsv(
 ): {
   colonnes: string[];
   lignes: Ligne[];
+  /** Lignes non vides dont le nombre de cellules n'est pas celui de l'en-tête. */
+  irregulieres: number;
+  /** Un guillemet ouvert n'a jamais été fermé : la fin du fichier a été lue comme une seule cellule. */
+  guillemetOuvert: boolean;
 } {
   const brut = texte.charCodeAt(0) === 0xfeff ? texte.slice(1) : texte;
   const tableau: string[][] = [];
@@ -53,13 +57,16 @@ export function lireCsv(
     tableau.push(ligne);
   }
   const colonnes = tableau[0] ?? [];
-  const lignes = tableau
-    .slice(1)
-    .filter((l) => l.some((v) => v !== ''))
-    .map((l) =>
-      Object.fromEntries(colonnes.map((nom, i) => [nom, l[i] ?? ''])),
-    );
-  return { colonnes, lignes };
+  const nonVides = tableau.slice(1).filter((l) => l.some((v) => v !== ''));
+  const lignes = nonVides.map((l) =>
+    Object.fromEntries(colonnes.map((nom, i) => [nom, l[i] ?? ''])),
+  );
+  return {
+    colonnes,
+    lignes,
+    irregulieres: nonVides.filter((l) => l.length !== colonnes.length).length,
+    guillemetOuvert: entreGuillemets,
+  };
 }
 
 export function ecrireCsv(

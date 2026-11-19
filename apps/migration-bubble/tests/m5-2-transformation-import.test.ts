@@ -2,7 +2,14 @@
  * M5.2 — transformation des collectes et des packs, garde « base locale »,
  * écriture idempotente, coupure des déclencheurs. Fixtures inventées.
  */
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -983,6 +990,29 @@ describe('M5.2 / garde — rien n’est exécuté sur une base sans marqueur ; a
     ).toThrow(/dans le dépôt, qui est public/);
     expect(() =>
       exigerHorsDepot(join(racine, 'ailleurs', 'repetition-2'), depot),
+    ).not.toThrow();
+  });
+
+  it('refuse un dossier écrit dans une autre casse que le dépôt, ou placé dans un autre dépôt git (le clone principal vu d’un worktree)', () => {
+    const racine = realpathSync(mkdtempSync(join(tmpdir(), 'garde-git-')));
+    const depot = join(racine, 'Depot');
+    const clone = join(racine, 'Clone');
+    mkdirSync(join(clone, 'sous', 'dossier'), { recursive: true });
+    mkdirSync(depot);
+    writeFileSync(join(depot, '.git'), 'gitdir: ailleurs\n');
+    mkdirSync(join(clone, '.git'));
+    const refus = /dans le dépôt, qui est public/;
+    // Disque insensible à la casse (cas du Mac) : « depot » désigne « Depot ».
+    if (existsSync(join(racine, 'depot')))
+      expect(() =>
+        exigerHorsDepot(join(racine, 'depot', 'sorties'), depot),
+      ).toThrow(refus);
+    expect(() => exigerHorsDepot(join(clone, 'sorties'), depot)).toThrow(refus);
+    expect(() =>
+      exigerHorsDepot(join(clone, 'sous', 'dossier'), depot),
+    ).toThrow(refus);
+    expect(() =>
+      exigerHorsDepot(join(racine, 'ailleurs'), depot),
     ).not.toThrow();
   });
 

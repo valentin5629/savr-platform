@@ -116,28 +116,42 @@ export async function connecter(
   return client;
 }
 
-/** Chemin réel, liens symboliques résolus, même pour un dossier pas encore créé (par son parent existant). */
+/**
+ * Chemin réel, liens symboliques résolus et casse du disque rétablie (le disque
+ * du Mac ignore la casse), même pour un dossier pas encore créé (par son parent
+ * existant).
+ */
 function cheminReel(chemin: string): string {
   const absolu = resolve(chemin);
   let existant = absolu;
   while (!existsSync(existant) && dirname(existant) !== existant)
     existant = dirname(existant);
-  return join(realpathSync(existant), relative(existant, absolu));
+  return join(realpathSync.native(existant), relative(existant, absolu));
+}
+
+/** Premier dossier, du chemin vers la racine du disque, qui porte une entrée `.git` (clone ou worktree). */
+function depotEnglobant(chemin: string): string | null {
+  for (let d = chemin; ; d = dirname(d)) {
+    if (existsSync(join(d, '.git'))) return d;
+    if (dirname(d) === d) return null;
+  }
 }
 
 /**
  * Le dossier de travail (exports lus, cache, fichiers à valider, rapports)
  * porte des données réelles : il ne doit jamais se trouver dans le dépôt, qui
  * est public. Comparé sur les chemins réels : un lien symbolique vers le dépôt
- * est refusé, un sous-dossier nommé « ..x » aussi.
+ * est refusé, un sous-dossier nommé « ..x » aussi, comme tout dossier placé
+ * dans un dépôt git quel qu'il soit (le clone principal vu d'un worktree).
  */
 export function exigerHorsDepot(dossier: string, racineDepot: string): void {
-  const interieur = relative(cheminReel(racineDepot), cheminReel(dossier));
+  const reel = cheminReel(dossier);
+  const interieur = relative(cheminReel(racineDepot), reel);
   const dehors =
     isAbsolute(interieur) ||
     interieur === '..' ||
     interieur.startsWith(`..${sep}`);
-  if (!dehors)
+  if (!dehors || depotEnglobant(reel) !== null)
     throw new BaseRefusee(
       `Dossier de travail refusé : « ${dossier} » est dans le dépôt, qui est public. ` +
         'Les sorties de l’import portent des données réelles.',

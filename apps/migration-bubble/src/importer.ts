@@ -100,9 +100,10 @@ async function compter(
 
 /**
  * Décisions de Val dans un fichier à valider (virgule ou point-virgule). Une
- * décision qui ne peut pas être lue n'est jamais perdue en silence : colonne
- * absente, deux décisions différentes pour une même fiche ou valeur hors de
- * `valeursPermises` ajoutent un blocage qui nomme le fichier.
+ * décision qui ne peut pas être lue n'est jamais perdue en silence : fichier
+ * mal formé (colonne absente ou en double, guillemet non refermé, ligne au
+ * mauvais nombre de cellules), deux décisions différentes pour une même fiche
+ * ou valeur hors de `valeursPermises` ajoutent un blocage qui nomme le fichier.
  */
 export function lireDecisions(
   dossier: string,
@@ -116,12 +117,28 @@ export function lireDecisions(
   const decisions = new Map<string, string>();
   if (!existsSync(chemin)) return decisions;
   const texte = readFileSync(chemin, 'utf8');
-  const { colonnes, lignes } = lireCsv(texte, separateurEntete(texte));
+  const { colonnes, lignes, irregulieres, guillemetOuvert } = lireCsv(
+    texte,
+    separateurEntete(texte),
+  );
   const absentes = [cle, valeur].filter((c) => !colonnes.includes(c));
-  if (absentes.length > 0) {
-    blocages.push(
-      `${fichier} : colonne(s) ${absentes.join(', ')} introuvable(s) dans la ligne d'en-tête, aucune décision lue`,
-    );
+  const doublees = [cle, valeur].filter(
+    (c) => colonnes.filter((x) => x === c).length > 1,
+  );
+  const defauts = [
+    absentes.length > 0
+      ? `colonne(s) ${absentes.join(', ')} introuvable(s) dans la ligne d'en-tête`
+      : null,
+    doublees.length > 0
+      ? `colonne(s) ${doublees.join(', ')} présente(s) deux fois`
+      : null,
+    guillemetOuvert ? 'guillemet jamais refermé' : null,
+    irregulieres > 0
+      ? `${irregulieres} ligne(s) dont le nombre de cellules n'est pas celui de l'en-tête`
+      : null,
+  ].filter((d) => d !== null);
+  if (defauts.length > 0) {
+    blocages.push(`${fichier} : ${defauts.join(' ; ')}, aucune décision lue`);
     return decisions;
   }
   const doublons = new Set<string>();
@@ -287,10 +304,11 @@ export async function mesurerAuteurs(
 
 /** Arrête l'import, avant toute écriture en base, tant qu'un point reste à trancher par Val. */
 export function exigerAucunBlocage(plan: Plan): void {
-  if (plan.blocages.length > 0)
+  const blocages = [...plan.blocagesDecisions, ...plan.blocages];
+  if (blocages.length > 0)
     throw new Error(
-      `Import arrêté avant toute écriture — ${plan.blocages.length} point(s) à trancher :\n` +
-        plan.blocages.map((b) => `  - ${b}`).join('\n'),
+      `Import arrêté avant toute écriture — ${blocages.length} point(s) à trancher :\n` +
+        blocages.map((b) => `  - ${b}`).join('\n'),
     );
 }
 
@@ -434,8 +452,9 @@ export async function importer(options: OptionsImport): Promise<BilanPassage> {
       construirePlan(sources, ctx),
     );
 
-    // Un fichier de décision mal lu n'est pas réécrit : les décisions qu'il porte seraient perdues.
-    if (ctx.blocagesDecisions.length > 0) exigerAucunBlocage(plan);
+    // Une décision mal lue ou inapplicable arrête l'import avant la réécriture
+    // des fichiers à valider : réécrits, ils l'effaceraient.
+    if (plan.blocagesDecisions.length > 0) exigerAucunBlocage(plan);
 
     // Sorties hors dépôt : fichiers à valider, listes de complétion, bilan du passage.
     const sortie = options.dossierSortie;

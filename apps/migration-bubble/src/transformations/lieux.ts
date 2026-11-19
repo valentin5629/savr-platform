@@ -226,12 +226,12 @@ export function transformerLieux(
   const groupe = appliquerDecisions(propositions, ctx.decisions.lieux);
   const sansObjet = decisionsSansObjet(propositions, ctx.decisions.lieux);
   if (sansObjet.length > 0)
-    plan.blocages.push(
+    plan.blocagesDecisions.push(
       `lieux-a-valider.csv : ${sansObjet.length} décision(s) désignent une fiche inconnue (colonne groupe_decide) : ${sansObjet.join(', ')}`,
     );
   const boucles = decisionsEnBoucle(propositions, ctx.decisions.lieux);
   if (boucles.length > 0)
-    plan.blocages.push(
+    plan.blocagesDecisions.push(
       `lieux-a-valider.csv : ${boucles.length} boucle(s) de fiches qui se désignent l'une l'autre (colonne groupe_decide), aucune ne serait regroupée : ${boucles.map((b) => b.join(' → ')).join(' ; ')}`,
     );
   const propositionParCle = new Map(propositions.map((p) => [p.cle, p]));

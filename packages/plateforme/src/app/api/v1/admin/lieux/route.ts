@@ -8,6 +8,8 @@ import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 import { lireTri } from '@/lib/tri-liste.js';
 import { estCodeSiteViparis } from '@/lib/viparis/codes.js';
 import { regionLieu } from '@/lib/lieux/region-code-postal.js';
+import { ecartsAuLieu } from '@/lib/lieux/adresses-livraison';
+import { lireAdressesLivraison } from '@/lib/lieux/adresses-livraison-saisie';
 import {
   estGabaritLieuTransporteur,
   MESSAGE_GABARIT_INVALIDE,
@@ -88,10 +90,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .from('collectes')
       .select('lieu_overrides, evenements!inner(lieu_id)')
       .not('lieu_overrides', 'is', null);
+    // CDC §04 : seules les collectes dont une valeur diffère ENCORE du lieu
+    // officiel. Le choix de l'une des adresses de livraison du lieu n'est pas
+    // un écart (cf. `ecartsAuLieu`).
+    const lieuParId = new Map(enriched.map((l) => [l.id as string, l]));
     const lieuIdsAvecOverrides = new Set(
-      (collectesOverrides ?? []).map(
-        (c) => (c.evenements as unknown as { lieu_id: string }).lieu_id,
-      ),
+      (collectesOverrides ?? [])
+        .map((c) => ({
+          lieuId: (c.evenements as unknown as { lieu_id: string }).lieu_id,
+          overrides: c.lieu_overrides as Record<string, unknown> | null,
+        }))
+        .filter(
+          ({ lieuId, overrides }) =>
+            Object.keys(ecartsAuLieu(overrides, lieuParId.get(lieuId))).length >
+            0,
+        )
+        .map(({ lieuId }) => lieuId),
     );
     const filtered = enriched.filter((l) =>
       lieuIdsAvecOverrides.has(l.id as string),
@@ -150,6 +164,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   );
   if (!gestionnaire.ok) return gestionnaire.reponse;
 
+  // Adresses de livraison n° 2 et n° 3 (Val 2026-11-19), validées et géocodées
+  // avant la création, comme l'adresse n° 1.
+  const adresses = await lireAdressesLivraison(body, null);
+  if (!adresses.ok) return adresses.reponse;
+
   // Géocodage en background au save, fail-open — cf. lib/geocoding.ts.
   const coords = await geocodeAdresse(
     adresse_acces as string,
@@ -186,6 +205,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       actif: body.actif ?? false,
       latitude: coords?.latitude ?? null,
       longitude: coords?.longitude ?? null,
+      ...adresses.valeurs,
     })
     .select()
     .single();

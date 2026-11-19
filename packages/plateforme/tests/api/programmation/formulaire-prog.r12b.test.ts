@@ -284,6 +284,60 @@ describe('M1.2 / PROG-01 override lieu', () => {
     );
   });
 
+  it('Adresses de livraison (Val 2026-11-19) — l’adresse n° 2 du lieu choisie est copiée dans la collecte, sans signalement Admin ni badge', async () => {
+    setupAuth('traiteur_commercial');
+    const adresse2 = {
+      adresse_acces: '1 avenue du Général Lemonnier',
+      code_postal: '75001',
+      ville: 'Paris',
+    };
+    mockMaybeSingle
+      .mockResolvedValueOnce({ data: { id: 'entite-1' }, error: null }) // entité de facturation
+      .mockResolvedValueOnce({
+        // lieu officiel, relu pour mesurer l'écart
+        data: {
+          adresse_acces: '99 rue de Rivoli',
+          code_postal: '75001',
+          ville: 'Paris',
+          adresse_acces_2: adresse2.adresse_acces,
+          code_postal_2: adresse2.code_postal,
+          ville_2: adresse2.ville,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: { email: 'prog@x.fr' }, error: null }); // users récap
+    mockRpc.mockResolvedValueOnce(enregistree('evt-3', 'collecte-zd-3'));
+
+    const { POST } =
+      await import('@/app/api/v1/programmation/evenements/route.js');
+    const res = await POST(
+      makeReq('POST', '/api/v1/programmation/evenements', {
+        ...BODY_ZD,
+        lieu_overrides: adresse2,
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    // L'adresse choisie est bien figée dans la collecte…
+    expect(mockRpc).toHaveBeenCalledWith(
+      'fn_enregistrer_programmation',
+      expect.objectContaining({
+        p_evenement: expect.objectContaining({ lieu_overrides: adresse2 }),
+      }),
+    );
+    // … mais ce n'est pas une modification du lieu.
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'f_upsert_alerte_admin',
+      expect.anything(),
+    );
+    expect(mockSupabaseChain.update).not.toHaveBeenCalledWith({
+      informations_completes: false,
+    });
+    expect(mockSupabaseChain.insert).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'lieu_override_programmation' }),
+    );
+  });
+
   it('M1.2 — PROG-01 brouillon persiste lieu_overrides', async () => {
     setupAuth('traiteur_commercial');
     mockMaybeSingle.mockResolvedValueOnce({

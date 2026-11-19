@@ -75,6 +75,16 @@ const COLONNES = [
   'controle_acces_requis_default',
   'contraintes_horaires',
   'flux_autorises',
+  // Adresses de livraison n° 2 et n° 3 (Val 2026-11-19) : sélecteur d'adresse.
+  'libelle_adresse_1',
+  'libelle_adresse_2',
+  'adresse_acces_2',
+  'code_postal_2',
+  'ville_2',
+  'libelle_adresse_3',
+  'adresse_acces_3',
+  'code_postal_3',
+  'ville_3',
 ];
 
 function connecter(role: string, organisation: string): void {

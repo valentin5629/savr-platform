@@ -1,7 +1,10 @@
 import type { NextRequest } from 'next/server';
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { envoyerRecapProgrammation } from '@/lib/programmation/recap-email.js';
-import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
+import {
+  ecartsAuLieuEnBase,
+  notifierOverrideLieu,
+} from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { urlApplication } from '@/lib/url-application';
@@ -75,7 +78,10 @@ export async function apresConfirmation(
 ): Promise<void> {
   const ids = p.collectes.map((c) => c.id);
 
-  if (p.lieuOverrides && Object.keys(p.lieuOverrides).length > 0) {
+  // Choisir l'une des adresses de livraison du lieu n'est pas une modification
+  // du lieu : seul un écart réel pose le badge et prévient l'Admin.
+  const ecarts = await ecartsAuLieuEnBase(supabase, p.lieuId, p.lieuOverrides);
+  if (Object.keys(ecarts).length > 0) {
     await supabase
       .from('collectes')
       .update({ informations_completes: false })
@@ -83,7 +89,7 @@ export async function apresConfirmation(
     await notifierOverrideLieu(supabase, {
       evenementId: p.evenementId,
       lieuId: p.lieuId,
-      overrides: p.lieuOverrides,
+      overrides: ecarts,
       userId: p.ctx.userId,
       role: p.ctx.role ?? null,
     });

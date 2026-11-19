@@ -1,5 +1,6 @@
 'use client';
 
+import type { LieuAdresses } from '@/lib/lieux/adresses-livraison';
 import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import {
@@ -17,7 +18,9 @@ import { ChampDeclencheur } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 
-export interface LieuOption {
+// Adresses de livraison n° 2 et n° 3 (Val 2026-11-19) : renvoyées par
+// GET /programmation/lieux, lues par `adressesLivraisonDuLieu`.
+export interface LieuOption extends LieuAdresses {
   id: string;
   nom: string;
   adresse_acces: string;

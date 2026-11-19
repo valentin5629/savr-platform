@@ -37,6 +37,10 @@ import {
   normaliserCodeAffaireViparis,
 } from '@/lib/viparis/codes';
 import {
+  adressesLivraisonDuLieu,
+  type LieuAdresses,
+} from '@/lib/lieux/adresses-livraison';
+import {
   LieuChampsEditables,
   lieuToEdits,
   computeLieuOverrides,
@@ -146,7 +150,7 @@ interface SourceCollecte {
 }
 
 // Brouillon repris (GET /api/v1/programmation/evenements/:id).
-interface BrouillonLieu {
+interface BrouillonLieu extends LieuAdresses {
   nom: string | null;
   adresse_acces: string | null;
   code_postal: string | null;
@@ -452,6 +456,15 @@ export function FormulaireProgrammation({
             controle_acces_requis_default: Boolean(
               lieuSrc.controle_acces_requis_default,
             ),
+            libelle_adresse_1: lieuSrc.libelle_adresse_1 ?? null,
+            libelle_adresse_2: lieuSrc.libelle_adresse_2 ?? null,
+            adresse_acces_2: lieuSrc.adresse_acces_2 ?? null,
+            code_postal_2: lieuSrc.code_postal_2 ?? null,
+            ville_2: lieuSrc.ville_2 ?? null,
+            libelle_adresse_3: lieuSrc.libelle_adresse_3 ?? null,
+            adresse_acces_3: lieuSrc.adresse_acces_3 ?? null,
+            code_postal_3: lieuSrc.code_postal_3 ?? null,
+            ville_3: lieuSrc.ville_3 ?? null,
           };
           const base = lieuToEdits(option);
           const overrides = b.collectes[0]?.lieu_overrides ?? {};
@@ -606,7 +619,13 @@ export function FormulaireProgrammation({
     setError(null);
     try {
       const lieuOverrides =
-        lieuBase && lieuEdits ? computeLieuOverrides(lieuBase, lieuEdits) : {};
+        lieuBase && lieuEdits
+          ? computeLieuOverrides(
+              lieuBase,
+              lieuEdits,
+              adressesLivraisonDuLieu(lieu),
+            )
+          : {};
       const body = {
         nom_evenement: nomEvenement.trim() || undefined,
         nom_client_organisateur: nomClient.trim() || undefined,
@@ -882,7 +901,11 @@ export function FormulaireProgrammation({
 
           {/* Champs du lieu pré-remplis et éditables (override de la programmation). */}
           {lieu && lieuEdits && (
-            <LieuChampsEditables edits={lieuEdits} onChange={setLieuEdits} />
+            <LieuChampsEditables
+              edits={lieuEdits}
+              onChange={setLieuEdits}
+              adresses={adressesLivraisonDuLieu(lieu)}
+            />
           )}
 
           <Modal

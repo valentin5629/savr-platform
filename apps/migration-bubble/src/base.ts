@@ -136,10 +136,10 @@ export function exigerHorsDepot(dossier: string, racineDepot: string): void {
 
 /**
  * Posé par le script dans la base jetable seulement : aucun fichier dans
- * supabase/migrations/. Deux choses : le schéma technique « migration », et la
- * colonne de marquage des collectes importées (décision Val 2026-11-15). En
- * prod, cette colonne viendra d'une migration du dépôt (lot produit à part) ;
- * le « IF NOT EXISTS » rendra alors cette ligne sans effet.
+ * supabase/migrations/. Le schéma technique « migration » seul : la colonne de
+ * marquage des collectes importées (`collectes.origine`, décision Val
+ * 2026-11-15) vient de la migration du dépôt 20261119120000, le script ne
+ * modifie jamais lui-même une table du produit.
  */
 const SCHEMA_TECHNIQUE = `
 CREATE SCHEMA IF NOT EXISTS migration;
@@ -172,9 +172,6 @@ CREATE TABLE IF NOT EXISTS migration.auteurs_evenements (
   email        text NOT NULL CHECK (email = lower(btrim(email))),
   provenance   text NOT NULL CHECK (provenance IN ('commercial', 'contact_traiteur'))
 );
-ALTER TABLE plateforme.collectes
-  ADD COLUMN IF NOT EXISTS origine text NOT NULL DEFAULT 'plateforme'
-  CHECK (origine IN ('plateforme', 'migration_bubble'));
 ALTER TABLE migration.auteurs_evenements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.sources_brutes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE migration.id_map ENABLE ROW LEVEL SECURITY;

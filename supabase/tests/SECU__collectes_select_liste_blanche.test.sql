@@ -174,8 +174,8 @@ SELECT is(
       AND NOT has_column_privilege('authenticated', attrelid, attnum, 'SELECT')),
   ARRAY['annulee_cote_savr_motif', 'aucun_repas_photo_url', 'caps_appliques', 'co2_facteurs_snapshot',
         'dirty_tms', 'incident_imputable_a', 'lieu_overrides', 'motif_override_prestataire',
-        'nb_camions_demande', 'notes_internes'],
-  '3. colonnes fermées à authenticated : exactement les 10 colonnes lues en service_role');
+        'nb_camions_demande', 'notes_internes', 'origine'],
+  '3. colonnes fermées à authenticated : exactement les 11 colonnes lues en service_role (origine : 20261119120000)');
 
 SELECT is(
   (SELECT count(*)::int

@@ -379,17 +379,29 @@ export function transformerTransporteurs(
   return transporteurParBubbleId;
 }
 
+/**
+ * Téléphone d'un contact repris, retrouvé par son organisation et son nom
+ * (Val 2026-11-19, C2) ; null quand le contact n'est pas repris ou que le nom
+ * désigne deux numéros.
+ */
+export type TelephoneDuContact = (
+  organisationId: string,
+  nom: string,
+) => string | null;
+
 export function transformerContacts(
   contacts: Ligne[],
   organisationParNom: (nom: string) => string | null,
   organisationParEmail: (email: string) => string | null,
   ctx: Contexte,
   plan: Plan,
-): void {
+): TelephoneDuContact {
   interface Groupe {
     organisationId: string;
     telephone: string;
     nomComplet: string;
+    /** Noms normalisés de toutes les fiches Bubble du groupe. */
+    noms: Set<string>;
     bubbleIds: string[];
     premiere: string;
     derniere: string;
@@ -423,6 +435,7 @@ export function transformerContacts(
         organisationId,
         telephone,
         nomComplet,
+        noms: new Set([normaliserNom(nomComplet)]),
         bubbleIds: [bubbleId],
         premiere: instant,
         derniere: instant,
@@ -432,6 +445,7 @@ export function transformerContacts(
       continue;
     }
     g.bubbleIds.push(bubbleId);
+    g.noms.add(normaliserNom(nomComplet));
     if (instant !== '' && (g.premiere === '' || instant < g.premiere)) {
       g.premiere = instant;
       g.premiereDate = date;
@@ -455,6 +469,7 @@ export function transformerContacts(
     }
     const [garde, absorbe] = g.derniere > vu.derniere ? [g, vu] : [vu, g];
     garde.bubbleIds.push(...absorbe.bubbleIds);
+    for (const nom of absorbe.noms) garde.noms.add(nom);
     if (
       absorbe.premiere !== '' &&
       (garde.premiere === '' || absorbe.premiere < garde.premiere)
@@ -464,6 +479,11 @@ export function transformerContacts(
     }
     parNom.set(cle, garde);
   }
+
+  // Téléphone par nom : le nom retenu d'une fiche l'emporte ; un autre nom du groupe
+  // ne sert que s'il ne désigne qu'un numéro dans l'organisation.
+  const telephoneParNomRetenu = new Map<string, string>();
+  const telephoneParAutreNom = new Map<string, string | null>();
 
   // Durée de conservation : un contact sans usage depuis plus de 5 ans n'est pas repris (Val 2026-11-06).
   const seuil = decalerAnnees(ctx.jourReference, -5);
@@ -506,5 +526,27 @@ export function transformerContacts(
         fusionne: rang > 0,
       }),
     );
+    const nomRetenu = normaliserNom(g.nomComplet);
+    if (nomRetenu !== '')
+      telephoneParNomRetenu.set(
+        `${g.organisationId}:${nomRetenu}`,
+        g.telephone,
+      );
+    for (const nom of g.noms) {
+      if (nom === '') continue;
+      const cle = `${g.organisationId}:${nom}`;
+      const vu = telephoneParAutreNom.get(cle);
+      telephoneParAutreNom.set(
+        cle,
+        vu === undefined || vu === g.telephone ? g.telephone : null,
+      );
+    }
   }
+
+  return (organisationId, nom) => {
+    const cle = `${organisationId}:${normaliserNom(nom)}`;
+    return (
+      telephoneParNomRetenu.get(cle) ?? telephoneParAutreNom.get(cle) ?? null
+    );
+  };
 }

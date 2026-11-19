@@ -60,6 +60,7 @@ describe('M5.3 / checks de réconciliation — catalogue', () => {
         'B6',
         'C8',
         'C9',
+        'C10',
         'E2',
         'E3',
         'E4',
@@ -436,7 +437,11 @@ function exportsInventes(): Record<TypeSource, Ligne[]> {
       pointDepot({ Nom: 'Exutoire Lambda', Type: 'DECHET' }),
     ],
     transporteurs: [velo, camion],
-    contacts: [contact(), contact({ Numero: 'xx' })],
+    contacts: [
+      contact(),
+      contact({ Numero: 'xx' }),
+      contact({ PrenomNom: 'Alex Surplace', Numero: '0600000021' }),
+    ],
     packs: [p],
     abonnements: [abonnement()],
     poids_zd: [pesees, poids({})],
@@ -583,8 +588,11 @@ describe.skipIf(!ADRESSE_TEST)(
         expect(don).toMatchObject({ pax: 120 });
         expect(don.co2_evite).toBeCloseTo(28 * facteur, 2);
         expect(
-          rows.filter((r) => r.type === 'zero_dechet').map((r) => r.taux),
-        ).toEqual([true, false]);
+          rows
+            .filter((r) => r.type === 'zero_dechet')
+            .map((r) => r.taux)
+            .sort(),
+        ).toEqual([false, true]);
         expect(rows.find((r) => r.statut === 'annulee')!.jour).toBeNull();
         // Sans poids dans Bubble : « sans excédent », motif dédié, aucune attribution.
         expect(
@@ -748,6 +756,17 @@ describe.skipIf(!ADRESSE_TEST)(
             `UPDATE plateforme.collecte_contacts SET contact_principal_nom = 'Alex Surplace'`,
           ),
         ).toEqual(['E8']);
+        // Un numéro qu'aucun contact repris ne porte ; un numéro sur une collecte de plus de 5 ans.
+        expect(
+          await rouges(
+            `UPDATE plateforme.collecte_contacts SET contact_secours_telephone = '+33699999999'`,
+          ),
+        ).toEqual(['C10', 'E8']);
+        expect(
+          await rouges(
+            `UPDATE plateforme.collecte_contacts SET contact_secours_telephone = '+33600000021' WHERE contact_principal_nom = '—'`,
+          ),
+        ).toEqual(['E8']);
         expect(
           await rouges(
             `UPDATE plateforme.collectes SET statut_tms = 'acceptee' WHERE statut = 'programmee'`,
@@ -806,7 +825,8 @@ describe.skipIf(!ADRESSE_TEST)(
             `UPDATE plateforme.evenements SET traiteur_operationnel_organisation_id = (SELECT id FROM plateforme.organisations WHERE nom = 'Maison Bêta')
             WHERE traiteur_operationnel_organisation_id = (SELECT id FROM plateforme.organisations WHERE nom = 'Traiteur Alpha')`,
           ),
-        ).toEqual(['E1']);
+          // C10 : la collecte d'agence garde un numéro du carnet de Traiteur Alpha, devenu étranger.
+        ).toEqual(['C10', 'E1']);
         // B3 (pack sur-consommé) et B4 (deux packs actifs) ne se sabotent pas : la base les
         // interdit elle-même (contrainte chk_pack_credits_limite, index uniq_pack_actif_par_org).
         await expect(

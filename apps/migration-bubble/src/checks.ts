@@ -260,6 +260,21 @@ export const CHECKS: Check[] = [
                               WHERE a.collecte_id = c.id AND a.poids_repas_kg > 0)`,
   },
   {
+    code: 'C10',
+    libelle:
+      'Tout téléphone de contact sur place d’une collecte importée est celui d’un contact repris chez son traiteur ou son organisation',
+    nature: 'bloquant',
+    sql: `SELECT c.id FROM ${IMPORTEES('collectes')} c
+            JOIN plateforme.evenements e ON e.id = c.evenement_id
+            JOIN plateforme.collecte_contacts k ON k.collecte_id = c.id
+            CROSS JOIN LATERAL (VALUES (e.contact_principal_telephone), (e.contact_secours_telephone),
+                                       (k.contact_principal_telephone), (k.contact_secours_telephone)) AS t(telephone)
+           WHERE t.telephone IS NOT NULL AND t.telephone <> '-'
+             AND NOT EXISTS (SELECT 1 FROM plateforme.contacts_traiteurs ct
+                              WHERE ct.telephone = t.telephone
+                                AND ct.organisation_id IN (e.organisation_id, e.traiteur_operationnel_organisation_id))`,
+  },
+  {
     code: 'E1',
     libelle:
       'Chaque collecte est rattachée au client que l’export désigne (raison sociale, sinon compte créateur), ou à l’organisation d’accueil',
@@ -334,7 +349,7 @@ export const CHECKS: Check[] = [
   {
     code: 'E8',
     libelle:
-      'Collectes de plus de 5 ans : aucun nom de contact sur place, aucune consigne libre',
+      'Collectes de plus de 5 ans : aucun nom ni téléphone de contact sur place, aucune consigne libre',
     nature: 'bloquant',
     sql: `SELECT c.id FROM ${IMPORTEES('collectes')} c
             JOIN plateforme.evenements e ON e.id = c.evenement_id
@@ -342,6 +357,8 @@ export const CHECKS: Check[] = [
            WHERE c.date_collecte < ((now() AT TIME ZONE 'Europe/Paris')::date - INTERVAL '5 years')
              AND (e.contact_principal_nom <> '—' OR e.contact_secours_nom IS NOT NULL
                   OR k.contact_principal_nom <> '—' OR k.contact_secours_nom IS NOT NULL
+                  OR e.contact_principal_telephone <> '-' OR e.contact_secours_telephone IS NOT NULL
+                  OR k.contact_principal_telephone <> '-' OR k.contact_secours_telephone IS NOT NULL
                   OR c.informations_supplementaires IS NOT NULL
                   OR e.notes_internes <> 'Migration Bubble')`,
   },

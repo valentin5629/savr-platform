@@ -33,6 +33,7 @@ import type { Clients } from './organisations';
 import {
   ajouterAssociationHistorique,
   ajouterTransporteurHistorique,
+  type TelephoneDuContact,
   type UsageReferentiel,
 } from './referentiels';
 
@@ -258,6 +259,7 @@ export interface Dependances {
   poidsParBubbleId: Map<string, Ligne>;
   /** Pack débité par la collecte (identifiant Bubble de la collecte → identifiant du pack). */
   packParCollecte: Map<string, string>;
+  telephoneDuContact: TelephoneDuContact;
 }
 
 export function transformerCollectes(
@@ -299,6 +301,16 @@ export function transformerCollectes(
     const contactPrincipal =
       (c.ancienne ? null : texteBorne(l['Contact 1'], 120)) ?? CONTACT_INCONNU;
     const contactSecours = c.ancienne ? null : texteBorne(l['Contact 2'], 120);
+    // Téléphone : celui du contact repris au référentiel, sous le même nom, chez le
+    // traiteur puis chez l'organisation de la collecte (Val 2026-11-19, C2).
+    const telephoneDe = (nom: string | null) =>
+      nom === null || nom === CONTACT_INCONNU
+        ? null
+        : (deps.telephoneDuContact(c.traiteurId, nom) ??
+          deps.telephoneDuContact(c.organisationId, nom));
+    const telephonePrincipal =
+      telephoneDe(contactPrincipal) ?? TELEPHONE_INCONNU;
+    const telephoneSecours = telephoneDe(contactSecours);
     const commercial = c.ancienne
       ? null
       : [
@@ -336,9 +348,9 @@ export function transformerCollectes(
       type_evenement_id: ctx.typeEvenementAutreId,
       pax,
       contact_principal_nom: contactPrincipal,
-      contact_principal_telephone: TELEPHONE_INCONNU,
+      contact_principal_telephone: telephonePrincipal,
       contact_secours_nom: contactSecours,
-      contact_secours_telephone: null,
+      contact_secours_telephone: telephoneSecours,
       nom_client_organisateur: client,
       reference_affaire: texteOuNull(l['Identifiant']),
       notes_internes: commercial
@@ -461,9 +473,9 @@ export function transformerCollectes(
     plan.tables.collecte_contacts.push({
       collecte_id: collecteId,
       contact_principal_nom: contactPrincipal,
-      contact_principal_telephone: TELEPHONE_INCONNU,
+      contact_principal_telephone: telephonePrincipal,
       contact_secours_nom: contactSecours,
-      contact_secours_telephone: null,
+      contact_secours_telephone: telephoneSecours,
     });
     plan.correspondances.push(
       {

@@ -86,7 +86,7 @@ export function construirePlan(sources: Sources, ctx: Contexte): Plan {
     ctx,
     plan,
   );
-  transformerContacts(
+  const telephoneDuContact = transformerContacts(
     sources.contacts.lignes,
     clients.organisationParNom,
     clients.organisationParEmail,
@@ -112,6 +112,7 @@ export function construirePlan(sources: Sources, ctx: Contexte): Plan {
         sources.poids_zd.lignes.map((l) => [l['unique id']!.trim(), l]),
       ),
       packParCollecte,
+      telephoneDuContact,
     },
     ctx,
     plan,

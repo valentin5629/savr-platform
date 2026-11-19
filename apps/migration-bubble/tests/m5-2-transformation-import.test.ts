@@ -51,6 +51,7 @@ import {
   abonnement,
   agence,
   collecte,
+  contact,
   contexte,
   entreprise,
   monde,
@@ -520,6 +521,84 @@ describe('M5.2 / collectes — données personnelles', () => {
     });
   });
 
+  it('téléphone des contacts sur place : celui du contact repris sous le même nom chez le même traiteur, même sous un ancien nom ; sinon « - » (principal) ou vide (secours) ; jamais celui d’un autre traiteur ni d’un nom qui désigne deux numéros', () => {
+    const beta = entreprise({
+      'Raison sociale': 'Traiteur Bêta',
+      'Email de contact': 'contact@traiteur-beta.example',
+      SIRET: '22222222200022',
+      Identifiant: 'BET',
+    });
+    const plan = monde({
+      entreprises: [entreprise(), beta],
+      contacts: [
+        // Même numéro, renommé depuis : l'ancien nom retrouve le numéro.
+        contact({
+          PrenomNom: 'alex  surplace',
+          Numero: '0600000011',
+          'Creation Date': 'Jan 1, 2025 8:00 am',
+        }),
+        contact({
+          PrenomNom: 'Alex S.',
+          Numero: '06 00 00 00 11',
+          'Creation Date': 'Feb 1, 2025 8:00 am',
+        }),
+        // Même nom chez un autre traiteur : jamais pris.
+        contact({
+          PrenomNom: 'Charlie Secours',
+          Numero: '0600000012',
+          'Entreprise liée': 'Traiteur Bêta',
+        }),
+        // Un ancien nom porté par deux numéros : ambigu.
+        contact({
+          PrenomNom: 'Dana Double',
+          Numero: '0600000013',
+          'Creation Date': 'Jan 1, 2025 8:00 am',
+        }),
+        contact({ PrenomNom: 'Dana Un', Numero: '0600000013' }),
+        contact({
+          PrenomNom: 'Dana Double',
+          Numero: '0600000014',
+          'Creation Date': 'Jan 1, 2025 8:00 am',
+        }),
+        contact({ PrenomNom: 'Dana Deux', Numero: '0600000014' }),
+        contact({ PrenomNom: 'Morgan Ici', Numero: '0600000015' }),
+      ],
+      collectes_ag: [
+        collecte(),
+        collecte({
+          Identifiant: 'deux',
+          'Contact 1': 'Dana Double',
+          'Contact 2': 'Morgan Ici',
+        }),
+      ],
+    });
+    expect(
+      plan.tables.contacts_traiteurs.find((c) => c.nom === 'Secours'),
+    ).toMatchObject({ telephone: '+33600000012' });
+    const [premiere, seconde] = plan.tables.collecte_contacts;
+    expect(premiere).toMatchObject({
+      contact_principal_nom: 'Alex Surplace',
+      contact_principal_telephone: '+33600000011',
+      contact_secours_nom: 'Charlie Secours',
+      contact_secours_telephone: null,
+    });
+    expect(seconde).toMatchObject({
+      contact_principal_nom: 'Dana Double',
+      contact_principal_telephone: TELEPHONE_INCONNU,
+      contact_secours_nom: 'Morgan Ici',
+      contact_secours_telephone: '+33600000015',
+    });
+    // L'événement porte les mêmes numéros que sa collecte.
+    expect(plan.tables.evenements[0]).toMatchObject({
+      contact_principal_telephone: '+33600000011',
+      contact_secours_telephone: null,
+    });
+    expect(plan.tables.evenements[1]).toMatchObject({
+      contact_principal_telephone: TELEPHONE_INCONNU,
+      contact_secours_telephone: '+33600000015',
+    });
+  });
+
   it('collecte de plus de 5 ans : ni nom de contact, ni commercial, ni consigne libre ; poids et lieu gardés', () => {
     const t = transporteur();
     const commun = {
@@ -532,6 +611,8 @@ describe('M5.2 / collectes — données personnelles', () => {
     };
     const plan = monde({
       transporteurs: [t],
+      // Contact repris au référentiel : son numéro ne va pas sur la collecte ancienne.
+      contacts: [contact({ PrenomNom: 'Alex Surplace' })],
       collectes_ag: [
         collecte({
           ...commun,
@@ -546,24 +627,27 @@ describe('M5.2 / collectes — données personnelles', () => {
       ],
     });
     const [ancienne, limite] = plan.tables.collectes;
-    expect(plan.tables.evenements[0]).toMatchObject({
+    const aucunContact = {
       contact_principal_nom: CONTACT_INCONNU,
+      contact_principal_telephone: TELEPHONE_INCONNU,
       contact_secours_nom: null,
+      contact_secours_telephone: null,
+    };
+    expect(plan.tables.evenements[0]).toMatchObject({
+      ...aucunContact,
       notes_internes: 'Migration Bubble',
     });
-    expect(plan.tables.collecte_contacts[0]).toMatchObject({
-      contact_principal_nom: CONTACT_INCONNU,
-      contact_secours_nom: null,
-    });
+    expect(plan.tables.collecte_contacts[0]).toMatchObject(aucunContact);
     expect(ancienne).toMatchObject({
       informations_supplementaires: null,
       notes_internes: 'Migration Bubble\nIdentifiant: ancienne',
     });
     expect(plan.tables.attributions_antgaspi[0]!.poids_repas_kg).toBe(9);
-    // Exactement 5 ans : encore reprise.
-    expect(plan.tables.evenements[1]!.contact_principal_nom).toBe(
-      'Alex Surplace',
-    );
+    // Exactement 5 ans : encore reprise, avec le numéro du contact.
+    expect(plan.tables.evenements[1]).toMatchObject({
+      contact_principal_nom: 'Alex Surplace',
+      contact_principal_telephone: '+33600000002',
+    });
     expect(limite!.informations_supplementaires).toBe(
       'Demander Alex au 06 00 00 00 08',
     );

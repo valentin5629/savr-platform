@@ -118,6 +118,14 @@
       "libelle": "Contacts portés par la collecte, copie tenue sur l'événement"
     },
     {
+      "id": "M5.2-telephone-des-contacts-par-le-referentiel",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/13 - Migration depuis Bubble.md:43",
+      "artefact": "apps/migration-bubble/src/transformations/referentiels.ts",
+      "test": "M5.2 / collectes — données personnelles › téléphone des contacts sur place : celui du contact repris sous le même nom chez le même traiteur, même sous un ancien nom ; sinon « - » (principal) ou vide (secours) ; jamais celui d’un autre traiteur ni d’un nom qui désigne deux numéros",
+      "statut": "implemented",
+      "libelle": "Téléphone des contacts sur place pris au carnet de contacts repris du traiteur, sous le même nom ; sinon inconnu (décision Val 2026-11-19)"
+    },
+    {
       "id": "M5.2-donnees-personnelles-5-ans",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/15 - Sécurité et conformité.md:106",
       "artefact": "apps/migration-bubble/src/transformations/collectes.ts",

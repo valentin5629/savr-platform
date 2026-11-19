@@ -1079,6 +1079,20 @@ describe('M5.2 / déclencheurs — coupés par leur nom, rétablis, inventaire f
     );
   });
 
+  it('laisse actives les gardes rôle ↔ type d’organisation : invariant de la plateforme, sans effet de bord', () => {
+    const coupes = DECLENCHEURS_COUPES.map((d) => `${d.table}.${d.nom}`);
+    expect(DECLENCHEURS_LAISSES.users).toContain(
+      'trg_users_role_suit_type_organisation',
+    );
+    expect(DECLENCHEURS_LAISSES.organisations).toContain(
+      'trg_organisations_type_reecrit_roles',
+    );
+    expect(coupes).not.toContain('users.trg_users_role_suit_type_organisation');
+    expect(coupes).not.toContain(
+      'organisations.trg_organisations_type_reecrit_roles',
+    );
+  });
+
   it('s’arrête si la base porte un déclencheur non classé, ou s’il en manque un', async () => {
     await expect(
       verifierInventaireDeclencheurs(fauxClient([[/pg_trigger/, tous]]).client),

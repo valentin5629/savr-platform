@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  ecartsAuLieu,
+  emplacementCorrespondant,
+  nomAdresseLivraison,
+  type LieuAdresses,
+} from '@/lib/lieux/adresses-livraison';
 import { fmtEuro, fmtPax, fmtKgAuto } from '@/lib/format';
 import { libelleStatutFacture } from '@/lib/libelles/facture';
 import { libelleTypePack } from '@/lib/libelles/pack';
@@ -211,7 +217,7 @@ const STATUTS_FORCABLES: StatutCollecteDb[] = [
 
 // Lieu tel que servi par GET /admin/collectes/[id] (`lieux!lieu_id(*)`) — seuls
 // les champs affichés dans l'onglet Informations sont typés.
-interface LieuDetail {
+interface LieuDetail extends LieuAdresses {
   nom: string;
   ville: string;
   adresse_acces: string;
@@ -2202,10 +2208,16 @@ export function CollecteDetailPanel({
   // Lieu effectif de CETTE collecte = EXACTEMENT ce que reçoit le transporteur :
   // même fusion que l'adapter (allowlist, garde de type, null ignoré).
   const overrides = collecte.lieu_overrides ?? null;
-  const lieuSurcharge = CHAMPS_LIEU_SURCHARGEABLES.some((c) =>
-    lieuChampSurcharge(overrides, c),
-  );
   const lieu = applyLieuOverrides(collecte.evenements.lieux, overrides);
+  // Le choix d'une adresse de livraison du lieu (n° 2 ou n° 3, Val 2026-11-19)
+  // n'est pas une modification : il est nommé, pas signalé comme écart.
+  const lieuSurcharge =
+    CHAMPS_LIEU_SURCHARGEABLES.some((c) => lieuChampSurcharge(overrides, c)) &&
+    Object.keys(ecartsAuLieu(overrides, collecte.evenements.lieux)).length > 0;
+  const adresseChoisie = emplacementCorrespondant(
+    lieu,
+    collecte.evenements.lieux,
+  );
 
   // Variante B de la fiche client (décision Val 2026-10-27) : titre = nom de
   // l'événement, le lieu effectif à défaut ; dessous, le lieu (s'il n'est pas
@@ -2361,6 +2373,10 @@ export function CollecteDetailPanel({
             action={
               lieuSurcharge ? (
                 <Badge variant="info">Modifié pour cette collecte</Badge>
+              ) : adresseChoisie && adresseChoisie.numero > 1 ? (
+                <Badge variant="info">
+                  {nomAdresseLivraison(adresseChoisie)}
+                </Badge>
               ) : undefined
             }
           >

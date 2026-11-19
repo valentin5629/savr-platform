@@ -23,6 +23,10 @@ const COLONNES_TECHNIQUES = new Set([
   'updated_at',
   'latitude',
   'longitude',
+  'latitude_2',
+  'longitude_2',
+  'latitude_3',
+  'longitude_3',
 ]);
 
 // Au-delà, seules les écritures les plus récentes sont renvoyées (signalé à l'UI).

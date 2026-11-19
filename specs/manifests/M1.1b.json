@@ -463,6 +463,22 @@
       "test": "M1.1b — Lieux : Statut « Actifs » pré-coché",
       "statut": "à-vérifier",
       "libelle": "Liste Lieux (onglet Référentiel) — filtre Statut à choix multiple avec case « Tous » (décision Val 2026-09-30, _Divergences/M0.8_20260930_filtres-choix-multiple-tous, PR 2) ; défaut « Actifs » conservé ; Actifs + Inactifs = aucun paramètre. GO-VISUAL en attente (preuve écran, pas de capture dans ce lot — arbitrage Val F4 2026-10-01)."
+    },
+    {
+      "id": "M1.1b-lieu-adresses-livraison-fiche",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:655",
+      "artefact": "packages/plateforme/src/components/admin/lieu-modal.tsx (section « Adresse » : libellé n° 1, adresses n° 2 et n° 3, « Ajouter une adresse de livraison », « Retirer »)",
+      "test": "M1.1b / Fiche lieu Admin — adresses de livraison",
+      "statut": "à-vérifier",
+      "libelle": "Fiche lieu Admin, onglet Informations, section Adresse : jusqu'à 3 adresses de livraison (Val 2026-11-19, _Divergences/M3.2_20261119_lieux-adresses-livraison). Ajout, retrait, adresse entamée complète obligatoire, emplacements envoyés au PATCH. GO-VISUAL en attente (pas de capture dans ce lot)."
+    },
+    {
+      "id": "M1.1b-lieu-adresses-livraison-saisie",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md:655",
+      "artefact": "packages/plateforme/src/lib/lieux/adresses-livraison-saisie.ts + packages/plateforme/src/lib/lieux/adresses-livraison.ts + supabase/migrations/20261119150000_plateforme_lieux_adresses_livraison.sql",
+      "test": "M1.1b / lireAdressesLivraison",
+      "statut": "implemented",
+      "libelle": "Saisie Admin/Ops des adresses n° 2 et n° 3 : emplacement vide ou complet (422 sinon), tassement d'une n° 3 sans n° 2, géocodage d'une adresse nouvelle ou modifiée seulement. Base : CHECK et liste blanche prouvés par supabase/tests/lieux_adresses_livraison.test.sql."
     }
   ],
   "cdc_source_hash": {

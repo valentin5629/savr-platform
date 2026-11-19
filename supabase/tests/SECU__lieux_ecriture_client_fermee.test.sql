@@ -123,13 +123,18 @@ SELECT ok(
 -- dit encore « whitelist 22 colonnes » : c'est le CDC qui est en retard d'une
 -- colonne depuis R19b, pas la base. Dette signalée, hors périmètre de ce lot — ne
 -- PAS « corriger » ce 23 en 22 sans vérifier le catalogue.
+--
+-- 36 depuis 20261119150000 (adresses de livraison n° 2 et n° 3, Val 2026-11-19) :
+-- 13 colonnes ajoutées à la liste blanche, avec l'accord explicite de Val pour ce
+-- lot (CLAUDE.md §12 point 2bis). Détail prouvé par
+-- `lieux_adresses_livraison.test.sql`.
 SELECT is(
   (SELECT count(*)::int FROM information_schema.column_privileges
     WHERE grantee = 'authenticated'
       AND table_schema = 'plateforme' AND table_name = 'lieux'
       AND privilege_type = 'SELECT'),
-  23,
-  'A4 non-regression : liste blanche SELECT de 20260617170000 intacte (23 colonnes)'
+  36,
+  'A4 non-regression : liste blanche SELECT de lieux = 23 colonnes + 13 adresses de livraison (36)'
 );
 
 -- A5 cliquet : interdit de ré-ouvrir par la porte colonne-level. Un

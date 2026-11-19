@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { LockSimpleIcon, MapPinIcon, TruckIcon } from '@/components/ui/icones';
+import {
+  LockSimpleIcon,
+  MapPinIcon,
+  PlusIcon,
+  TrashIcon,
+  TruckIcon,
+} from '@/components/ui/icones';
+import { Button } from '@/components/ui/button';
 import { AlertBar } from '@/components/ui/alert-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
@@ -33,6 +40,10 @@ import { CODE_ALERTE_LIEU_MODIFICATION } from '@/lib/lieux/demande-modification'
 import { estSiren } from '@savr/shared/src/validation/index.js';
 import { CODES_SITE_VIPARIS } from '@/lib/viparis/codes';
 import {
+  adressesLivraisonDuLieu,
+  type LieuAdresses,
+} from '@/lib/lieux/adresses-livraison';
+import {
   MESSAGE_FORMAT_SIREN,
   messageObligatoire,
 } from '@/lib/libelles/validation';
@@ -50,7 +61,7 @@ import { FormActions } from '@/components/ui/form-actions';
 // pour tous les onglets : les valeurs vivent dans l'état du formulaire.
 
 // Réponse du GET détail — sert à préremplir le formulaire d'édition.
-interface LieuApi {
+interface LieuApi extends LieuAdresses {
   nom: string;
   nom_alternatif: string | null;
   adresse_acces: string;
@@ -100,12 +111,33 @@ interface OrgOption {
   nom?: string | null;
 }
 
+// Adresse de livraison n° 2 ou n° 3 (Val 2026-11-19) : l'adresse n° 1 reste
+// `adresse_acces` / `code_postal` / `ville`.
+interface AdresseSupp {
+  libelle: string;
+  adresse_acces: string;
+  code_postal: string;
+  ville: string;
+}
+
+/** Au plus 3 adresses par lieu : l'adresse n° 1 et 2 adresses supplémentaires. */
+const MAX_ADRESSES_SUPP = 2;
+
+const ADRESSE_SUPP_VIDE: AdresseSupp = {
+  libelle: '',
+  adresse_acces: '',
+  code_postal: '',
+  ville: '',
+};
+
 interface FormValues {
   nom: string;
   nom_alternatif: string;
   adresse_acces: string;
   code_postal: string;
   ville: string;
+  libelle_adresse_1: string;
+  adresses_supp: AdresseSupp[];
   acces_office: '' | 'facile' | 'difficile' | 'tres_difficile';
   stationnement: '' | 'facile' | 'difficile' | 'tres_difficile';
   type_vehicule_max:
@@ -145,6 +177,12 @@ const ONGLET_DU_CHAMP: Record<string, Onglet> = {
   adresse_acces: 'informations',
   code_postal: 'informations',
   ville: 'informations',
+  adresse_acces_2: 'informations',
+  code_postal_2: 'informations',
+  ville_2: 'informations',
+  adresse_acces_3: 'informations',
+  code_postal_3: 'informations',
+  ville_3: 'informations',
   type_vehicule_max: 'acces',
   siren: 'interne',
 };
@@ -189,6 +227,15 @@ const LIBELLE_CHAMP: Record<string, string> = {
   adresse_acces: 'Adresse accès livraison',
   code_postal: 'Code postal',
   ville: 'Ville',
+  libelle_adresse_1: 'Libellé de l’adresse n° 1',
+  libelle_adresse_2: 'Libellé de l’adresse n° 2',
+  adresse_acces_2: 'Adresse n° 2',
+  code_postal_2: 'Code postal de l’adresse n° 2',
+  ville_2: 'Ville de l’adresse n° 2',
+  libelle_adresse_3: 'Libellé de l’adresse n° 3',
+  adresse_acces_3: 'Adresse n° 3',
+  code_postal_3: 'Code postal de l’adresse n° 3',
+  ville_3: 'Ville de l’adresse n° 3',
   region: 'Région',
   acces_office: 'Accès office',
   stationnement: 'Stationnement',
@@ -215,6 +262,8 @@ const VIDE: FormValues = {
   adresse_acces: '',
   code_postal: '',
   ville: '',
+  libelle_adresse_1: '',
+  adresses_supp: [],
   acces_office: '',
   stationnement: '',
   type_vehicule_max: '',
@@ -242,6 +291,15 @@ function toForm(d: LieuApi): FormValues {
     adresse_acces: d.adresse_acces ?? '',
     code_postal: d.code_postal ?? '',
     ville: d.ville ?? '',
+    libelle_adresse_1: d.libelle_adresse_1 ?? '',
+    adresses_supp: adressesLivraisonDuLieu(d)
+      .filter((a) => a.numero > 1)
+      .map((a) => ({
+        libelle: a.libelle ?? '',
+        adresse_acces: a.adresse_acces,
+        code_postal: a.code_postal,
+        ville: a.ville,
+      })),
     acces_office: (d.acces_office as FormValues['acces_office']) ?? '',
     stationnement: (d.stationnement as FormValues['stationnement']) ?? '',
     type_vehicule_max:
@@ -262,6 +320,20 @@ function toForm(d: LieuApi): FormValues {
     reference_citeo: d.reference_citeo ?? false,
     code_site_viparis: d.code_site_viparis ?? '',
   };
+}
+
+// Emplacements n° 2 et n° 3 envoyés en entier (null = vide) : la route tasse,
+// valide et géocode (lib/lieux/adresses-livraison-saisie.ts).
+function payloadAdressesSupp(adresses: AdresseSupp[]) {
+  const payload: Record<string, string | null> = {};
+  for (const n of [2, 3]) {
+    const a = adresses[n - 2];
+    payload[`libelle_adresse_${n}`] = a?.libelle.trim() || null;
+    payload[`adresse_acces_${n}`] = a?.adresse_acces.trim() || null;
+    payload[`code_postal_${n}`] = a?.code_postal.trim() || null;
+    payload[`ville_${n}`] = a?.ville.trim() || null;
+  }
+  return payload;
 }
 
 // Interrupteur DS « Switch » + libellé cliquable.
@@ -399,6 +471,56 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     );
   }
 
+  const CHAMP_SUPP = {
+    adresse_acces: 'adresse_acces',
+    code_postal: 'code_postal',
+    ville: 'ville',
+  } as const;
+
+  function setAdresseSupp(i: number, champ: keyof AdresseSupp, v: string) {
+    setValues((prev) => ({
+      ...prev,
+      adresses_supp: prev.adresses_supp.map((a, j) =>
+        j === i ? { ...a, [champ]: v } : a,
+      ),
+    }));
+    if (champ !== 'libelle') {
+      const cle = `${CHAMP_SUPP[champ]}_${i + 2}`;
+      setErrors((e) =>
+        cle in e
+          ? Object.fromEntries(Object.entries(e).filter(([c]) => c !== cle))
+          : e,
+      );
+    }
+  }
+
+  // Ajout / retrait : les numéros se décalent, les erreurs des adresses
+  // supplémentaires sont donc toutes retirées (recalculées au prochain envoi).
+  function sansErreursSupp(e: Record<string, string>) {
+    return Object.fromEntries(
+      Object.entries(e).filter(([c]) => !/_(2|3)$/.test(c)),
+    );
+  }
+
+  function ajouterAdresseSupp() {
+    setValues((prev) =>
+      prev.adresses_supp.length >= MAX_ADRESSES_SUPP
+        ? prev
+        : {
+            ...prev,
+            adresses_supp: [...prev.adresses_supp, ADRESSE_SUPP_VIDE],
+          },
+    );
+  }
+
+  function retirerAdresseSupp(i: number) {
+    setValues((prev) => ({
+      ...prev,
+      adresses_supp: prev.adresses_supp.filter((_, j) => j !== i),
+    }));
+    setErrors(sansErreursSupp);
+  }
+
   function validate(): boolean {
     const next: Record<string, string> = {};
     if (!values.nom.trim()) next.nom = messageObligatoire('Nom');
@@ -407,6 +529,19 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     if (!values.code_postal.trim())
       next.code_postal = messageObligatoire('Code postal');
     if (!values.ville.trim()) next.ville = messageObligatoire('Ville');
+    // Adresse supplémentaire : vide (ignorée) ou complète.
+    values.adresses_supp.forEach((a, i) => {
+      const n = i + 2;
+      const remplis = [a.adresse_acces, a.code_postal, a.ville].filter((v) =>
+        v.trim(),
+      ).length;
+      if (remplis === 0 && !a.libelle.trim()) return;
+      if (!a.adresse_acces.trim())
+        next[`adresse_acces_${n}`] = messageObligatoire(`Adresse n° ${n}`);
+      if (!a.code_postal.trim())
+        next[`code_postal_${n}`] = messageObligatoire('Code postal');
+      if (!a.ville.trim()) next[`ville_${n}`] = messageObligatoire('Ville');
+    });
     if (!values.type_vehicule_max)
       next.type_vehicule_max = messageObligatoire('Type de véhicule max');
     if (values.siren.trim() !== '' && !estSiren(values.siren.trim()))
@@ -437,6 +572,8 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       adresse_acces: values.adresse_acces.trim(),
       code_postal: values.code_postal.trim(),
       ville: values.ville.trim(),
+      libelle_adresse_1: values.libelle_adresse_1.trim() || null,
+      ...payloadAdressesSupp(values.adresses_supp),
       region: values.region || null,
       acces_office: values.acces_office || null,
       stationnement: values.stationnement || null,
@@ -808,7 +945,138 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                           error={Boolean(errors.ville)}
                         />
                       </FormField>
+                      <FormField
+                        label="Libellé"
+                        htmlFor="lm_libelle_adresse_1"
+                        hint="Facultatif, ex : Entrée livraison"
+                      >
+                        <Input
+                          id="lm_libelle_adresse_1"
+                          maxLength={60}
+                          value={values.libelle_adresse_1}
+                          onChange={(e) =>
+                            set('libelle_adresse_1', e.target.value)
+                          }
+                        />
+                      </FormField>
                     </FormGrid>
+                    <Text variant="hint">
+                      {values.adresses_supp.length > 0
+                        ? 'Adresse n° 1, proposée par défaut à la programmation. Les autres adresses sont proposées au choix.'
+                        : 'Un lieu peut avoir jusqu’à 3 adresses de livraison (ex. entrée public et accès technique) : à la programmation, la bonne est choisie parmi elles.'}
+                    </Text>
+
+                    {values.adresses_supp.map((a, i) => {
+                      const n = i + 2;
+                      return (
+                        <div
+                          key={n}
+                          data-testid={`adresse-livraison-${n}`}
+                          className="space-y-4 border-t border-savr-neutral-200 pt-4"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <Text tone="strong" className="font-semibold">
+                              Adresse n° {n}
+                            </Text>
+                            <Button
+                              type="button"
+                              variant="ghost-destructive"
+                              size="sm"
+                              onClick={() => retirerAdresseSupp(i)}
+                            >
+                              <TrashIcon />
+                              Retirer l’adresse n° {n}
+                            </Button>
+                          </div>
+                          <FormGrid cols={3}>
+                            <FormField
+                              label="Adresse accès livraison"
+                              htmlFor={`lm_adresse_acces_${n}`}
+                              required
+                              error={errors[`adresse_acces_${n}`]}
+                              hint="Géocodée automatiquement à l'enregistrement"
+                              className="sm:col-span-2"
+                            >
+                              <Input
+                                id={`lm_adresse_acces_${n}`}
+                                maxLength={200}
+                                value={a.adresse_acces}
+                                onChange={(e) =>
+                                  setAdresseSupp(
+                                    i,
+                                    'adresse_acces',
+                                    e.target.value,
+                                  )
+                                }
+                                error={Boolean(errors[`adresse_acces_${n}`])}
+                              />
+                            </FormField>
+                            <FormField
+                              label="Libellé"
+                              htmlFor={`lm_libelle_adresse_${n}`}
+                              hint="Facultatif, ex : Accès technique"
+                            >
+                              <Input
+                                id={`lm_libelle_adresse_${n}`}
+                                maxLength={60}
+                                value={a.libelle}
+                                onChange={(e) =>
+                                  setAdresseSupp(i, 'libelle', e.target.value)
+                                }
+                              />
+                            </FormField>
+                            <FormField
+                              label="Code postal"
+                              htmlFor={`lm_code_postal_${n}`}
+                              required
+                              error={errors[`code_postal_${n}`]}
+                            >
+                              <Input
+                                id={`lm_code_postal_${n}`}
+                                maxLength={16}
+                                value={a.code_postal}
+                                onChange={(e) =>
+                                  setAdresseSupp(
+                                    i,
+                                    'code_postal',
+                                    e.target.value,
+                                  )
+                                }
+                                error={Boolean(errors[`code_postal_${n}`])}
+                              />
+                            </FormField>
+                            <FormField
+                              label="Ville"
+                              htmlFor={`lm_ville_${n}`}
+                              required
+                              error={errors[`ville_${n}`]}
+                            >
+                              <Input
+                                id={`lm_ville_${n}`}
+                                maxLength={120}
+                                value={a.ville}
+                                onChange={(e) =>
+                                  setAdresseSupp(i, 'ville', e.target.value)
+                                }
+                                error={Boolean(errors[`ville_${n}`])}
+                              />
+                            </FormField>
+                          </FormGrid>
+                        </div>
+                      );
+                    })}
+
+                    {values.adresses_supp.length < MAX_ADRESSES_SUPP && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={ajouterAdresseSupp}
+                      >
+                        <PlusIcon />
+                        Ajouter une adresse de livraison
+                      </Button>
+                    )}
                   </div>
                 </FicheSection>
               </TabsContent>

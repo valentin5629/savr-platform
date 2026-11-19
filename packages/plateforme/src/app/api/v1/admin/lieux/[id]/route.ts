@@ -6,6 +6,10 @@ import { serverError } from '@/lib/api-helpers.js';
 import { lireGestionnaireLieu } from '@/lib/admin/gestionnaire-lieu.js';
 import { estCodeSiteViparis } from '@/lib/viparis/codes.js';
 import {
+  lireAdressesLivraison,
+  mentionneAdressesLivraison,
+} from '@/lib/lieux/adresses-livraison-saisie';
+import {
   estGabaritLieuTransporteur,
   MESSAGE_GABARIT_INVALIDE,
 } from '@/lib/lieux-labels';
@@ -119,7 +123,11 @@ export async function PATCH(
   // lieux : compte comme une modification valide même si aucune colonne lieu ne change.
   const gestionnaireProvided = 'gestionnaire_organisation_id' in body;
 
-  if (Object.keys(updates).length === 0 && !gestionnaireProvided) {
+  if (
+    Object.keys(updates).length === 0 &&
+    !gestionnaireProvided &&
+    !mentionneAdressesLivraison(body)
+  ) {
     return NextResponse.json(
       { error: 'Aucun champ modifiable fourni' },
       { status: 422 },
@@ -142,6 +150,15 @@ export async function PATCH(
     ? await lireGestionnaireLieu(supabase, body.gestionnaire_organisation_id)
     : null;
   if (gestionnaire && !gestionnaire.ok) return gestionnaire.reponse;
+
+  // Adresses de livraison n° 2 et n° 3 (Val 2026-11-19) : validées, tassées et
+  // géocodées comme l'adresse n° 1, avant toute écriture.
+  const adresses = await lireAdressesLivraison(
+    body,
+    before as Record<string, unknown>,
+  );
+  if (!adresses.ok) return adresses.reponse;
+  Object.assign(updates, adresses.valeurs);
 
   // Géocodage en background au save, relancé si adresse/code_postal/ville change
   // — fail-open, cf. lib/geocoding.ts.

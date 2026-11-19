@@ -11,6 +11,7 @@ import { sanitizeOrTerm, serverError } from '@/lib/api-helpers.js';
 import { estUuid } from '@/lib/filtre-csv.js';
 import { geocodeAdresse } from '@/lib/geocoding.js';
 import { regionDepuisCodePostal } from '@/lib/lieux/region-code-postal.js';
+import { COLONNES_ADRESSES_LIVRAISON } from '@/lib/lieux/adresses-livraison';
 import { urlApplication } from '@/lib/url-application.js';
 import {
   estGabaritLieuTransporteur,
@@ -19,9 +20,12 @@ import {
 
 // Colonnes proposées par l'autocomplétion — sous-ensemble de la liste blanche
 // `v_lieux_clients` (les champs admin-only restent hors de portée côté client).
+// Les adresses de livraison n° 2 et n° 3 (Val 2026-11-19) alimentent le
+// sélecteur d'adresse du formulaire.
 const COLONNES_LIEU = `id, nom, adresse_acces, code_postal, ville, acces_details,
    acces_office, stationnement, type_vehicule_max,
-   controle_acces_requis_default, contraintes_horaires, flux_autorises`;
+   controle_acces_requis_default, contraintes_horaires, flux_autorises,
+   ${COLONNES_ADRESSES_LIVRAISON}`;
 
 // Code site VIPARIS (Val 2026-11-02) : il décide si le formulaire propose le
 // champ « Code affaire VIPARIS ». La colonne n'est pas dans la liste blanche de

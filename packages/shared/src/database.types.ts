@@ -2738,6 +2738,19 @@ export type Database = {
           updated_at: string
           ville: string
           volume_max_bacs: number | null
+          adresse_acces_2: string | null
+          adresse_acces_3: string | null
+          code_postal_2: string | null
+          code_postal_3: string | null
+          latitude_2: number | null
+          latitude_3: number | null
+          libelle_adresse_1: string | null
+          libelle_adresse_2: string | null
+          libelle_adresse_3: string | null
+          longitude_2: number | null
+          longitude_3: number | null
+          ville_2: string | null
+          ville_3: string | null
         }
         Insert: {
           acces_details?: string | null
@@ -2773,6 +2786,19 @@ export type Database = {
           updated_at?: string
           ville: string
           volume_max_bacs?: number | null
+          adresse_acces_2?: string | null
+          adresse_acces_3?: string | null
+          code_postal_2?: string | null
+          code_postal_3?: string | null
+          latitude_2?: number | null
+          latitude_3?: number | null
+          libelle_adresse_1?: string | null
+          libelle_adresse_2?: string | null
+          libelle_adresse_3?: string | null
+          longitude_2?: number | null
+          longitude_3?: number | null
+          ville_2?: string | null
+          ville_3?: string | null
         }
         Update: {
           acces_details?: string | null
@@ -2808,6 +2834,19 @@ export type Database = {
           updated_at?: string
           ville?: string
           volume_max_bacs?: number | null
+          adresse_acces_2?: string | null
+          adresse_acces_3?: string | null
+          code_postal_2?: string | null
+          code_postal_3?: string | null
+          latitude_2?: number | null
+          latitude_3?: number | null
+          libelle_adresse_1?: string | null
+          libelle_adresse_2?: string | null
+          libelle_adresse_3?: string | null
+          longitude_2?: number | null
+          longitude_3?: number | null
+          ville_2?: string | null
+          ville_3?: string | null
         }
         Relationships: []
       }
@@ -4740,6 +4779,19 @@ export type Database = {
           updated_at: string | null
           ville: string | null
           volume_max_bacs: number | null
+          adresse_acces_2: string | null
+          adresse_acces_3: string | null
+          code_postal_2: string | null
+          code_postal_3: string | null
+          latitude_2: number | null
+          latitude_3: number | null
+          libelle_adresse_1: string | null
+          libelle_adresse_2: string | null
+          libelle_adresse_3: string | null
+          longitude_2: number | null
+          longitude_3: number | null
+          ville_2: string | null
+          ville_3: string | null
         }
         Insert: {
           acces_details?: string | null

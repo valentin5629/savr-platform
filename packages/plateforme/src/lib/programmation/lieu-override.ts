@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { GABARITS_LIEU_TRANSPORTEUR } from '@/lib/lieux-labels';
+import { ecartsAuLieu } from '@/lib/lieux/adresses-livraison';
 
 type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>;
 
@@ -256,4 +257,24 @@ export async function notifierOverrideLieu(
   } catch {
     // best-effort.
   }
+}
+
+/**
+ * Écart réel de `overrides` au lieu `lieuId` (cf. `ecartsAuLieu`) : lit le lieu
+ * officiel, adresses de livraison comprises. Lieu illisible → l'override entier
+ * compte comme écart (on prévient l'Admin plutôt que de se taire).
+ */
+export async function ecartsAuLieuEnBase(
+  supabase: AdminSupabase,
+  lieuId: string,
+  overrides: Record<string, unknown> | null,
+): Promise<Record<string, unknown>> {
+  if (!overrides || Object.keys(overrides).length === 0) return {};
+  const { data: lieu, error } = await supabase
+    .from('lieux')
+    .select('*')
+    .eq('id', lieuId)
+    .maybeSingle();
+  if (error || !lieu) return overrides;
+  return ecartsAuLieu(overrides, lieu);
 }

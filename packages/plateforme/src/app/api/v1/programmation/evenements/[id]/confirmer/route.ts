@@ -6,7 +6,10 @@ import {
   lienCollectesProgrammeur,
   lienEvenementProgrammeur,
 } from '@/lib/programmation/apres-confirmation.js';
-import { notifierOverrideLieu } from '@/lib/programmation/lieu-override.js';
+import {
+  ecartsAuLieuEnBase,
+  notifierOverrideLieu,
+} from '@/lib/programmation/lieu-override.js';
 import { notifierTraiteurOperationnel } from '@/lib/notifications/traiteur-operationnel.js';
 import { evaluerAutoAcceptAg } from '@/lib/attribution-ag/auto-accept.js';
 import { serverError } from '@/lib/api-helpers.js';
@@ -151,14 +154,24 @@ export async function PATCH(
   envoyerOrdresSansAttendre(collectes.map((c) => c.id));
 
   // PROG-01 : override lieu persisté au brouillon → signalement Admin à la confirmation.
+  // Choisir l'une des adresses de livraison du lieu n'est pas une modification
+  // du lieu : seul un écart réel prévient l'Admin.
   const overrideCollecte = collectes.find(
     (c) => c.lieu_overrides && Object.keys(c.lieu_overrides).length > 0,
   );
-  if (overrideCollecte && evt.lieu_id) {
+  const ecarts =
+    overrideCollecte && evt.lieu_id
+      ? await ecartsAuLieuEnBase(
+          supabase,
+          evt.lieu_id,
+          overrideCollecte.lieu_overrides as Record<string, unknown>,
+        )
+      : {};
+  if (Object.keys(ecarts).length > 0 && evt.lieu_id) {
     await notifierOverrideLieu(supabase, {
       evenementId,
       lieuId: evt.lieu_id,
-      overrides: overrideCollecte.lieu_overrides as Record<string, unknown>,
+      overrides: ecarts,
       userId: auth.ctx.userId,
       role: auth.ctx.role,
     });

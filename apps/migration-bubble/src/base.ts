@@ -495,7 +495,12 @@ export const DECLENCHEURS_COUPES: Declencheur[] = [
   },
 ];
 
-/** Laissés actifs : recopies événement ↔ collecte, valeurs par défaut, gardes de format et de rôle. */
+/**
+ * Laissés actifs : recopies événement ↔ collecte, valeurs par défaut, gardes de format et de rôle.
+ * Rôle ↔ type d'organisation (migration 20261118200000) : la garde de `users` et la réécriture
+ * des rôles quand `organisations.type` change tiennent un invariant de la plateforme, sans
+ * effet de bord ; l'import n'écrit qu'un utilisateur, le compte système `admin_savr`.
+ */
 export const DECLENCHEURS_LAISSES: Record<TableCible, string[]> = {
   organisations: [
     'trg_block_org_gestionnaire_cols_update',
@@ -503,8 +508,12 @@ export const DECLENCHEURS_LAISSES: Record<TableCible, string[]> = {
     'trg_cerfa_debloque_siret',
     'trg_garde_format_logo',
     'trg_ops_immutable_cols',
+    'trg_organisations_type_reecrit_roles',
   ],
-  users: ['trg_users_block_role_escalation'],
+  users: [
+    'trg_users_block_role_escalation',
+    'trg_users_role_suit_type_organisation',
+  ],
   lieux: [],
   associations: ['trg_garde_format_logo', 'trg_ops_immutable_cols'],
   transporteurs: [

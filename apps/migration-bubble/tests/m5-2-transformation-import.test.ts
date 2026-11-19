@@ -612,7 +612,7 @@ describe('M5.2 / collectes — données personnelles', () => {
     const decisions = {
       lieux: new Map(),
       types: new Map(),
-      exclusions: new Set<string>(),
+      exclusions: new Map<string, string>(),
       clients: new Map([[gamma['unique id']!, gammaEntreprise['unique id']!]]),
     };
     const plan = monde(

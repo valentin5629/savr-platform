@@ -1,5 +1,5 @@
-Dernier sync : 2026-11-18 10:32:21 CET
-  specs/cdc       : 145 fichiers
+Dernier sync : 2026-11-19 10:20:34 CET
+  specs/cdc       : 135 fichiers
   specs/tests/app : 12 fichiers
   specs/tests/tms : 14 fichiers
   specs/ddl-cible : 3 fichiers

@@ -655,8 +655,15 @@ Tables filles de collecte. Visibilité = celle de la collecte parente. Écriture
 ```sql
 ALTER TABLE plateforme.collecte_flux         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plateforme.attributions_antgaspi ENABLE ROW LEVEL SECURITY;
+-- Performance (migration 20261118120000, test de charge du 2026-11-18) : même règle
+-- que f_collecte_visible, calculée une fois par requête et non plus ligne par ligne.
+-- col_select et evt_gestionnaire_select suivent la même forme (voir la migration).
+-- Les trois fonctions SECURITY DEFINER ne rendent, appelées directement, que des
+-- identifiants que le jeton lit déjà.
 CREATE POLICY cf_select ON plateforme.collecte_flux FOR SELECT
-  USING (plateforme.f_collecte_visible(collecte_id));
+  USING (plateforme.f_code_verification_ok()
+         AND (plateforme.f_app_role() IN ('admin_savr', 'ops_savr')
+              OR collecte_id IN (SELECT plateforme.f_collectes_visibles_client())));
 -- F1 test-scenarios §09 lot ⑪ (tranché Val 2026-06-07) : édition manuelle des pesées par flux
 -- (§06.06 fiche collecte Bloc 2 + matrice étendue « Modifier pesées : Ops Oui ») = policy UPDATE
 -- explicite admin + ops. INSERT reste SERVICE_ROLE (5 flux auto-créés à la création de la collecte ZD).

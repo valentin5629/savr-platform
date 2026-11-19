@@ -28,7 +28,7 @@ const CARROUSEL = {
   stationnement: 'facile',
 };
 
-describe('adressesLivraisonDuLieu (Val 2026-11-19)', () => {
+describe('M1.1b / adressesLivraisonDuLieu', () => {
   it('rend les emplacements remplis dans l’ordre, n° 1 en tête', () => {
     expect(adressesLivraisonDuLieu(CARROUSEL)).toEqual([
       {
@@ -90,7 +90,7 @@ describe('adressesLivraisonDuLieu (Val 2026-11-19)', () => {
   });
 });
 
-describe('ecartsAuLieu : pas de fausse alerte (CDC §04, worklist Admin)', () => {
+describe('M1.2 / ecartsAuLieu : pas de fausse alerte', () => {
   it('l’adresse n° 2 choisie n’est pas un écart', () => {
     expect(
       ecartsAuLieu(
@@ -146,7 +146,7 @@ describe('ecartsAuLieu : pas de fausse alerte (CDC §04, worklist Admin)', () =>
   });
 });
 
-describe('lireAdressesLivraison (saisie Admin/Ops)', () => {
+describe('M1.1b / lireAdressesLivraison', () => {
   const corps = (o: Record<string, unknown>) => ({
     libelle_adresse_2: null,
     adresse_acces_2: null,

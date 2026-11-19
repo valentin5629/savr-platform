@@ -85,7 +85,7 @@ async function ouvrir() {
   return fetchMock;
 }
 
-describe('Fiche lieu Admin — adresses de livraison (Val 2026-11-19)', () => {
+describe('M1.1b / Fiche lieu Admin — adresses de livraison', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it(

@@ -494,6 +494,22 @@
       "test": "M1.2 / Lieux — recherche de l’Admin pour un client au-delà des plafonds + supabase/tests/programmation_lieux_visibles_organisation.test.sql",
       "statut": "implemented",
       "libelle": "Recherche de lieux quand l'Admin programme pour un client (GET /api/v1/programmation/lieux?organisation_id=…) exacte quel que soit le volume. Avant : la route relisait par l'API de données tous les événements de l'organisation cible (réponse amputée à 1 000 lignes sans erreur : des lieux manquaient dans les propositions), puis passait tous ses lieux dans un seul filtre in (échec passé quelques centaines d'identifiants : 390 passaient, 402 non), sans lire les erreurs de ces lectures. Désormais le périmètre « lieux que voit l'organisation cible » est rendu par la base en un appel — fonction f_lieux_visibles_organisation : lieux rattachés, lieux des événements programmés, lieux des événements opérés pour une organisation de type traiteur (transcription des branches 1, 2 et 4 de lieux_clients_select) — et la route y pose les filtres du chemin client (lieu actif, terme nettoyé, tri par nom, 20 lignes), lit l'erreur, et traite un identifiant mal formé comme une organisation inconnue. Fonction SECURITY INVOKER, EXECUTE retiré à PUBLIC, anon et authenticated, donné à service_role seul : aucun accès ouvert (solution accordée par Val le 2026-11-11). Le pgTAP prouve le refus sous authenticated et anon, chaque branche, le cloisonnement, l'égalité avec la lecture sous RLS pour chaque rôle qui programme, et 1 100 événements sur 400 lieux rendus sans doublon ; le Vitest prouve ce que fait la route sur une fausse API qui ampute à 1 000 lignes et refuse plus de 390 identifiants."
+    },
+    {
+      "id": "M1.2-choix-adresse-livraison",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:116",
+      "artefact": "packages/plateforme/src/components/programmation/lieu-champs-editables.tsx (choix « Adresse de livraison », adresse n° 2 / n° 3 recopiée en entier dans lieu_overrides)",
+      "test": "M1.2 / Sélecteur d’adresse de livraison",
+      "statut": "à-vérifier",
+      "libelle": "Formulaire de programmation : choix de l'adresse de livraison pour un lieu à 2 adresses ou plus (Val 2026-11-19), n° 1 cochée par défaut ; l'adresse n° 2 ou n° 3 choisie part en entier dans lieu_overrides. GO-VISUAL en attente (pas de capture dans ce lot)."
+    },
+    {
+      "id": "M1.2-adresse-du-lieu-sans-fausse-alerte",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:172",
+      "artefact": "packages/plateforme/src/lib/lieux/adresses-livraison.ts (ecartsAuLieu) + packages/plateforme/src/lib/programmation/lieu-override.ts (ecartsAuLieuEnBase) + route admin/lieux worklist modifs",
+      "test": "M1.2 / ecartsAuLieu : pas de fausse alerte",
+      "statut": "implemented",
+      "libelle": "Une surcharge dont l'adresse est l'une des adresses de livraison du lieu n'est ni signalée à l'Admin, ni dans la worklist, ni un badge « informations incomplètes » (Val 2026-11-19). Câblage prouvé par tests/api/programmation/formulaire-prog.r12b.test.ts."
     }
   ],
   "cdc_source_hash": {

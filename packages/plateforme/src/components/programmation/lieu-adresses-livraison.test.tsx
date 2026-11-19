@@ -52,7 +52,7 @@ function Harnais({ lieu }: { lieu: LieuOption }) {
   );
 }
 
-describe('Sélecteur d’adresse de livraison (formulaire de programmation)', () => {
+describe('M1.2 / Sélecteur d’adresse de livraison', () => {
   it('absent pour un lieu à une seule adresse', () => {
     render(
       <Harnais

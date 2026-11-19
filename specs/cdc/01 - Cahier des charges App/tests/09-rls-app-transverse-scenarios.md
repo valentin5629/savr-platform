@@ -230,6 +230,12 @@ Scénario : commercial_update_profil_collegue_refuse (users_commercial_update_co
   Quand `commercial1_kaspia` exécute UPDATE sur le profil de commercial2_kaspia
   Alors 0 ligne est affectée (SELECT org-wide F4 n'ouvre pas l'UPDATE — self only)
 
+Scénario : users_role_incompatible_type_organisation_refuse (SECU__users_role_type_organisation — revue sécurité 2026-11-18)
+  Quand `manager_kaspia` exécute UPDATE role = 'gestionnaire_lieux' sur le profil de commercial1_kaspia
+  Alors l'UPDATE échoue en 23514 (trg_users_role_suit_type_organisation, après la RLS)
+  Et le même refus vaut pour tout appelant, à l'INSERT comme au changement d'organisation_id
+  Et le refus ne révèle pas le type d'une organisation d'un autre client (déclencheur SECURITY INVOKER)
+
 Scénario : ops_ecriture_parametres_refusee (ops_admin_only_writes_denied — F2 lot ⑪)
   Quand `ops1` exécute UPDATE sur `parametres_algo`, `parametres_taux_recyclage`, `tarifs_zero_dechet`, `grilles_tarifaires_zd`, `tarifs_packs_ag`
   Alors chaque UPDATE affecte 0 ligne (écriture Paramètres §9 = admin_savr only)

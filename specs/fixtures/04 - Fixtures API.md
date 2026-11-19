@@ -12,7 +12,7 @@ Un JWT par persona, généré localement par script (`npm run seed:jwt`), stock�
 |---|---|---|
 | `jwt_admin` | admin_savr | staff |
 | `jwt_ops1`, `jwt_ops2` | ops_savr | staff |
-| `jwt_commercial` | `traiteur_commercial` *(rôle effectif seed M0.7 — pas de valeur `commercial_savr` dans l'enum ; décision à trancher §04)* | `org_savr` (type temporaire `agence` — cf. §04 note M0.7) |
+| `jwt_commercial` | `traiteur_commercial` | `org_tr_kaspia` *(arbitrage Val 2026-11-18 : un rôle client n'existe que dans une organisation de son type ; ex-`org_savr`)* |
 | `jwt_manager_kaspia` | manager traiteur | `org_tr_kaspia` |
 | `jwt_collab_kaspia` | collaborateur traiteur | `org_tr_kaspia` |
 | `jwt_manager_fleurdemets` | manager traiteur | `org_tr_fleurdemets` (2e org : tests cross-org) |

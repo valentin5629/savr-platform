@@ -122,7 +122,7 @@
     },
     {
       "id": "M2.4-numero-rup-instantane",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1390",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1392",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "association AVEC n° RUP : instantané figé + mention transmise au Cerfa",
       "statut": "implemented",
@@ -130,7 +130,7 @@
     },
     {
       "id": "M2.4-siret-donateur-verifie",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2037",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2039",
       "artefact": "packages/plateforme/src/lib/pdf/batch-pdf-j1-ag.ts",
       "test": "entité SIRET en_attente → rapport émis sans attendre, numéro alloué, aucune alerte SIRET ; attestation émise → l’alerte SIRET donateur ouverte de CETTE collecte est résolue",
       "statut": "implemented",
@@ -197,10 +197,10 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b0a6b6936c1ee4d7dfcfd9027e608721209f2cc444e6a7bc82a20f4a31e9a7f3",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/02 - Templates emails V1.md": "5d2befe83cc7cf041eede0ebb7f727bf7d2cb47af4b950d3666b9fcdd695593d",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "424b3c10f7ba6447c8fe44c8b77afae2ac99b83cd8933b200a49a7bfb52f75e2",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "6c01fe1968e87938059fb5c97ebb242bda713c932c5ca6a31a943b42694d3845",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/09 - Flux algo attribution AG (Admin).md": "a8e197d99386da194ce25493a5c5a7c511935b63d4ad11af07f0af41156d008e",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "f87b3d89f7f28d5d027f788249c74ca4ef84f7e277ad2d00c59b66e984ed959e"
   }

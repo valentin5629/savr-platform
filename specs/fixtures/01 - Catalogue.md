@@ -73,8 +73,8 @@ Paris Expo Porte de Versailles ★, Palais des Congrès de Paris ★, Espace Cha
 | `organisations` (agences) | 1 | 2 | |
 | `associations` | 2 | 5 | dont 1 non habilitée, 1 désactivée |
 | `entites_facturation` | 6 | 14 | Potel = 2 entités |
-| `users` staff Savr | 4 | 6 | 1 admin, 2 ops, 1 commercial (+2 demo) |
-| `users` clients | 11 | 28 | 2/traiteur (manager+collaborateur), 2 Viparis, 1/autre gest., 2 agence |
+| `users` staff Savr | 3 | 4 | 1 admin, 2 ops (+1 ops demo) ; les commerciaux « Savr » sont des `traiteur_commercial` de Kaspia depuis le 2026-11-18 |
+| `users` clients | 12 | 30 | 2/traiteur (manager+collaborateur), 2 Viparis, 1/autre gest., 2 agence ; + commercial(e) « Savr » chez Kaspia (1 minimal, 2 demo — persona `jwt_commercial`, 2026-11-18) |
 | `lieux` | 6 | 23 | 3→10 Viparis + autres + ponctuels ; *(2026-11-02)* + 5 lieux de province (Lille, Lyon, Bordeaux, Marseille, Nantes) du catalogue de cas |
 | `organisations_lieux` | 4 | 24 | jointures N-N, gestionnaires de lieux uniquement (1 gestionnaire par lieu) — 2026-09-29 |
 | `contacts_traiteurs` | 2 | 8 | |

@@ -768,7 +768,7 @@
     },
     {
       "id": "BL-P1-GEST-04",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2156",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2158",
       "artefact": "supabase/migrations/20260705130000_plateforme_r19b_gest04_benchmark_7params.sql",
       "test": "supabase/tests/r19b_gest04_benchmark_ponderee.test.sql — GEST04-1..14 (signature 7 params, grain flux×type×taille, colonnes CDC, moyenne pondérée, k-anonymat, garde traiteur, listes parc)",
       "statut": "implemented",
@@ -1137,7 +1137,7 @@
     },
     {
       "id": "M3.2-vue-attributions-gestionnaire",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2133",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2135",
       "artefact": "supabase/migrations/20261004190000_plateforme_v_attributions_gestionnaire.sql (vue security_invoker = false + security_barrier = true ; 5 colonnes ; garde de rôle f_app_role() = 'gestionnaire_lieux' + bornage organisations_lieux + événement daté ; REVOKE ALL FROM PUBLIC, anon, authenticated puis GRANT SELECT TO authenticated) + packages/shared/src/database.types.ts",
       "test": "supabase/tests/SECU__v_attributions_gestionnaire.test.sql (24 assertions sous rôle authenticated + claims, base vierge : 1-3 v_attributions_gest_own_lieu_ok ; 4-5 v_attributions_gest_autre_lieu_denied avec contrôle positif ; 6, 21-22 événement sans date ; 7-8 v_attributions_gest_role_non_gestionnaire_denied avec non-vacuité, 8b JWT sans organisation ; 9, 11-13b autres rôles posés sur une organisation RATTACHÉE au lieu ; 10 le traiteur garde la table ; 14-15 v_attributions_gest_colonnes_whitelist_ok ; 16-19 options de vue et privilèges ; 20 aa_select sans branche lieu)",
       "statut": "implemented",
@@ -1161,7 +1161,7 @@
     },
     {
       "id": "M3.2-pack-ag-consommation-par-vue",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2141",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:2143",
       "artefact": "packages/plateforme/src/app/api/v1/mon-pack-ag/route.ts",
       "test": "M3.2/pack_ag_consommation_repas_objet",
       "statut": "implemented",
@@ -1624,7 +1624,7 @@
     {
       "id": "M3.2-viparis-code-site-lieu",
       "statut": "implemented",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:878",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:880",
       "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (lieux.code_site_viparis, CHECK liste fermée) + packages/plateforme/src/app/api/v1/admin/lieux/route.ts + packages/plateforme/src/app/api/v1/admin/lieux/[id]/route.ts + packages/plateforme/src/components/admin/lieu-modal.tsx + packages/plateforme/src/app/api/v1/gestionnaire/lieux/[id]/route.ts + packages/plateforme/src/components/gestionnaire/fiche-lieu-modal.tsx",
       "test": "supabase/tests/codes_viparis.test.sql + Lieux / Code site VIPARIS + VIPARIS/fiche_lieu_code_site + VIPARIS/fiche_lieu_code_site_illisible_500",
       "libelle": "Code site VIPARIS du lieu (demande VIPARIS, décision Val C3 2026-11-02) : liste fermée PCP, PCC, CNIT2, CDL, CHAMP, PDV, PNV, PLB, saisie par l'Admin seul dans la fiche lieu (onglet Informations) ; code inconnu refusé (422 à la route, 23514 en base). Divergence M3.2_20261102_codes-viparis-site-affaire. Lisible par le gestionnaire dans sa fiche lieu (section « Adresse et capacité »), lu en service-role pour le lieu que la RLS vient de rendre (Val 2026-11-02)."
@@ -1632,7 +1632,7 @@
     {
       "id": "M3.2-viparis-code-affaire-evenement",
       "statut": "implemented",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1466",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1468",
       "artefact": "supabase/migrations/20261102150000_plateforme_codes_viparis.sql (evenements.code_affaire_viparis, CHECK ^[A-Z0-9]{7}$) + packages/plateforme/src/app/api/v1/evenements/[id]/code-affaire-viparis/route.ts",
       "test": "packages/plateforme/tests/api/evenements/code-affaire-viparis.test.ts + supabase/tests/codes_viparis.test.sql",
       "libelle": "Code affaire VIPARIS de l'événement (décisions Val C1–C2 2026-11-02) : facultatif, 7 caractères alphanumériques normalisés ; corrigeable par l'équipe Savr et les rôles programmateurs qui voient l'événement sous leur RLS (traiteur, agence, gestionnaire du lieu), jamais par le client organisateur ; sans ordre au prestataire, tracé dans audit_log. Aucun droit nouveau : colonnes hors listes blanches, écriture en service_role."
@@ -1679,7 +1679,7 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b0a6b6936c1ee4d7dfcfd9027e608721209f2cc444e6a7bc82a20f4a31e9a7f3",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/03 - Registre réglementaire (UX).md": "a367a24b1a6706640aa94445706da0296cd02b73fa28a710bb01025b1db67d69",

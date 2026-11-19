@@ -1182,7 +1182,7 @@
     },
     {
       "id": "M0.6-photos-client-selection-rls",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:814-819",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:815-820",
       "artefact": "supabase/migrations/20261007203000_shared_fichiers_photos_rang_client.sql (colonne shared.fichiers.rang_client, CHECK rangs 1/2 réservés aux photos de collecte, index unique partiel uniq_fichiers_photo_client_rang, policy fichiers_select resserrée par ALTER POLICY)",
       "test": "supabase/tests/SECU__fichiers_photos_selection_client.test.sql",
       "statut": "implemented",
@@ -1312,7 +1312,7 @@
     },
     {
       "id": "BL-P1-API-01",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:451",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:452",
       "artefact": "supabase/migrations/20260629120000_plateforme_r10b_rls_ops_column_level.sql + supabase/migrations/20260903120000_plateforme_anti_escalade_role_staff.sql + supabase/migrations/20260921170000_plateforme_users_role_auto_changement.sql (volet 3, pgTAP supabase/tests/SECU__users_role_auto_changement.test.sql)",
       "test": "P0 — traiteur_manager NE PEUT PAS s'auto-promouvoir ops_savr (la faille corrigée)",
       "statut": "implemented",
@@ -1328,7 +1328,7 @@
     },
     {
       "id": "M0.6-tournee-siblings-not-exposed",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:324",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:325",
       "artefact": "supabase/migrations/20260617180000_plateforme_fix_role_claim.sql (policy t_select via f_collecte_visible)",
       "test": "supabase/tests/r14_tournee_siblings.test.sql (tournee_siblings_not_exposed)",
       "statut": "implemented",
@@ -1336,7 +1336,7 @@
     },
     {
       "id": "M0.6-tournees-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:324",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:325",
       "artefact": "supabase/migrations/20260930160000_plateforme_tournees_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 11 colonnes ; trigger fn_cloturer_alerte_coordonnees_urgence passé SECURITY DEFINER)",
       "test": "supabase/tests/SECU__tournees_select_liste_blanche.test.sql (1-6 privilèges + liste blanche exacte ; 7 non-vacuité ; 8-26 gestionnaire / traiteur opérationnel / agence : ligne visible, 11 colonnes retirées → 42501 ; 27 ligne tierce invisible ; 28-32 admin_savr JWT fermé en lecture mais UPDATE conservé, service_role intact ; 33-34 fail-closed colonne ajoutée) + supabase/tests/infos_acces_chauffeur.test.sql (recalé : 42501 au lieu de lecture)",
       "statut": "implemented",
@@ -1344,7 +1344,7 @@
     },
     {
       "id": "M0.6-evenements-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:198",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:199",
       "artefact": "supabase/migrations/20261001103000_plateforme_evenements_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 14 colonnes)",
       "test": "supabase/tests/SECU__evenements_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-27 gestionnaire / traiteur opérationnel / agence / client organisateur : ligne visible, 7 colonnes retirées → 42501 ; 28 ligne tierce invisible ; 29-37 policies d'autres tables et vues security_invoker toujours lisibles ; 38-41 admin_savr JWT fermé, service_role intact ; 42-43 fail-closed colonne ajoutée ; recalés dans le même lot : SECU__evenements_ecriture_client_fermee A4, bornes_texte_libre, liste_collectes_agence_lecture)",
       "statut": "implemented",
@@ -1352,7 +1352,7 @@
     },
     {
       "id": "M0.6-associations-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:308",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:309",
       "artefact": "supabase/migrations/20261004200000_plateforme_associations_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 7 colonnes : id, nom, ville, region, latitude, longitude, description_rapport_impact)",
       "test": "supabase/tests/SECU__associations_select_liste_blanche.test.sql (1-4 privilèges + liste blanche exacte ; 5 non-vacuité ; 6-20 gestionnaire : ligne visible, 7 colonnes lues avec leurs valeurs, 19 colonnes refusées en 42501 par SELECT réel de chaque colonne, select=* refusé, embeds attestations_don et attributions ; 21-27 traiteur : lectures réelles de la fiche collecte, de l'export CSV, des dashboards et du détail événement ; 28-36 traiteur_commercial / agence / client organisateur / traiteur sans lien : mêmes 7 lues, mêmes 19 refusées, ligne visible ; 37-40 aucune écriture cliente ; 41-47 admin_savr et ops_savr JWT fermés en lecture, UPDATE staff par JWT conservé mais RETURNING d'une colonne fermée refusé, service_role lit les 26 colonnes ; 48-49 fail-closed colonne ajoutée)",
       "statut": "implemented",
@@ -1360,7 +1360,7 @@
     },
     {
       "id": "M0.6-transporteurs-lecture-cliente-fermee",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:649",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:650",
       "artefact": "supabase/migrations/20261005100000_plateforme_transporteurs_lecture_cliente_fermee.sql (retrait de la policy transp_read — auth.role() = 'authenticated' — qui rendait toutes les lignes à tout utilisateur connecté ; restent transp_admin, transp_ops_select, transp_ops_write)",
       "test": "supabase/tests/SECU__transporteurs_lecture_cliente_fermee.test.sql (1-8 catalogue : transp_read absente, cliquet sur chaque policy prédicat compris, RLS activée et forcée, privilèges, aucune vue dépendante, aucune fonction SECURITY DEFINER atteignant la table exécutable par un client ; 9-11 non-vacuité ; 12-17 gestionnaire : JWT conforme, 0 ligne, aucune colonne ne rend la ligne par SELECT réel de chaque colonne, pas d'oracle par filtre, témoin types_evenements ; 18-23 traiteur programmateur : 0 ligne, et l'embed depuis sa propre attribution rend l'attribution sans le transporteur ; 24-33 traiteur_commercial / agence / client organisateur / traiteur sans lien : 0 ligne ; 34-37 aucune écriture cliente, par des ordres sans WHERE ni RETURNING ; 38-44 admin_savr et ops_savr par JWT : lecture des 22 colonnes et écriture conservées ; 45-49 service_role : fiche entière, résolution par prestataire, embed depuis l'attribution)",
       "statut": "implemented",
@@ -1368,7 +1368,7 @@
     },
     {
       "id": "M0.6-attestation-delete-deny",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:274",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:275",
       "artefact": "supabase/migrations/20260701120100_plateforme_r14_attestation_no_delete.sql",
       "test": "supabase/tests/rls_attestations_don_m2_4.test.sql (delete_attestation_deny)",
       "statut": "implemented",
@@ -1376,7 +1376,7 @@
     },
     {
       "id": "M0.6-impersonation-launcher-ui",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1027",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:1028",
       "artefact": "packages/plateforme/src/components/ui/impersonation-launcher.tsx (select users + bouton Impersoner, admin_savr only) monté sur packages/plateforme/src/app/(admin)/admin/clients/page.tsx",
       "test": "packages/plateforme/src/components/ui/impersonation-launcher.test.tsx « M0.6 — lanceur impersonation admin (BL-P1-BOA-09) » (masqué non-admin, liste hors-soi, POST impersoner + navigation)",
       "statut": "implemented",
@@ -1592,7 +1592,7 @@
     },
     {
       "id": "M0.6-infos-acces-email-perdu-tampon-alerte",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1541",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1543",
       "artefact": "packages/plateforme/src/lib/infos-acces/suivi-email.ts (signalerInfosAccesNonRemises : tampon retiré + alerte in-app `infos_acces_email_non_remis`, sans effet si un envoi plus récent existe ; cloreAlerteInfosAcces ; alerterInfosAccesEnRepriseAvantCollecte : 2 tentatives en échec ET collecte à venir dans les 24 h, une seule alerte par envoi) + packages/plateforme/src/lib/infos-acces/notify.ts (claim conservé si le worker de retry porte l'envoi, relâché si rien ne le reprendra, alerte close quand l'email part) + packages/plateforme/src/lib/emails/email-perdu.ts + packages/plateforme/src/app/api/cron/email-retry/route.ts + packages/plateforme/src/app/api/webhooks/resend/route.ts",
       "test": "la variable ne revient jamais → échec définitif après 4 tentatives : tampon retiré, alerte ouverte, fiche « non remis » + pendant la reprise, une nouvelle saisie Admin ne fait pas partir un second email + alerte dès la 2e tentative en échec, sans attendre les 25 h — le claim reste posé + Resend revient → l’email part à la reprise suivante et l’alerte est close toute seule + après l’échec définitif, un nouvel envoi repart (claim libre), arrive, et clôt l’alerte + une seule tentative en échec → pas encore (un incident passager ne doit pas alerter) + alerte résolue par l’Admin (programmateur prévenu) → pas rouverte tant que le même envoi est en reprise + un envoi plus récent existe pour la collecte → rien : le refus tardif de l’ancien email ne défait pas le renvoi + infos d’accès chauffeur refusées → tampon de la collecte retiré + alerte dédiée (pas l’alerte générique) + hors production sans adresse de redirection → claim relâché, aucune ligne, la fiche reste « à envoyer » + Resend refuse ET la ligne d’envoi ne s’écrit pas → claim relâché : aucune reprise n’est possible + tampon non retiré (erreur base) → comptée dans `errors`, journalisée sans adresse, réponse 200",
       "statut": "implemented",
@@ -1744,7 +1744,7 @@
     },
     {
       "id": "M0.6-ordre-envoi-motif-admin-savr-seul",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:562",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:563",
       "artefact": null,
       "test": null,
       "statut": "partial",
@@ -1828,7 +1828,7 @@
     },
     {
       "id": "M0.6-collectes-select-liste-blanche",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1542",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1544",
       "artefact": "supabase/migrations/20261117230000_plateforme_collectes_select_liste_blanche.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 43 colonnes ; vue v_collectes_gestionnaire_lieux sans la photo) + packages/plateforme/src/lib/collectes/champs-editables.ts (reponseCollecteModifiee)",
       "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (1-5 privilèges + liste blanche exacte ; 6 non-vacuité ; 7-29 gestionnaire, traiteur manager, traiteur commercial, agence, client organisateur : ligne visible, 3 colonnes retirées en 42501 ; 30 ligne tierce invisible ; 31-36 vue du gestionnaire ; 37-46 policies d'autres tables et vues security_invoker toujours lisibles ; 47-52 admin_savr et ops_savr JWT fermés, service_role intact ; 53-56 fonctions ; 57-58 fail-closed colonne ajoutée ; recalé dans le même lot : SECU__collectes_ecriture_client_fermee A3) + packages/plateforme/tests/api/collectes/patch-client-reponse-reduite.test.ts",
       "statut": "implemented",
@@ -1845,7 +1845,7 @@
     },
     {
       "id": "M0.6-collectes-select-sept-colonnes-fermees",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1561",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/04 - Data Model.md:1563",
       "artefact": "supabase/migrations/20261117233000_plateforme_collectes_select_sept_colonnes_fermees.sql (REVOKE SELECT table-level + GRANT SELECT colonne-level 36 colonnes) + packages/plateforme/src/lib/collectes/fiche-client.ts (lieu_overrides lu en service_role après la lecture sous RLS) + packages/plateforme/src/lib/dashboards/synthese-snapshot.ts (lireSnapshotFacteurs)",
       "test": "supabase/tests/SECU__collectes_select_liste_blanche.test.sql (2-3 liste blanche exacte de 36 colonnes, 10 fermées ; 59 non-vacuité ; 60-64 gestionnaire, traiteur manager, traiteur commercial, client organisateur, agence : aucune des 7 colonnes lisible ; 65 contrôle positif de la sonde ; 66 jointure ; 67 filtre ; 68-69 admin_savr et ops_savr JWT fermés ; 70 service_role intact ; 71-72 fonctions) + M3.1/fiche_get_surcharge_lue_en_service + M3.1/fiche_get_surcharge_erreur_500 + M3.5/synthese_facteurs_lus_en_service + M3.5/synthese_facteurs_par_lots + M3.5/synthese_facteurs_erreur",
       "statut": "implemented",
@@ -1853,7 +1853,7 @@
     },
     {
       "id": "M0.6-collectes-visibilite-par-ensemble",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:518",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:519",
       "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (col_select et cf_select : appartenance aux ensembles rendus une fois par requête par f_evenements_visibles_organisation, f_evenements_visibles_lieux, f_collectes_visibles_client ; f_collecte_visible gardée)",
       "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (1-15 collectes et 16-30 collecte_flux : même ensemble que f_collecte_visible pour 15 jetons ; 33-42 non-vacuité ; 46-47 plus d'appel ligne à ligne)",
       "statut": "implemented",
@@ -1861,7 +1861,7 @@
     },
     {
       "id": "M0.6-evenements-gestionnaire-sans-relecture-collectes",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:198",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:199",
       "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (evt_gestionnaire_select : l'EXISTS sur collectes passe par f_evenements_visibles_lieux)",
       "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (31-32 evenements des deux gestionnaires : même ensemble que l'ancienne policy ; 41 non-vacuité ; 48 cliquet : aucune policy de lecture d'evenements ni d'organisations_lieux ne relit collectes)",
       "statut": "implemented",
@@ -1869,7 +1869,7 @@
     },
     {
       "id": "M0.6-fonctions-visibilite-appel-direct",
-      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:661",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:662",
       "artefact": "supabase/migrations/20261118120000_plateforme_collectes_visibilite_par_ensemble.sql (trois fonctions SECURITY DEFINER fermées à PUBLIC et anon, ouvertes à authenticated ; f_evenements_visibles_organisation limitée aux événements qui portent une collecte) + supabase/tests/securite_rpc_definer_exposees.test.sql (allowlist T17)",
       "test": "supabase/tests/SECU__collectes_visibilite_par_ensemble.test.sql (43-45 appel direct des trois fonctions : rien de plus que ce que le jeton lit, 15 jetons dont comptes au code activé en aal1 et aal2)",
       "statut": "implemented",
@@ -1877,13 +1877,13 @@
     }
   ],
   "cdc_source_hash": {
-    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "4acd98c78aed34087cc530b505eb642a8cc7f2982ad2e5279eb4550f07ee7e87",
+    "specs/cdc/01 - Cahier des charges App/04 - Data Model.md": "b0a6b6936c1ee4d7dfcfd9027e608721209f2cc444e6a7bc82a20f4a31e9a7f3",
     "specs/cdc/01 - Cahier des charges App/05 - Règles métier.md": "5cab7df2ef8078b6dd15d451b41b5077f10e0bc832846c402baef98214d7a419",
     "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md": "142b2d102f0220926d6698681acb9bb1e6ec2bfface28595e6f3da585a38eb7a",
-    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "424b3c10f7ba6447c8fe44c8b77afae2ac99b83cd8933b200a49a7bfb52f75e2",
+    "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/06 - Back-office Admin Savr.md": "6c01fe1968e87938059fb5c97ebb242bda713c932c5ca6a31a943b42694d3845",
     "specs/cdc/01 - Cahier des charges App/07 - Observabilité/06 - Audit trail.md": "b2378a8d3e0a4542259615e26ad5d1449591e43d212e03ca7f5bdc86128438f4",
     "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md": "0a427736db98fe318f63d449ed5d19f87daa7e318b8649f1c09ed23747317d5c",
-    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "45914422dddb113b5eaaeca2c75ad8de5e3874b61e709d432b3eb56a0748016e",
+    "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md": "6963c51b9049f248f9308b251576f493f70b8996d94a7c3323ac8099476a6fd6",
     "specs/cdc/01 - Cahier des charges App/10 - Design System.md": "39b63ee0a2f7ac5509638a68ad975409ede85f601b8e0a7da6db32f2747d634d",
     "specs/cdc/01 - Cahier des charges App/11 - Dashboards.md": "c26592d4cfedd24f3335e16aa31aa1ae3627fafa57064d593766c60e198763f2",
     "specs/cdc/01 - Cahier des charges App/12 - Reporting et exports.md": "f87b3d89f7f28d5d027f788249c74ca4ef84f7e277ad2d00c59b66e984ed959e",

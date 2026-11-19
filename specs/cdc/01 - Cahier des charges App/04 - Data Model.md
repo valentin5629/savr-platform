@@ -656,6 +656,8 @@ Tous les utilisateurs de la plateforme.
 
 **Note RLS** : le champ `role` + `organisation_id` détermine exactement ce que voit l'utilisateur. La politique RLS Supabase est définie sur cette combinaison.
 
+**Invariant rôle ↔ type d'organisation (2026-11-18)** : `role` client compatible avec `organisations.type` (cf. [[09 - Authentification et permissions]] §2) — fonction `plateforme.f_role_compatible_type_organisation`, déclencheurs `trg_users_role_suit_type_organisation` (users) et `trg_organisations_type_reecrit_roles` (organisations : un changement de type réécrit les rôles que le nouveau type n'admet plus).
+
 **Invariant V1 (tranché 2026-06-10, challenge logistique+onboarding — ex-question ouverte)** : **1 user = 1 organisation**. `organisation_id` est singulier, le claim JWT `organisation_id` aussi, et il n'existe **aucune table N-N `users ↔ organisations`** — ne pas en créer. Un consultant multi-traiteurs utilise un email distinct par organisation. Seule exception documentée : double profil `ops_savr` Plateforme/TMS (§09, sans objet V1). Multi-orga = à revoir V2.
 
 ---

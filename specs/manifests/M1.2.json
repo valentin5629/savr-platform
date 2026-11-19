@@ -510,6 +510,14 @@
       "test": "M1.2 / ecartsAuLieu : pas de fausse alerte",
       "statut": "implemented",
       "libelle": "Une surcharge dont l'adresse est l'une des adresses de livraison du lieu n'est ni signalée à l'Admin, ni dans la worklist, ni un badge « informations incomplètes » (Val 2026-11-19). Câblage prouvé par tests/api/programmation/formulaire-prog.r12b.test.ts."
+    },
+    {
+      "id": "M1.2-recherche-lieux-referentiel-complet",
+      "ref_cdc": "specs/cdc/01 - Cahier des charges App/06 - Fonctionnalités détaillées/01 - Formulaire de programmation de collecte.md:101",
+      "artefact": "supabase/migrations/20261119233000_plateforme_lieux_recherche_programmation.sql (f_rechercher_lieux_programmation) + packages/plateforme/src/app/api/v1/programmation/lieux/route.ts (lieuxDuReferentiel)",
+      "test": "lieux_referentiel_complet",
+      "statut": "implemented",
+      "libelle": "Traiteurs et agences cherchent un lieu dans tout le référentiel actif au formulaire de programmation ; listes, fiches et tableaux de bord restent limités aux lieux où ils ont programmé ; le gestionnaire de lieux reste limité à ses lieux (Val 2026-11-19, divergence M3.2_20261119_lieux-recherche-referentiel). Base prouvée par supabase/tests/lieux_recherche_programmation.test.sql."
     }
   ],
   "cdc_source_hash": {

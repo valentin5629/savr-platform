@@ -75,6 +75,14 @@ const mockAuthChain = {
     Promise.resolve(resultatAuth).then(res, rej),
 } as AuthChainMock;
 
+// Recherche du référentiel complet (traiteurs, agences — Val 2026-11-19).
+const mockAuthRpc = vi.fn(
+  async (..._args: unknown[]): Promise<{ data: unknown; error: unknown }> => ({
+    data: [],
+    error: null,
+  }),
+);
+
 function makeJwt(claims: Record<string, unknown>): string {
   return `h.${Buffer.from(JSON.stringify({ aal: 'aal2', ...claims })).toString('base64url')}.s`;
 }
@@ -86,6 +94,7 @@ vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({
     auth: { getUser: mockGetUser, getSession: mockGetSession },
     from: (...args: unknown[]) => mockAuthChain.from(...args),
+    rpc: (...args: unknown[]) => mockAuthRpc(...args),
   }),
 }));
 vi.mock('next/headers', () => ({
@@ -1316,7 +1325,7 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
   // ── Rôles clients : la policy filtre, la route ne transcrit rien ──────────
 
   it('lieux_client_lu_sous_authenticated — lecture RLS, jamais en service_role', async () => {
-    setupAuth('traiteur_manager', 'org-traiteur-1');
+    setupAuth('gestionnaire_lieux', 'org-gl-1');
     setResultatAuth({
       data: [{ id: 'lieu-opere-1', nom: 'Lieu opéré par un tiers' }],
       error: null,
@@ -1346,7 +1355,7 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
   });
 
   it('VIPARIS/lieux_code_site_rendu — lieu VIPARIS : son code site est rendu avec le lieu', async () => {
-    setupAuth('traiteur_manager', 'org-traiteur-1');
+    setupAuth('gestionnaire_lieux', 'org-gl-1');
     setResultatAuth({
       data: [
         { id: 'lieu-viparis', nom: 'Paris Expo' },
@@ -1378,7 +1387,7 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
   });
 
   it('lieux_client_aucune_transcription_du_predicat — ni organisations_lieux ni evenements', async () => {
-    setupAuth('traiteur_commercial', 'org-traiteur-1');
+    setupAuth('gestionnaire_lieux', 'org-gl-1');
     setResultatAuth({ data: [{ id: 'lieu-1' }], error: null });
 
     await getLieux();
@@ -1389,8 +1398,8 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
     expect(tablesLues).toEqual(['v_lieux_clients']);
   });
 
-  it('lieux_traiteur_scope_vide — 200 [] si la RLS ne rend aucun lieu', async () => {
-    setupAuth('traiteur_commercial', 'org-new');
+  it('lieux_gestionnaire_scope_vide — 200 [] si la RLS ne rend aucun lieu', async () => {
+    setupAuth('gestionnaire_lieux', 'org-gl-1');
     setResultatAuth({ data: [], error: null });
 
     const res = await getLieux();
@@ -1407,6 +1416,57 @@ describe('M1.2 / Lieux — alignement sur la RLS', () => {
     expect(mockAuthChain.or).toHaveBeenCalledWith(
       expect.stringContaining('Pavillon'),
     );
+  });
+
+  // ── Traiteurs et agences : tout le référentiel actif (Val 2026-11-19) ─────
+  // La base décide des lignes et des colonnes : supabase/tests/
+  // lieux_recherche_programmation.test.sql (ouvert, fermé, après programmation).
+
+  for (const role of [
+    'traiteur_manager',
+    'traiteur_commercial',
+    'agence',
+  ] as const) {
+    it(`lieux_referentiel_complet — ${role} : recherche par f_rechercher_lieux_programmation, sous authenticated`, async () => {
+      setupAuth(role, 'org-1');
+      mockAuthRpc.mockResolvedValueOnce({
+        data: [{ id: 'lieu-hors-perimetre', nom: 'Pavillon' }],
+        error: null,
+      });
+
+      const res = await getLieux('/api/v1/programmation/lieux?q=Pav%25');
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual([
+        { id: 'lieu-hors-perimetre', nom: 'Pavillon', code_site_viparis: null },
+      ]);
+      // Saisie transmise telle quelle : la fonction la prend littéralement.
+      expect(mockAuthRpc).toHaveBeenCalledWith(
+        'f_rechercher_lieux_programmation',
+        { p_recherche: 'Pav%' },
+      );
+      // Ni la vue des clients, ni une lecture de lieux en service_role autre
+      // que le code site VIPARIS des lieux rendus.
+      expect(mockAuthChain.from).not.toHaveBeenCalled();
+      expect(mockSupabaseChain.from.mock.calls).toEqual([['lieux']]);
+    });
+  }
+
+  it('lieux_referentiel_erreur — une erreur de la fonction rend 500, sans repli', async () => {
+    setupAuth('traiteur_manager', 'org-1');
+    mockAuthRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'boom', code: '42501' },
+    });
+    const res = await getLieux();
+    expect(res.status).toBe(500);
+  });
+
+  it('lieux_gestionnaire_reste_sous_rls — le gestionnaire n’appelle pas la recherche du référentiel', async () => {
+    setupAuth('gestionnaire_lieux', 'org-gl-1');
+    setResultatAuth({ data: [], error: null });
+    await getLieux('/api/v1/programmation/lieux?q=Pavillon');
+    expect(mockAuthRpc).not.toHaveBeenCalled();
+    expect(mockAuthChain.from).toHaveBeenCalledWith('v_lieux_clients');
   });
 
   // ── Admin support : périmètre calculé par la base ─────────────────────────

@@ -66,9 +66,14 @@ function filtreRecherche<T extends { or: (f: string) => T }>(
 
 // GET /api/v1/programmation/lieux — autocomplétion Lieux du formulaire (§06.01).
 //
-// Deux chemins, pour deux identités :
+// Trois chemins, pour trois identités :
 //
-//  • RÔLE CLIENT → lecture sous `authenticated` : c'est la policy
+//  • TRAITEUR ou AGENCE → tout le référentiel actif, par la fonction
+//    `f_rechercher_lieux_programmation` (décision Val 2026-11-19, cf.
+//    `lieuxDuReferentiel`). Aucune policy n'est élargie.
+//
+//  • GESTIONNAIRE DE LIEUX (et tout autre rôle client) → lecture sous
+//    `authenticated` : c'est la policy
 //    `lieux_clients_select` qui filtre, et elle seule. Le prédicat n'est PAS
 //    re-transcrit ici. Auparavant la route lisait en service_role et
 //    reproduisait 2 des 4 branches à la main : la branche « traiteur
@@ -101,9 +106,38 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const q = sanitizeOrTerm(searchParams.get('q') ?? ''); // C2 : neutralise l'injection .or
 
-  return auth.ctx.isAdmin
-    ? lieuxDeLOrgCible(searchParams.get('organisation_id'), q)
+  if (auth.ctx.isAdmin)
+    return lieuxDeLOrgCible(searchParams.get('organisation_id'), q);
+  return ROLES_REFERENTIEL_COMPLET.has(auth.ctx.role ?? '')
+    ? lieuxDuReferentiel(searchParams.get('q') ?? '')
     : lieuxDuDemandeur(q);
+}
+
+// Traiteurs et agences : tout le référentiel actif (décision Val 2026-11-19).
+// Ils programment sur n'importe quel lieu, mais ne voient les données que des
+// lieux où ils ont programmé : cette ouverture ne vaut que pour la recherche du
+// formulaire. Listes, fiches et tableaux de bord restent sous
+// `lieux_clients_select`, que l'événement créé ouvre ensuite au lieu choisi.
+// Le gestionnaire de lieux reste limité à ses lieux (CDC §09), par la RLS.
+const ROLES_REFERENTIEL_COMPLET = new Set([
+  'traiteur_manager',
+  'traiteur_commercial',
+  'agence',
+]);
+
+// La base décide des lignes et des colonnes (`f_rechercher_lieux_programmation`,
+// migration 20261119233000) : lieux actifs, colonnes du formulaire seules, 20
+// lignes au plus, saisie prise littéralement (pas de joker).
+async function lieuxDuReferentiel(recherche: string): Promise<NextResponse> {
+  // borne-par-nature: la fonction rend 20 lignes au plus (LIMIT 20 en base)
+  const { data, error } = await createSupabaseServerClient().rpc(
+    'f_rechercher_lieux_programmation',
+    { p_recherche: recherche.trim().slice(0, 100) },
+  );
+  if (error) return serverError(error, 'programmation.lieux.referentiel');
+  return avecCodeSiteViparis(
+    (data ?? []) as unknown as Array<Record<string, unknown> & { id: string }>,
+  );
 }
 
 // Rôle client : la RLS est la seule source de vérité.

@@ -387,8 +387,11 @@ describe('M1.2 / Lieux — recherche de l’Admin pour un client au-delà des pl
     expect(service.lectures).toEqual([]);
   });
 
+  // Gestionnaire de lieux : depuis le 2026-11-19, traiteurs et agences passent
+  // par la recherche du référentiel complet (formulaire.m1-2.test.ts) ; le
+  // gestionnaire reste le compte client lu sous la RLS.
   it('un compte client ne déclenche jamais la fonction, même en visant une autre organisation', async () => {
-    connecter('traiteur_manager', CLIENT);
+    connecter('gestionnaire_lieux', CLIENT);
     service = baseDeService({
       organisations: [{ id: AUTRE, type: 'traiteur' }],
       evenements: [evenement(0, AUTRE, idLieu(0))],

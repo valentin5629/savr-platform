@@ -206,6 +206,10 @@ SELECT is_empty(
       'f_dechets_labo_estimes',
       'f_mes_acces_compte',
       'f_tarif_refacture_pax_zd',   -- rend le tarif au seul traiteur propriétaire + staff (v_kpi_traiteur security_invoker)
+      -- Recherche du référentiel complet au formulaire (Val 2026-11-19) : 42501
+      -- hors traiteur_manager/traiteur_commercial/agence, colonnes du
+      -- formulaire seules, 20 lignes (lieux_recherche_programmation.test.sql).
+      'f_rechercher_lieux_programmation',
       'health_ping'
     )
   $$,

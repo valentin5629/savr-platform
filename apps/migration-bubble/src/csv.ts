@@ -82,8 +82,12 @@ export function lireCsv(
  * envoyer la feuille ailleurs). Une telle cellule (nom ou adresse saisis dans
  * Bubble, clé de lieu tirée d'une adresse) est écrite précédée d'une apostrophe,
  * de même qu'une cellule qui commence déjà par des apostrophes suivies d'un de
- * ces caractères : `restaurerCellule` retrouve ainsi toujours le texte d'origine.
- * Un nombre négatif (longitude) reste un nombre.
+ * ces caractères : `restaurerCellule` retrouve le texte d'origine d'un fichier
+ * relu tel qu'écrit. Si Google Sheets a retiré une apostrophe, deux textes
+ * peuvent se relire identiques (`'-x` et `-x`) : `lireDecisions` bloque alors
+ * sur la clé présente deux fois. Un nombre négatif (longitude) reste un nombre.
+ * Une cellule qui contient un point-virgule est mise entre guillemets : Excel
+ * en français découpe à ce caractère.
  */
 const DEBUT_DE_FORMULE = /^'*[=+\-@\t\r]/;
 
@@ -104,7 +108,7 @@ export function ecrireCsv(
     const t = neutraliserFormule(
       v === null || v === undefined ? '' : String(v),
     );
-    return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    return /[",;\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   return (
     [

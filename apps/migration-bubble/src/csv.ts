@@ -26,12 +26,15 @@ export function lireCsv(
   irregulieres: number;
   /** Un guillemet ouvert n'a jamais été fermé : la fin du fichier a été lue comme une seule cellule. */
   guillemetOuvert: boolean;
+  /** Un guillemet au milieu d'une cellule non entourée de guillemets : des lignes ont pu être fusionnées. */
+  guillemetMalPlace: boolean;
 } {
   const brut = texte.charCodeAt(0) === 0xfeff ? texte.slice(1) : texte;
   const tableau: string[][] = [];
   let ligne: string[] = [];
   let cellule = '';
   let entreGuillemets = false;
+  let guillemetMalPlace = false;
   for (let i = 0; i < brut.length; i++) {
     const c = brut[i]!;
     if (entreGuillemets) {
@@ -40,8 +43,10 @@ export function lireCsv(
         i++;
       } else if (c === '"') entreGuillemets = false;
       else cellule += c;
-    } else if (c === '"') entreGuillemets = true;
-    else if (c === separateur) {
+    } else if (c === '"') {
+      if (cellule !== '') guillemetMalPlace = true;
+      entreGuillemets = true;
+    } else if (c === separateur) {
       ligne.push(cellule);
       cellule = '';
     } else if (c === '\n' || c === '\r') {
@@ -66,6 +71,7 @@ export function lireCsv(
     lignes,
     irregulieres: nonVides.filter((l) => l.length !== colonnes.length).length,
     guillemetOuvert: entreGuillemets,
+    guillemetMalPlace,
   };
 }
 

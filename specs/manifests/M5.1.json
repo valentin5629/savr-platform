@@ -290,7 +290,7 @@
       "artefact": "apps/migration-bubble/src/csv.ts",
       "test": "M5.1 / décisions de Val — jamais perdues en silence › fichier mal formé",
       "statut": "implemented",
-      "libelle": "Fichier de décision mal formé (guillemet jamais refermé, ligne au mauvais nombre de cellules, colonne en double) : blocage, jamais zéro décision en silence"
+      "libelle": "Fichier de décision mal formé (guillemet jamais refermé ou mal placé, ligne au mauvais nombre de cellules, colonne en double) : blocage, jamais zéro décision en silence"
     },
     {
       "id": "M5.1-decisions-inapplicables-avant-reecriture",

@@ -761,7 +761,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
     expect(() => exigerAucunBlocage(plan)).toThrow(/clients-a-valider\.csv/);
   });
 
-  it('fichier mal formé (guillemet jamais refermé, lignes au mauvais séparateur, cellules en trop, colonne en double) : blocage, jamais zéro décision en silence', () => {
+  it('fichier mal formé (guillemet jamais refermé ou mal placé, lignes au mauvais séparateur, cellules en trop, colonne en double) : blocage, jamais zéro décision en silence', () => {
     const blocages: string[] = [];
     const dossier = dossierDecisions({
       'guillemet.csv':
@@ -769,8 +769,17 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
       'melange.csv': 'cle,groupe_decide\nl-1;distinct\nl-2;l-1\n',
       'trop.csv': 'cle,groupe_decide\nl-1,distinct,en trop\n',
       'double.csv': 'cle,groupe_decide,groupe_decide\nl-1,distinct,\n',
+      // Deux guillemets parasites fusionneraient deux lignes en une, au bon nombre de cellules.
+      'parasite.csv':
+        'cle,nom,groupe_decide\nl-1,Salon "A,distinct\nl-2,Salon" B,l-1\nl-3,C,distinct\n',
     });
-    for (const f of ['guillemet.csv', 'melange.csv', 'trop.csv', 'double.csv'])
+    for (const f of [
+      'guillemet.csv',
+      'melange.csv',
+      'trop.csv',
+      'double.csv',
+      'parasite.csv',
+    ])
       expect(
         lireDecisions(dossier, f, 'cle', 'groupe_decide', blocages).size,
       ).toBe(0);
@@ -779,6 +788,7 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
       "melange.csv : 2 ligne(s) dont le nombre de cellules n'est pas celui de l'en-tête, aucune décision lue",
       "trop.csv : 1 ligne(s) dont le nombre de cellules n'est pas celui de l'en-tête, aucune décision lue",
       'double.csv : colonne(s) groupe_decide présente(s) deux fois, aucune décision lue',
+      'parasite.csv : guillemet au milieu d’une cellule, aucune décision lue',
     ]);
   });
 

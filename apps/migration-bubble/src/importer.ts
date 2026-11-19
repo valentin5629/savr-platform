@@ -101,7 +101,7 @@ async function compter(
 /**
  * Décisions de Val dans un fichier à valider (virgule ou point-virgule). Une
  * décision qui ne peut pas être lue n'est jamais perdue en silence : fichier
- * mal formé (colonne absente ou en double, guillemet non refermé, ligne au
+ * mal formé (colonne absente ou en double, guillemet non refermé ou mal placé, ligne au
  * mauvais nombre de cellules), deux décisions différentes pour une même fiche
  * ou valeur hors de `valeursPermises` ajoutent un blocage qui nomme le fichier.
  */
@@ -117,10 +117,8 @@ export function lireDecisions(
   const decisions = new Map<string, string>();
   if (!existsSync(chemin)) return decisions;
   const texte = readFileSync(chemin, 'utf8');
-  const { colonnes, lignes, irregulieres, guillemetOuvert } = lireCsv(
-    texte,
-    separateurEntete(texte),
-  );
+  const { colonnes, lignes, irregulieres, guillemetOuvert, guillemetMalPlace } =
+    lireCsv(texte, separateurEntete(texte));
   const absentes = [cle, valeur].filter((c) => !colonnes.includes(c));
   const doublees = [cle, valeur].filter(
     (c) => colonnes.filter((x) => x === c).length > 1,
@@ -133,6 +131,7 @@ export function lireDecisions(
       ? `colonne(s) ${doublees.join(', ')} présente(s) deux fois`
       : null,
     guillemetOuvert ? 'guillemet jamais refermé' : null,
+    guillemetMalPlace ? 'guillemet au milieu d’une cellule' : null,
     irregulieres > 0
       ? `${irregulieres} ligne(s) dont le nombre de cellules n'est pas celui de l'en-tête`
       : null,

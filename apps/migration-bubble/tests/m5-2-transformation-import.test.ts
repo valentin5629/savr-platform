@@ -651,6 +651,24 @@ describe('M5.2 / collectes — données personnelles', () => {
     });
   });
 
+  it('contact du carnet non repris (sans usage depuis plus de 5 ans) : son numéro ne va sur aucune collecte, même récente et homonyme', () => {
+    const plan = monde({
+      contacts: [
+        contact({
+          PrenomNom: 'Alex Surplace',
+          Numero: '0600000041',
+          'Creation Date': 'Nov 1, 2020 8:00 am',
+        }),
+      ],
+      collectes_ag: [collecte()],
+    });
+    expect(plan.tables.contacts_traiteurs).toEqual([]);
+    expect(seule(plan.tables.collecte_contacts)).toMatchObject({
+      contact_principal_nom: 'Alex Surplace',
+      contact_principal_telephone: TELEPHONE_INCONNU,
+    });
+  });
+
   it('collecte de plus de 5 ans : ni nom de contact, ni commercial, ni consigne libre ; poids et lieu gardés', () => {
     const t = transporteur();
     const commun = {

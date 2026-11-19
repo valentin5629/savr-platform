@@ -20,7 +20,7 @@ import {
   type Requeteur,
 } from './base';
 import { construirePlan } from './construire-plan';
-import { ecrireCsv, lireCsv, separateurEntete } from './csv';
+import { ecrireCsv, lireCsv, restaurerCellule, separateurEntete } from './csv';
 import { situerAdresses } from './geocodage';
 import { identifiantCible } from './identifiants';
 import {
@@ -142,8 +142,9 @@ export function lireDecisions(
   }
   const doublons = new Set<string>();
   for (const l of lignes) {
-    const id = (l[cle] ?? '').trim();
-    const brute = (l[valeur] ?? '').trim();
+    // Une clé de lieu vient d'une adresse et peut commencer par « = » : écrite précédée d'une apostrophe.
+    const id = restaurerCellule((l[cle] ?? '').trim());
+    const brute = restaurerCellule((l[valeur] ?? '').trim());
     const v = valeursPermises ? brute.toLowerCase() : brute;
     if (v === '') continue;
     if ((decisions.get(id) ?? v) !== v) doublons.add(id);

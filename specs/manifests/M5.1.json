@@ -299,6 +299,14 @@
       "test": "M5.1 / décisions de Val — jamais perdues en silence › une décision qui ne s’appliquerait à rien",
       "statut": "implemented",
       "libelle": "Décision inapplicable (fiche inconnue, exclusion comprise ; boucle ; type mal placé) : l'import s'arrête avant la réécriture des fichiers à valider"
+    },
+    {
+      "id": "M5.1-csv-formules-neutralisees",
+      "ref_cdc": "specs/cdc/09 - Roadmap exécution/03 - Modules par verticale/V5/_squelette V5 - Migration Bubble et go-live.md:9",
+      "artefact": "apps/migration-bubble/src/csv.ts",
+      "test": "M5.1 / décisions de Val — jamais perdues en silence › cellule commençant par = + - @",
+      "statut": "implemented",
+      "libelle": "Fichiers CSV écrits pour Val : cellule commençant par = + - @, tabulation ou retour chariot précédée d’une apostrophe (injection de formules OWASP), nombre négatif inchangé ; clés et décisions relues intactes, apostrophe présente ou retirée par Google Sheets"
     }
   ],
   "cdc_source_hash": {

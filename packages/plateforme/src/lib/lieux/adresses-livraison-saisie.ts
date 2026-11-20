@@ -56,8 +56,10 @@ type Resultat =
 
 /**
  * Colonnes à écrire pour les adresses de livraison, d'après le corps de la
- * requête. Rien n'est rendu pour un emplacement que le corps ne mentionne pas
- * (PATCH partiel). `avant` = ligne du lieu avant écriture (PATCH), pour ne
+ * requête. Un corps qui ne mentionne aucune clé des n° 2 et n° 3 ne les touche
+ * pas. Dès qu'il en mentionne une, les n° 2 et n° 3 sont réécrits ensemble (le
+ * tassement les lie) : une clé absente du corps garde la valeur du lieu
+ * (`avant`, PATCH partiel), ou vaut vide à la création. `avant` sert aussi à ne
  * regéocoder qu'une adresse qui change.
  */
 export async function lireAdressesLivraison(
@@ -77,13 +79,16 @@ export async function lireAdressesLivraison(
 
   if (!CLES_EMPLACEMENTS.some((c) => c in body)) return { ok: true, valeurs };
 
+  // Clé absente du corps = valeur actuelle du lieu (PATCH partiel).
+  const champ = (cle: string) =>
+    lire(cle in body ? body[cle] : (avant?.[cle] ?? null));
   const saisies: Saisie[] = [];
   for (const n of [2, 3]) {
     const s = {
-      libelle: lire(body[`libelle_adresse_${n}`]),
-      adresse: lire(body[`adresse_acces_${n}`]),
-      code_postal: lire(body[`code_postal_${n}`]),
-      ville: lire(body[`ville_${n}`]),
+      libelle: champ(`libelle_adresse_${n}`),
+      adresse: champ(`adresse_acces_${n}`),
+      code_postal: champ(`code_postal_${n}`),
+      ville: champ(`ville_${n}`),
     };
     if (Object.values(s).includes('invalide'))
       return refus(`Adresse n° ${n} invalide.`);

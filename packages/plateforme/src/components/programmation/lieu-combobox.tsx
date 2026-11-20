@@ -71,10 +71,13 @@ export function LieuCombobox({
     setLoading(true);
     const params = new URLSearchParams({ q: recherche });
     if (organisationId) params.set('organisation_id', organisationId);
+    // Une réponse en erreur (corps `{ error }`) ou illisible donne une liste
+    // vide : rendue telle quelle, elle faisait planter tout le formulaire.
     void fetch(`/api/v1/programmation/lieux?${params}`)
-      .then((r) => r.json() as Promise<LieuOption[]>)
+      .then((r) => (r.ok ? (r.json() as Promise<unknown>) : []))
+      .catch(() => [])
       .then((o) => {
-        if (actif) setOptions(o);
+        if (actif) setOptions(Array.isArray(o) ? (o as LieuOption[]) : []);
       })
       .finally(() => {
         if (actif) setLoading(false);

@@ -41,6 +41,7 @@ function makeChain() {
     'select',
     'eq',
     'is',
+    'not',
     'in',
     'gte',
     'lte',
@@ -925,6 +926,57 @@ describe('M3.1 / cascade édition — recompute informations_completes (BL-P1-TR
     expect(ordre[i - 1]).toEqual(['from', ['collectes']]);
     expect(ordre[i + 1]).toEqual(['eq', ['evenement_id', 'e1']]);
     expect(ordre[i + 2]).toEqual(['is', ['lieu_overrides', null]]);
+  });
+
+  // Adresses de livraison (Val 2026-11-19) : une collecte dont la surcharge
+  // n'est qu'une adresse du lieu n'a pas d'écart réel, elle suit le recalcul ;
+  // une vraie correction d'adresse en reste exclue.
+  it('M3.1/recompute_choix_adresse_livraison — une collecte qui a seulement choisi l’adresse n° 2 du lieu suit le recalcul, pas celle à adresse corrigée', async () => {
+    setupAuth('traiteur_manager', 'org-1', 'user-1');
+    queueEventOk({ organisation_id: 'org-1' }, true, {
+      contact_principal_telephone: '+33611111111',
+      lieu_id: 'lieu-1',
+    });
+    admin.push({ data: null, error: null }); // recompute (sans surcharge)
+    admin.push({
+      data: [
+        {
+          id: 'c-choix',
+          lieu_overrides: {
+            adresse_acces: '1 avenue du Général Lemonnier',
+            code_postal: '75001',
+            ville: 'Paris',
+          },
+        },
+        {
+          id: 'c-corrigee',
+          lieu_overrides: { adresse_acces: '5 rue ailleurs' },
+        },
+      ],
+      error: null,
+    }); // collectes à surcharge
+    admin.push({
+      data: {
+        id: 'lieu-1',
+        adresse_acces: '99 rue de Rivoli',
+        code_postal: '75001',
+        ville: 'Paris',
+        adresse_acces_2: '1 avenue du Général Lemonnier',
+        code_postal_2: '75001',
+        ville_2: 'Paris',
+      },
+      error: null,
+    }); // lieu
+    admin.push({ data: null, error: null }); // recompute (choix d'adresse)
+    const res = await patchEvent({ nom_evenement: 'Gala 2030' });
+    expect(res.status).toBe(200);
+    const recomputes = (admin.__calls.update ?? []).filter(
+      ([u]) =>
+        (u as { informations_completes?: boolean }).informations_completes ===
+        true,
+    );
+    expect(recomputes).toHaveLength(2);
+    expect(admin.__calls.in).toContainEqual(['id', ['c-choix']]);
   });
 
   // Client final obligatoire (décision Val 2026-10-30, remplace « champ

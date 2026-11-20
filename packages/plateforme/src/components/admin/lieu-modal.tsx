@@ -13,6 +13,7 @@ import { AlertBar } from '@/components/ui/alert-bar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { Input } from '@/components/ui/input';
+import { AdresseAutocompleteInput } from '@/components/programmation/adresse-autocomplete-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
@@ -471,12 +472,6 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
     );
   }
 
-  const CHAMP_SUPP = {
-    adresse_acces: 'adresse_acces',
-    code_postal: 'code_postal',
-    ville: 'ville',
-  } as const;
-
   function setAdresseSupp(i: number, champ: keyof AdresseSupp, v: string) {
     setValues((prev) => ({
       ...prev,
@@ -485,7 +480,7 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
       ),
     }));
     if (champ !== 'libelle') {
-      const cle = `${CHAMP_SUPP[champ]}_${i + 2}`;
+      const cle = `${champ}_${i + 2}`;
       setErrors((e) =>
         cle in e
           ? Object.fromEntries(Object.entries(e).filter(([c]) => c !== cle))
@@ -893,11 +888,18 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                         hint="Géocodée automatiquement à l'enregistrement"
                         className="sm:col-span-2"
                       >
-                        <Input
+                        {/* Suggestions BAN : choisir une adresse remplit aussi
+                            code postal et ville. */}
+                        <AdresseAutocompleteInput
                           id="lm_adresse_acces"
                           required
                           value={values.adresse_acces}
-                          onChange={(e) => set('adresse_acces', e.target.value)}
+                          onChange={(v) => set('adresse_acces', v)}
+                          onSelect={(sug) => {
+                            set('adresse_acces', sug.adresse);
+                            set('code_postal', sug.codePostal);
+                            set('ville', sug.ville);
+                          }}
                           error={Boolean(errors.adresse_acces)}
                         />
                       </FormField>
@@ -997,17 +999,26 @@ export function LieuModal({ open, lieuId, onClose, onSaved }: LieuModalProps) {
                               hint="Géocodée automatiquement à l'enregistrement"
                               className="sm:col-span-2"
                             >
-                              <Input
+                              <AdresseAutocompleteInput
                                 id={`lm_adresse_acces_${n}`}
                                 maxLength={200}
                                 value={a.adresse_acces}
-                                onChange={(e) =>
+                                onChange={(v) =>
+                                  setAdresseSupp(i, 'adresse_acces', v)
+                                }
+                                onSelect={(sug) => {
                                   setAdresseSupp(
                                     i,
                                     'adresse_acces',
-                                    e.target.value,
-                                  )
-                                }
+                                    sug.adresse,
+                                  );
+                                  setAdresseSupp(
+                                    i,
+                                    'code_postal',
+                                    sug.codePostal,
+                                  );
+                                  setAdresseSupp(i, 'ville', sug.ville);
+                                }}
                                 error={Boolean(errors[`adresse_acces_${n}`])}
                               />
                             </FormField>

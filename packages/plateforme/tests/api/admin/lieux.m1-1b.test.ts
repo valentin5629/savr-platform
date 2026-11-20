@@ -165,6 +165,57 @@ describe('M1.1b / Lieux / Liste', () => {
   });
 });
 
+describe('M1.1b / Lieux / Liste « modifs »', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  // Val 2026-11-19 : le choix de l'une des adresses de livraison du lieu n'est
+  // pas un écart ; seule une valeur qui diffère encore du lieu le reste.
+  it('M1.1b/lieux/worklist_modifs — un lieu dont la collecte a seulement choisi l’adresse n° 2 n’y figure pas, un lieu à adresse corrigée oui', async () => {
+    setupAuth('admin_savr');
+    const adresses = {
+      adresse_acces: '99 rue de Rivoli',
+      code_postal: '75001',
+      ville: 'Paris',
+      adresse_acces_2: '1 avenue du Général Lemonnier',
+      code_postal_2: '75001',
+      ville_2: 'Paris',
+    };
+    mockSupabaseChain.range.mockResolvedValueOnce({
+      data: [
+        { id: 'lieu-choix', nom: 'Carrousel', actif: true, ...adresses },
+        { id: 'lieu-corrige', nom: 'Pleyel', actif: true, ...adresses },
+      ],
+      count: 2,
+      error: null,
+    });
+    mockSupabaseChain.in.mockResolvedValueOnce({ data: [], error: null });
+    mockSupabaseChain.not.mockResolvedValueOnce({
+      data: [
+        {
+          lieu_overrides: {
+            adresse_acces: '1 avenue du Général Lemonnier',
+            code_postal: '75001',
+            ville: 'Paris',
+          },
+          evenements: { lieu_id: 'lieu-choix' },
+        },
+        {
+          lieu_overrides: { adresse_acces: '5 rue ailleurs' },
+          evenements: { lieu_id: 'lieu-corrige' },
+        },
+      ],
+      error: null,
+    });
+    const { GET } = await import('@/app/api/v1/admin/lieux/route.js');
+    const res = await GET(
+      makeReq('GET', '/api/v1/admin/lieux?worklist=modifs'),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: Array<{ id: string }> };
+    expect(body.data.map((l) => l.id)).toEqual(['lieu-corrige']);
+  });
+});
+
 describe('M1.1b / Lieux / Création', () => {
   beforeEach(() => vi.clearAllMocks());
 

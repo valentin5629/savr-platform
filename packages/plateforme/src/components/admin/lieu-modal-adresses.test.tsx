@@ -48,6 +48,19 @@ const DETAIL = {
 function routeFetch() {
   return vi.fn((url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
+    if (url.includes('/api/v1/programmation/adresses'))
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 'ban-1',
+            label: '12 Villa Wagram 75008 Paris',
+            adresse: '12 Villa Wagram',
+            codePostal: '75008',
+            ville: 'Paris',
+          },
+        ],
+      });
     if (url.includes('/api/v1/admin/organisations'))
       return Promise.resolve({ ok: true, json: async () => ({ data: [] }) });
     if (url.endsWith('/activite'))
@@ -199,4 +212,47 @@ describe('M1.1b / Fiche lieu Admin — adresses de livraison', () => {
     },
     ATTENTE_CAS_MS,
   );
+
+  // Suggestions d'adresse (Val 2026-11-19) : comme au formulaire « lieu
+  // manuel », choisir une suggestion remplit l'adresse, le code postal et la
+  // ville, pour l'adresse n° 1 comme pour les adresses n° 2 et n° 3.
+  for (const champ of ['lm_adresse_acces', 'lm_adresse_acces_3'] as const) {
+    it(
+      `une suggestion choisie remplit adresse, code postal et ville (${champ})`,
+      async () => {
+        await ouvrir();
+        if (champ === 'lm_adresse_acces_3')
+          fireEvent.click(
+            screen.getByRole('button', {
+              name: /Ajouter une adresse de livraison/,
+            }),
+          );
+        const suffixe = champ === 'lm_adresse_acces' ? '' : '_3';
+        fireEvent.change(document.getElementById(champ)!, {
+          target: { value: '12 villa wagram' },
+        });
+        const option = await screen.findByRole(
+          'option',
+          { name: '12 Villa Wagram 75008 Paris' },
+          ATTENTE_UI,
+        );
+        fireEvent.mouseDown(option);
+        expect((document.getElementById(champ) as HTMLInputElement).value).toBe(
+          '12 Villa Wagram',
+        );
+        expect(
+          (
+            document.getElementById(
+              `lm_code_postal${suffixe}`,
+            ) as HTMLInputElement
+          ).value,
+        ).toBe('75008');
+        expect(
+          (document.getElementById(`lm_ville${suffixe}`) as HTMLInputElement)
+            .value,
+        ).toBe('Paris');
+      },
+      ATTENTE_CAS_MS,
+    );
+  }
 });

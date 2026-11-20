@@ -115,24 +115,33 @@ function normaliser(v: unknown): string {
 }
 
 /**
- * Emplacement du lieu qui correspond à cette adresse, ou `null`. Sert à
- * reconnaître, dans `lieu_overrides`, une adresse choisie parmi celles du lieu.
+ * Adresse de la liste qui correspond à cette adresse, ou `null`. Sert à
+ * reconnaître une adresse choisie parmi celles du lieu (formulaire,
+ * `lieu_overrides`).
  */
-export function emplacementCorrespondant(
+export function adresseParmi(
   adresse: { adresse_acces?: unknown; code_postal?: unknown; ville?: unknown },
-  lieu: LieuAdresses | null | undefined,
+  adresses: AdresseLivraison[],
 ): AdresseLivraison | null {
   const a = normaliser(adresse.adresse_acces);
   const cp = normaliser(adresse.code_postal);
   const v = normaliser(adresse.ville);
   return (
-    adressesLivraisonDuLieu(lieu).find(
+    adresses.find(
       (e) =>
         normaliser(e.adresse_acces) === a &&
         normaliser(e.code_postal) === cp &&
         normaliser(e.ville) === v,
     ) ?? null
   );
+}
+
+/** Emplacement du lieu qui correspond à cette adresse, ou `null`. */
+export function emplacementCorrespondant(
+  adresse: { adresse_acces?: unknown; code_postal?: unknown; ville?: unknown },
+  lieu: LieuAdresses | null | undefined,
+): AdresseLivraison | null {
+  return adresseParmi(adresse, adressesLivraisonDuLieu(lieu));
 }
 
 const CHAMPS_ADRESSE = ['adresse_acces', 'code_postal', 'ville'] as const;

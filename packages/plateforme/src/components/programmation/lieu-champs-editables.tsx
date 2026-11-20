@@ -8,7 +8,7 @@ import { Text } from '@/components/ui/text';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import {
-  emplacementCorrespondant,
+  adresseParmi,
   ligneAdresseLivraison,
   nomAdresseLivraison,
   type AdresseLivraison,
@@ -53,41 +53,13 @@ export function computeLieuOverrides(
   (Object.keys(edits) as (keyof LieuEdits)[]).forEach((k) => {
     if (edits[k] !== base[k]) overrides[k] = edits[k];
   });
-  const choisie = adresseChoisie(edits, adresses);
+  const choisie = adresseParmi(edits, adresses);
   if (choisie && choisie.numero > 1) {
     overrides.adresse_acces = choisie.adresse_acces;
     overrides.code_postal = choisie.code_postal;
     overrides.ville = choisie.ville;
   }
   return overrides;
-}
-
-/** Adresse de livraison du lieu qui correspond à la saisie, ou `null`. */
-function adresseChoisie(
-  edits: LieuEdits,
-  adresses: AdresseLivraison[],
-): AdresseLivraison | null {
-  // `emplacementCorrespondant` lit un lieu : on lui rend ses colonnes à partir
-  // de la liste déjà calculée.
-  const lieu = Object.fromEntries(
-    adresses.flatMap((a) =>
-      a.numero === 1
-        ? [
-            ['adresse_acces', a.adresse_acces],
-            ['code_postal', a.code_postal],
-            ['ville', a.ville],
-          ]
-        : [
-            [`adresse_acces_${a.numero}`, a.adresse_acces],
-            [`code_postal_${a.numero}`, a.code_postal],
-            [`ville_${a.numero}`, a.ville],
-          ],
-    ),
-  );
-  const trouvee = emplacementCorrespondant(edits, lieu);
-  return trouvee
-    ? (adresses.find((a) => a.numero === trouvee.numero) ?? null)
-    : null;
 }
 
 export function LieuChampsEditables({
@@ -104,7 +76,7 @@ export function LieuChampsEditables({
   // Sélecteur visible seulement si le lieu a au moins 2 adresses ; l'adresse
   // n° 1 est présélectionnée (elle est déjà dans les champs). Une saisie libre
   // qui ne correspond à aucune adresse ne coche rien.
-  const choisie = adresseChoisie(edits, adresses);
+  const choisie = adresseParmi(edits, adresses);
   const choisir = (numero: string) => {
     const a = adresses.find((x) => String(x.numero) === numero);
     if (a)

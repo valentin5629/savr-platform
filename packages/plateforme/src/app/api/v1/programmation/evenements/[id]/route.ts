@@ -18,6 +18,7 @@ import { typedRpcError, serverError } from '@/lib/api-helpers.js';
 import { envoyerOrdresEvenementSansAttendre } from '@/lib/envoi-immediat.js';
 import { freinerEcritureCliente } from '@/lib/frein-ecritures-client.js';
 import { controleAccesEvenement } from '@/lib/programmation/niveau-evenement.js';
+import { ecartsAuLieu } from '@/lib/lieux/adresses-livraison';
 
 // Envoi immédiat après la réponse : limite exigée de toute route qui le
 // déclenche (cf. lib/envoi-immediat.ts).
@@ -348,8 +349,10 @@ export async function PATCH(
   // (collecte_contacts l'exige) ; seule une modification du nom déclenche ce
   // recalcul. À la programmation, ces deux
   // champs sont exigés (422) : seule une surcharge du lieu y pose le badge. Les
-  // collectes à lieu_overrides restent incomplètes (override lieu non levé ici)
-  // → exclues du recompute.
+  // collectes dont la surcharge est un écart réel au lieu restent incomplètes
+  // (override lieu non levé ici) → exclues du recompute. Une surcharge qui n'est
+  // qu'une adresse de livraison du lieu (Val 2026-11-19) n'est pas un écart :
+  // la collecte suit le recalcul.
   if ('contact_principal_telephone' in updates || 'nom_evenement' in updates) {
     const beforeRow = (before ?? {}) as Record<string, unknown>;
     const contactTel =
@@ -369,6 +372,38 @@ export async function PATCH(
       .update({ informations_completes: complet })
       .eq('evenement_id', id)
       .is('lieu_overrides', null);
+
+    const lieuId = updates.lieu_id ?? beforeRow.lieu_id;
+    const { data: surchargees } = await admin
+      .from('collectes')
+      .select('id, lieu_overrides')
+      .eq('evenement_id', id)
+      .not('lieu_overrides', 'is', null); // borne-par-nature: collectes d'UN événement (quelques-unes)
+    if (surchargees && surchargees.length > 0 && typeof lieuId === 'string') {
+      const { data: lieu } = await admin
+        .from('lieux')
+        .select('*')
+        .eq('id', lieuId)
+        .maybeSingle();
+      const sansEcart = lieu
+        ? surchargees
+            .filter(
+              (c) =>
+                Object.keys(
+                  ecartsAuLieu(
+                    c.lieu_overrides as Record<string, unknown> | null,
+                    lieu,
+                  ),
+                ).length === 0,
+            )
+            .map((c) => c.id)
+        : [];
+      if (sansEcart.length > 0)
+        await admin
+          .from('collectes')
+          .update({ informations_completes: complet })
+          .in('id', sansEcart);
+    }
   }
 
   // Email à l'équipe Savr (cf. lib/collectes/email-modification) : il part d'ici

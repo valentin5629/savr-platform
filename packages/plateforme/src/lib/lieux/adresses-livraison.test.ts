@@ -203,6 +203,23 @@ describe('M1.1b / lireAdressesLivraison', () => {
     }
   });
 
+  it('PATCH partiel : une clé absente du corps garde la valeur du lieu', async () => {
+    const r = await lireAdressesLivraison(
+      { libelle_adresse_2: 'Quai de livraison' },
+      CARROUSEL,
+    );
+    expect(r).toEqual({
+      ok: true,
+      valeurs: expect.objectContaining({
+        libelle_adresse_2: 'Quai de livraison',
+        adresse_acces_2: '1 avenue du Général Lemonnier',
+        code_postal_2: '75001',
+        ville_2: 'Paris',
+      }),
+    });
+    expect(r.ok && 'latitude_2' in r.valeurs).toBe(false);
+  });
+
   it('ne regéocode pas une adresse inchangée', async () => {
     const r = await lireAdressesLivraison(
       corps({

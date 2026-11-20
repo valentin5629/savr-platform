@@ -20,7 +20,7 @@ import {
   type Requeteur,
 } from './base';
 import { construirePlan } from './construire-plan';
-import { ecrireCsv, lireCsv, separateurEntete } from './csv';
+import { ecrireCsv, lireCsv, restaurerCellule, separateurEntete } from './csv';
 import { situerAdresses } from './geocodage';
 import { identifiantCible } from './identifiants';
 import {
@@ -102,8 +102,10 @@ async function compter(
  * Décisions de Val dans un fichier à valider (virgule ou point-virgule). Une
  * décision qui ne peut pas être lue n'est jamais perdue en silence : fichier
  * mal formé (colonne absente ou en double, guillemet non refermé ou mal placé, ligne au
- * mauvais nombre de cellules), deux décisions différentes pour une même fiche
- * ou valeur hors de `valeursPermises` ajoutent un blocage qui nomme le fichier.
+ * mauvais nombre de cellules), fiche présente sur plusieurs lignes (un fichier
+ * écrit n'en porte qu'une par fiche : deux décisions différentes, ou deux clés
+ * confondues après le retrait d'une apostrophe par Google Sheets) ou valeur
+ * hors de `valeursPermises` ajoutent un blocage qui nomme le fichier.
  */
 export function lireDecisions(
   dossier: string,
@@ -140,18 +142,19 @@ export function lireDecisions(
     blocages.push(`${fichier} : ${defauts.join(' ; ')}, aucune décision lue`);
     return decisions;
   }
-  const doublons = new Set<string>();
+  const lignesParFiche = new Map<string, number>();
   for (const l of lignes) {
-    const id = (l[cle] ?? '').trim();
-    const brute = (l[valeur] ?? '').trim();
+    // Une clé de lieu vient d'une adresse et peut commencer par « = » : écrite précédée d'une apostrophe.
+    const id = restaurerCellule((l[cle] ?? '').trim());
+    const brute = restaurerCellule((l[valeur] ?? '').trim());
     const v = valeursPermises ? brute.toLowerCase() : brute;
-    if (v === '') continue;
-    if ((decisions.get(id) ?? v) !== v) doublons.add(id);
-    decisions.set(id, v);
+    if (id !== '') lignesParFiche.set(id, (lignesParFiche.get(id) ?? 0) + 1);
+    if (v !== '') decisions.set(id, v);
   }
-  if (doublons.size > 0)
+  const doublons = [...lignesParFiche].filter(([, n]) => n > 1);
+  if (doublons.length > 0)
     blocages.push(
-      `${fichier} : fiche(s) portant deux décisions différentes (colonne ${valeur}) : ${[...doublons].join(', ')}`,
+      `${fichier} : fiche(s) présente(s) sur plusieurs lignes (colonne ${cle}) : ${doublons.map(([id]) => id).join(', ')}`,
     );
   const horsListe = valeursPermises
     ? [...decisions].filter(([, v]) => !valeursPermises.includes(v))

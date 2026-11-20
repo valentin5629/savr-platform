@@ -75,13 +75,40 @@ export function lireCsv(
   };
 }
 
+/**
+ * Injection de formules (OWASP « CSV Injection ») : Val ouvre les fichiers
+ * écrits ici dans Google Sheets, qui exécute une cellule commençant par `=`,
+ * `+`, `-`, `@`, une tabulation ou un retour chariot (IMPORTXML, IMAGE… peuvent
+ * envoyer la feuille ailleurs). Une telle cellule (nom ou adresse saisis dans
+ * Bubble, clé de lieu tirée d'une adresse) est écrite précédée d'une apostrophe,
+ * de même qu'une cellule qui commence déjà par des apostrophes suivies d'un de
+ * ces caractères : `restaurerCellule` retrouve le texte d'origine d'un fichier
+ * relu tel qu'écrit. Si Google Sheets a retiré une apostrophe, deux textes
+ * peuvent se relire identiques (`'-x` et `-x`) : `lireDecisions` bloque alors
+ * sur la clé présente deux fois. Un nombre négatif (longitude) reste un nombre.
+ * Une cellule qui contient un point-virgule est mise entre guillemets : Excel
+ * en français découpe à ce caractère.
+ */
+const DEBUT_DE_FORMULE = /^'*[=+\-@\t\r]/;
+
+function neutraliserFormule(t: string): string {
+  return DEBUT_DE_FORMULE.test(t) && !/^-\d+(\.\d+)?$/.test(t) ? `'${t}` : t;
+}
+
+/** Inverse de la neutralisation, pour une cellule relue (Google Sheets peut aussi avoir retiré l'apostrophe). */
+export function restaurerCellule(t: string): string {
+  return /^'+[=+\-@\t\r]/.test(t) ? t.slice(1) : t;
+}
+
 export function ecrireCsv(
   colonnes: string[],
   lignes: Record<string, unknown>[],
 ): string {
   const cellule = (v: unknown) => {
-    const t = v === null || v === undefined ? '' : String(v);
-    return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    const t = neutraliserFormule(
+      v === null || v === undefined ? '' : String(v),
+    );
+    return /[",;\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   return (
     [

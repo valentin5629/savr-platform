@@ -38,6 +38,14 @@ export interface Contexte {
   decisions: {
     /** clé de fiche lieu → `distinct` ou clé de la fiche à rejoindre. */
     lieux: Map<string, string>;
+    /**
+     * clé de fiche lieu → rang de son adresse dans le lieu regroupé : `1` (tête),
+     * `2` ou `3` (adresse de livraison gardée), `fusion` (adresse non gardée).
+     * Absent = `fusion` pour une fiche rattachée, `1` pour une tête.
+     */
+    rangsAdresseLieux?: Map<string, string>;
+    /** clé de fiche lieu → libellé de son adresse (« Entrée livraison »…), 60 caractères au plus. */
+    libellesAdresseLieux?: Map<string, string>;
     /** identifiant Bubble d'un client → `distinct` ou identifiant à rejoindre. */
     clients: Map<string, string>;
     /** identifiant Bubble d'un client → type d'organisation validé par Val. */

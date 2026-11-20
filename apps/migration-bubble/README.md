@@ -60,6 +60,15 @@ proposé par règle tant que Val ne l'a pas validé (répétitions) ;
 - `lieux-a-valider.csv`, `clients-a-valider.csv` : rapprochement en trois
   niveaux (`auto`, `a_revoir`, `distinct`). Val écrit sa décision dans la colonne
   `groupe_decide` (`distinct`, ou la clé de la fiche à rejoindre).
+  Pour les lieux, deux colonnes facultatives gardent jusqu'à 3 adresses de
+  livraison par lieu regroupé : `adresse_rang` (`1` pour la fiche de tête,
+  `2` ou `3` pour une fiche rattachée dont l'adresse devient une adresse de
+  livraison, `fusion` ou vide pour une fiche dont l'adresse n'est pas gardée) et
+  `libelle_adresse` (60 caractères au plus, ex. « Accès livraison »). Un rang
+  incohérent avec `groupe_decide` (deux fiches au même rang, rang 2 sur la tête
+  ou sur une fiche seule, rang 1 sur une fiche rattachée) bloque l'import. Une
+  adresse 2 ou 3 dont ni le service d'adresses ni le texte ne donnent le code
+  postal et la ville n'est pas reprise et rejoint `lieux-a-completer`.
 - `type_overrides.csv` : type d'organisation proposé par règle ; Val écrit le
   type retenu dans `type_valide`.
 - `exclusions.csv` : données qui ressemblent à des tests ; Val écrit `oui` dans

@@ -1163,6 +1163,308 @@ describe('M5.1 / lieux — référentiel initié par la migration', () => {
     );
   });
 
+  it('jusqu’à 3 adresses par lieu : une fiche rattachée au rang 2 ou 3 devient une adresse de livraison, avec son libellé ; « fusion » ou rang vide = adresse non gardée', () => {
+    const point = (
+      latitude: number,
+      longitude: number,
+      codePostal: string,
+    ) => ({
+      latitude,
+      longitude,
+      score: 0.9,
+      precis: true,
+      codePostal,
+      ville: 'Paris',
+    });
+    const a = '10 avenue des tests, 75008 paris';
+    const b = '5 rue de la livraison, 75008 paris';
+    const c = '7 rue arriere, 75017 paris';
+    const e = '10 av des tests paris';
+    const lignes = {
+      lieux: [
+        lieu(),
+        lieu({
+          adresse: '5 rue de la Livraison, 75008 Paris',
+          'Creation Date': 'Mar 3, 2022 8:00 am',
+        }),
+        lieu({
+          adresse: '7 rue Arriere, 75017 Paris',
+          'Creation Date': 'Mar 4, 2022 8:00 am',
+        }),
+        lieu({
+          adresse: '10 av des Tests Paris',
+          'Creation Date': 'Mar 5, 2022 8:00 am',
+        }),
+      ],
+    };
+    // L'adresse fusionnée est la seule située : elle donne sa position à l'adresse n° 1.
+    const geocodes = new Map([
+      [a, null],
+      [b, point(48.88, 2.32, '75008')],
+      [c, point(48.89, 2.29, '75017')],
+      [e, point(48.87, 2.31, '75008')],
+    ]);
+    const decisions = (
+      rangs: [string, string][],
+      libelles: [string, string][] = [],
+      lieux: [string, string][] = [
+        [b, a],
+        [c, a],
+        [e, a],
+      ],
+    ) => ({
+      clients: new Map(),
+      types: new Map(),
+      exclusions: new Map(),
+      lieux: new Map(lieux),
+      rangsAdresseLieux: new Map(rangs),
+      libellesAdresseLieux: new Map(libelles),
+    });
+    const plan = monde(lignes, {
+      geocodes,
+      decisions: decisions(
+        [
+          [a, '1'],
+          [b, '3'],
+          [c, '2'],
+          [e, 'fusion'],
+        ],
+        [
+          [a, 'Entrée principale'],
+          [b, 'Quai de livraison'],
+        ],
+      ),
+    });
+    expect(plan.blocagesDecisions).toEqual([]);
+    expect(seule(plan.tables.lieux)).toMatchObject({
+      adresse_acces: '10 avenue des Tests, 75008 Paris, France',
+      latitude: 48.87,
+      longitude: 2.31,
+      libelle_adresse_1: 'Entrée principale',
+      adresse_acces_2: '7 rue Arriere, 75017 Paris',
+      code_postal_2: '75017',
+      ville_2: 'Paris',
+      latitude_2: 48.89,
+      longitude_2: 2.29,
+      libelle_adresse_2: null,
+      adresse_acces_3: '5 rue de la Livraison, 75008 Paris',
+      code_postal_3: '75008',
+      libelle_adresse_3: 'Quai de livraison',
+    });
+    // Mêmes colonnes, dans le même ordre, sur toutes les lignes (exigé à l'écriture).
+    const deux = monde(
+      {
+        lieux: [
+          ...lignes.lieux,
+          lieu({ adresse: '1 place Seule, 75001 Paris' }),
+        ],
+      },
+      { geocodes, decisions: decisions([[c, '2']]) },
+    ).tables.lieux;
+    expect(deux).toHaveLength(2);
+    expect(Object.keys(deux[0]!)).toEqual(Object.keys(deux[1]!));
+
+    // Les décisions sont reportées dans le fichier à valider régénéré.
+    expect(plan.aValider.lieux.find((l) => l.cle === b)).toMatchObject({
+      adresse_rang: '3',
+      libelle_adresse: 'Quai de livraison',
+    });
+
+    // Sans rang, une fiche rattachée est fusionnée : aucun emplacement rempli.
+    const sansRang = seule(
+      monde(lignes, { geocodes, decisions: decisions([]) }).tables.lieux,
+    );
+    expect(sansRang).toMatchObject({ libelle_adresse_1: null });
+    expect(sansRang.adresse_acces_2).toBeNull();
+
+    // Seul un rang 3 : l'adresse prend le premier emplacement libre (pas de trou).
+    const seulRang3 = seule(
+      monde(lignes, { geocodes, decisions: decisions([[c, '3']]) }).tables
+        .lieux,
+    );
+    expect(seulRang3).toMatchObject({
+      adresse_acces_2: '7 rue Arriere, 75017 Paris',
+    });
+    expect(seulRang3.adresse_acces_3).toBeNull();
+
+    // Non située : code postal et ville lus dans l'adresse, position vide.
+    const lueDansLAdresse = seule(
+      monde(lignes, {
+        geocodes: new Map([...geocodes, [c, null]]),
+        decisions: decisions([[c, '2']]),
+      }).tables.lieux,
+    );
+    expect(lueDansLAdresse).toMatchObject({
+      adresse_acces_2: '7 rue Arriere, 75017 Paris',
+      code_postal_2: '75017',
+      ville_2: 'Paris',
+      latitude_2: null,
+      longitude_2: null,
+    });
+
+    // Ni code postal ni ville, ni par le service d'adresses ni dans le texte :
+    // non reprise (la base refuserait un emplacement incomplet), listée à compléter.
+    const vague = 'parvis sans adresse';
+    const nonSituee = monde(
+      {
+        lieux: [
+          ...lignes.lieux,
+          lieu({
+            adresse: 'Parvis sans adresse',
+            'Creation Date': 'Mar 6, 2022 8:00 am',
+          }),
+        ],
+      },
+      {
+        geocodes: new Map([...geocodes, [vague, null]]),
+        decisions: decisions(
+          [
+            [vague, '2'],
+            [b, '3'],
+          ],
+          [],
+          [
+            [b, a],
+            [c, a],
+            [e, a],
+            [vague, a],
+          ],
+        ),
+      },
+    );
+    expect(nonSituee.blocagesDecisions).toEqual([]);
+    expect(seule(nonSituee.tables.lieux)).toMatchObject({
+      adresse_acces_2: '5 rue de la Livraison, 75008 Paris',
+    });
+    expect(nonSituee.listings['lieux-a-completer']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          adresse: 'Parvis sans adresse',
+          manque: 'adresse n° 2 non reprise : code postal, ville',
+        }),
+      ]),
+    );
+  });
+
+  it('rang d’adresse incohérent avec le regroupement : deux fiches au même rang, rang 2 sur la tête ou sur une fiche seule, rang 1 sur une fiche rattachée, libellé trop long → blocage', () => {
+    const a = '10 avenue des tests, 75008 paris';
+    const b = '5 rue de la livraison, 75008 paris';
+    const c = '7 rue arriere, 75017 paris';
+    const lignes = {
+      lieux: [
+        lieu(),
+        lieu({
+          adresse: '5 rue de la Livraison, 75008 Paris',
+          'Creation Date': 'Mar 3, 2022 8:00 am',
+        }),
+        lieu({
+          adresse: '7 rue Arriere, 75017 Paris',
+          'Creation Date': 'Mar 4, 2022 8:00 am',
+        }),
+      ],
+    };
+    const blocages = (
+      rangs: [string, string][],
+      lieux: [string, string][] = [
+        [b, a],
+        [c, a],
+      ],
+      libelles: [string, string][] = [],
+    ) =>
+      monde(lignes, {
+        decisions: {
+          clients: new Map(),
+          types: new Map(),
+          exclusions: new Map(),
+          lieux: new Map(lieux),
+          rangsAdresseLieux: new Map(rangs),
+          libellesAdresseLieux: new Map(libelles),
+        },
+      }).blocagesDecisions;
+    expect(
+      blocages([
+        [b, '2'],
+        [c, '2'],
+      ]),
+    ).toEqual([expect.stringContaining(`${a} : plusieurs fiches au rang 2`)]);
+    expect(blocages([[a, '2']])).toEqual([
+      expect.stringContaining(`${a} : rang 2 sur la fiche de tête`),
+    ]);
+    expect(blocages([[b, '1']])).toEqual([
+      expect.stringContaining(`${b} : rang 1 sur une fiche rattachée à ${a}`),
+    ]);
+    expect(blocages([[b, '2']], [])).toEqual([
+      expect.stringContaining(
+        `${b} : rang 2 sur une fiche qui n'est rattachée à aucun lieu`,
+      ),
+    ]);
+    expect(blocages([], undefined, [[b, 'Accès livraison']])).toEqual([
+      expect.stringContaining(
+        `${b} : libellé sur une fiche dont l'adresse n'est pas gardée (rang fusion)`,
+      ),
+    ]);
+    // Faute de frappe sur la clé : jamais ignorée en silence.
+    expect(
+      blocages([['clé mal recopiée', '2']], undefined, [['autre clé', 'x']]),
+    ).toEqual([
+      expect.stringContaining(
+        "2 rang(s) ou libellé(s) d'adresse désignent une fiche inconnue (colonnes adresse_rang, libelle_adresse) : clé mal recopiée, autre clé",
+      ),
+    ]);
+    expect(blocages([[b, '2']], undefined, [[b, 'x'.repeat(61)]])).toEqual([
+      expect.stringContaining(`${b} : libellé de plus de 60 caractères`),
+    ]);
+  });
+
+  it('colonnes adresse_rang et libelle_adresse facultatives : absentes, rien n’est lu et rien ne bloque ; valeur hors 1, 2, 3, fusion → blocage', () => {
+    const dossierDecisions = (fichiers: Record<string, string>) => {
+      const dossier = mkdtempSync(join(tmpdir(), 'decisions-'));
+      for (const [nom, texte] of Object.entries(fichiers))
+        writeFileSync(join(dossier, nom), texte);
+      return dossier;
+    };
+    const blocages: string[] = [];
+    const sans = dossierDecisions({
+      'lieux-a-valider.csv': 'cle,groupe_decide\nl-1,distinct\n',
+    });
+    expect(
+      lireDecisions(
+        sans,
+        'lieux-a-valider.csv',
+        'cle',
+        'adresse_rang',
+        blocages,
+        ['1', '2', '3', 'fusion'],
+        true,
+      ).size,
+    ).toBe(0);
+    expect(blocages).toEqual([]);
+    const avec = dossierDecisions({
+      'lieux-a-valider.csv':
+        'cle,groupe_decide,adresse_rang,libelle_adresse\nl-1,distinct,1,Entrée\nl-2,l-1,Fusion,\nl-3,l-1,4,\n',
+    });
+    expect(
+      lireDecisions(
+        avec,
+        'lieux-a-valider.csv',
+        'cle',
+        'adresse_rang',
+        blocages,
+        ['1', '2', '3', 'fusion'],
+        true,
+      ),
+    ).toEqual(
+      new Map([
+        ['l-1', '1'],
+        ['l-2', 'fusion'],
+        ['l-3', '4'],
+      ]),
+    );
+    expect(blocages).toEqual([
+      'lieux-a-valider.csv : valeur(s) inattendue(s) dans adresse_rang (attendu : 1 ou 2 ou 3 ou fusion) : l-3',
+    ]);
+  });
+
   it('outils : ressemblance des noms, distance, décisions en chaîne', () => {
     expect(ressemblanceNoms('Salon Delta', 'SALON  DELTA')).toBe(1);
     expect(ressemblanceNoms('Salon Delta', 'Hôtel Kappa')).toBeLessThan(0.3);

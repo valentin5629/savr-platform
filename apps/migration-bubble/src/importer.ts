@@ -112,6 +112,8 @@ export function lireDecisions(
   valeur: string,
   blocages: string[],
   valeursPermises?: string[],
+  /** Colonne ajoutée après coup : son absence n'est pas un défaut, rien n'est lu. */
+  colonneFacultative = false,
 ): Map<string, string> {
   const chemin = join(dossier, fichier);
   const decisions = new Map<string, string>();
@@ -119,6 +121,7 @@ export function lireDecisions(
   const texte = readFileSync(chemin, 'utf8');
   const { colonnes, lignes, irregulieres, guillemetOuvert, guillemetMalPlace } =
     lireCsv(texte, separateurEntete(texte));
+  if (colonneFacultative && !colonnes.includes(valeur)) return decisions;
   const absentes = [cle, valeur].filter((c) => !colonnes.includes(c));
   const doublees = [cle, valeur].filter(
     (c) => colonnes.filter((x) => x === c).length > 1,
@@ -232,6 +235,24 @@ async function lireContexte(
         'cle',
         'groupe_decide',
         blocagesDecisions,
+      ),
+      rangsAdresseLieux: lireDecisions(
+        d,
+        'lieux-a-valider.csv',
+        'cle',
+        'adresse_rang',
+        blocagesDecisions,
+        ['1', '2', '3', 'fusion'],
+        true,
+      ),
+      libellesAdresseLieux: lireDecisions(
+        d,
+        'lieux-a-valider.csv',
+        'cle',
+        'libelle_adresse',
+        blocagesDecisions,
+        undefined,
+        true,
       ),
       clients: lireDecisions(
         d,

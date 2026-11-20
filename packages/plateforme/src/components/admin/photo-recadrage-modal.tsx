@@ -216,6 +216,10 @@ export function PhotoRecadrageModal({
             crop={cadre}
             onChange={(_px, pourcent) => setCadre(pourcent)}
             onComplete={(px) => setCadrePixels(px)}
+            // La hauteur maximale se pose ici : react-image-crop la fait hériter
+            // à l'image (`max-height: inherit`), une classe sur l'image est
+            // écrasée. 60vh : la photo entière tient dans la fenêtre.
+            style={{ maxHeight: '60vh' }}
             keepSelection
             ruleOfThirds
           >
@@ -223,7 +227,7 @@ export function PhotoRecadrageModal({
               ref={imageRef}
               src={source}
               alt="Photo à recadrer"
-              className="max-h-[60vh] w-auto"
+              className="w-auto"
               onLoad={(e) => {
                 const img = e.currentTarget;
                 setCadrePixels({

@@ -5,8 +5,8 @@
   "description": "Import de l'historique Bubble (V5) : scripts rejouables, sur base locale jetable",
   "type": "module",
   "dependencies": {
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.23.1",
     "disposable-email-domains": "^1.0.62",
-    "pg": "^8.21.0"
+    "pg": "^8.23.1"
   }
 }

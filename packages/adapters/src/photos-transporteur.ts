@@ -1,13 +1,14 @@
-// Photos prises par le livreur, relues chez le transporteur (décision Val
-// 2026-11-03). Seul A Toute! les expose aujourd'hui : l'Admin les voit dans la
-// fiche collecte et importe celles qu'il garde. MTS-1 n'est pas concerné, ses
-// photos arrivent seules à la relève (`sync`).
+// Photos prises par le livreur, relues chez le transporteur à la demande de
+// l'Admin : A Toute! (décision Val 2026-11-03) et MTS-1 (décision Val
+// 2026-11-20, qui retire le rangement automatique à la relève). L'Admin les
+// affiche dans la fiche collecte et n'importe que celles qu'il retient : rien
+// n'est stocké sans son choix.
 //
 // Point d'entrée neutre pour le code métier (garde-fou 3) : la route Admin ne
 // connaît ni le transporteur ni son API.
 //
 // Une photo importée arrive NON cochée « Visible du client » (décision Val
-// 2026-11-03), comme une photo remontée par MTS-1.
+// 2026-11-03).
 
 import { createHash } from 'node:crypto';
 
@@ -17,6 +18,9 @@ import { logger } from '@savr/shared/src/logger/index.js';
 import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
 import { EverestClient } from './everest/client.js';
+import type { TypeTms } from './index.js';
+import { photosDeLaCommandeMts1 } from './mts1/adapter.js';
+import { Mts1Client } from './mts1/client.js';
 import {
   prestatairesDuType,
   retenirTourneesDuProvider,
@@ -31,12 +35,23 @@ const EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
 };
 
+/** Transporteurs dont les photos du livreur se relisent. */
+type TypePhotos = Extract<TypeTms, 'a_toutes' | 'mts1'>;
+
+function lisLesPhotos(typeTms: string | null): typeTms is TypePhotos {
+  return typeTms === 'a_toutes' || typeTms === 'mts1';
+}
+
 /** Une photo du livreur proposée à l'Admin. */
 export interface PhotoTransporteur {
   /** Identifiant opaque, stable : empreinte de la course et de la photo. */
   id: string;
-  /** Adresse de l'image chez le transporteur (aperçu). */
-  url: string;
+  /**
+   * Adresse de l'image chez le transporteur, quand le navigateur peut la lire
+   * (A Toute!). `null` : l'aperçu passe par Savr (MTS-1 exige sa clé d'API,
+   * cf. `apercuPhotoTransporteur`).
+   */
+  url: string | null;
   prise_le: string | null;
   /** Rang de la course (camion ou vélo) qui l'a prise. */
   course: number;
@@ -69,9 +84,23 @@ export class PhotoTransporteurInconnueError extends Error {
   override readonly name = 'PhotoTransporteurInconnueError';
 }
 
+// Photo lue, avec de quoi la télécharger (jamais rendu au navigateur).
+interface PhotoLue extends PhotoTransporteur {
+  telechargement: string;
+}
+
+type Lecture =
+  | { pris_en_charge: false }
+  | {
+      pris_en_charge: true;
+      typeTms: TypePhotos;
+      photos: PhotoLue[];
+      courses_illisibles: number;
+    };
+
 // Même principe que les photos MTS-1 : la clé ne montre aucun identifiant du
 // transporteur, elle est déterministe (la recherche de doublon la lit).
-function empreinte(ref: string, mediaId: string): string {
+function empreinteEverest(ref: string, mediaId: string): string {
   return createHash('sha256')
     .update(JSON.stringify(['a_toutes', ref, mediaId]))
     .digest('hex');
@@ -128,20 +157,24 @@ async function transporteurDeLAttribution(
   return t?.type_tms ?? null;
 }
 
+type TourneeLue = TourneeProvider & { tms_reference: string | null };
+
 export async function tourneesALire(
   supabase: SupabaseClient,
   collecteId: string,
-): Promise<TourneeProvider[]> {
+  typeTms: TypePhotos = 'a_toutes',
+): Promise<TourneeLue[]> {
   // Le rang est porté par le lien collecte ↔ tournée, pas par la tournée.
+  // borne-par-nature: une ligne par camion de la collecte (quelques unités).
   const { data, error } = await supabase
     .from('collecte_tournees')
     .select(
-      'rang, tournees!inner(id, statut, external_ref_commande, prestataire_logistique_id)',
+      'rang, tournees!inner(id, statut, external_ref_commande, prestataire_logistique_id, tms_reference)',
     )
     .eq('collecte_id', collecteId);
   if (error) throw new Error(`tournées illisibles : ${error.message}`);
-  type Tournee = Omit<TourneeProvider, 'rang'>;
-  const tournees: TourneeProvider[] = (
+  type Tournee = Omit<TourneeLue, 'rang'>;
+  const tournees: TourneeLue[] = (
     (data ?? []) as Array<{
       rang: number;
       tournees: Tournee | Tournee[] | null;
@@ -152,10 +185,10 @@ export async function tourneesALire(
   });
   // Même cloisonnement que l'adapter : une tournée résiduelle vivante d'un autre
   // transporteur lève l'alerte Ops habituelle (idempotente), voulu ici aussi.
-  const prestataires = await prestatairesDuType(supabase, 'a_toutes');
+  const prestataires = await prestatairesDuType(supabase, typeTms);
   const retenues = await retenirTourneesDuProvider({
     supabase,
-    typeTms: 'a_toutes',
+    typeTms,
     prestataires,
     collecteId,
     tournees,
@@ -169,6 +202,7 @@ async function clesDejaImportees(
   supabase: SupabaseClient,
   collecteId: string,
 ): Promise<Set<string>> {
+  // borne-par-nature: les photos d'une seule collecte (quelques dizaines).
   const { data, error } = await supabase
     .schema('shared')
     .from('fichiers')
@@ -178,40 +212,68 @@ async function clesDejaImportees(
     .is('deleted_at', null)
     .like('key', `${prefixe(collecteId)}%`);
   if (error) throw new Error(`photos illisibles : ${error.message}`);
-  // Nom de l'objet sans extension = empreinte de la photo.
+  // Nom de l'objet jusqu'au premier point = empreinte de la photo (une photo
+  // recadrée garde l'empreinte de son original : `<empreinte>.jpg.recadree.jpg`).
   return new Set(
-    ((data ?? []) as Array<{ key: string }>).map((f) =>
-      f.key.slice(prefixe(collecteId).length).replace(/\.[a-z]+$/, ''),
+    ((data ?? []) as Array<{ key: string }>).map(
+      (f) => f.key.slice(prefixe(collecteId).length).split('.')[0] as string,
     ),
   );
+}
+
+// Photos d'une course. Lève si le transporteur ne rend pas la course.
+async function photosDUneCourse(
+  supabase: SupabaseClient,
+  typeTms: TypePhotos,
+  t: TourneeLue,
+  correlationId: string,
+): Promise<Array<Omit<PhotoLue, 'deja_importee'>>> {
+  const ref = t.external_ref_commande as string;
+  if (typeTms === 'mts1') {
+    const photos = await photosDeLaCommandeMts1(
+      new Mts1Client(supabase),
+      ref,
+      t.tms_reference,
+    );
+    return photos.map((p) => ({
+      id: p.empreinte,
+      url: null,
+      prise_le: null,
+      course: t.rang,
+      telechargement: p.downloadUrl,
+    }));
+  }
+  const mission = await new EverestClient(supabase).getMission(
+    ref,
+    correlationId,
+  );
+  return (mission.photos ?? []).map((p) => ({
+    id: empreinteEverest(ref, p.id),
+    url: p.src,
+    prise_le: p.prise_le,
+    course: t.rang,
+    telechargement: p.src,
+  }));
 }
 
 async function lirePhotos(
   supabase: SupabaseClient,
   collecteId: string,
   correlationId: string,
-): Promise<
-  | { pris_en_charge: false }
-  | {
-      pris_en_charge: true;
-      photos: PhotoTransporteur[];
-      courses_illisibles: number;
-    }
-> {
+): Promise<Lecture> {
   const typeTms = await transporteurDeLaCollecte(supabase, collecteId);
-  if (typeTms !== 'a_toutes') return { pris_en_charge: false };
+  if (!lisLesPhotos(typeTms)) return { pris_en_charge: false };
 
-  const tournees = await tourneesALire(supabase, collecteId);
+  const tournees = await tourneesALire(supabase, collecteId, typeTms);
   const deja = await clesDejaImportees(supabase, collecteId);
-  const client = new EverestClient(supabase);
-  const photos: PhotoTransporteur[] = [];
+  const photos: PhotoLue[] = [];
+  const vues = new Set<string>();
   let coursesIllisibles = 0;
   for (const t of tournees) {
-    const ref = t.external_ref_commande as string;
     // Une course illisible n'empêche pas de montrer les photos des autres.
-    let mission;
+    let lues;
     try {
-      mission = await client.getMission(ref, correlationId);
+      lues = await photosDUneCourse(supabase, typeTms, t, correlationId);
     } catch (err) {
       coursesIllisibles++;
       logger.warn('adapters.photos_transporteur.course_illisible', {
@@ -222,21 +284,28 @@ async function lirePhotos(
       });
       continue;
     }
-    for (const p of mission.photos ?? []) {
-      const id = empreinte(ref, p.id);
-      photos.push({
-        id,
-        url: p.src,
-        prise_le: p.prise_le,
-        course: t.rang,
-        deja_importee: deja.has(id),
-      });
+    for (const p of lues) {
+      // Deux camions regroupés sur un même tour MTS-1 : une photo, une fois.
+      if (vues.has(p.id)) continue;
+      vues.add(p.id);
+      photos.push({ ...p, deja_importee: deja.has(p.id) });
     }
   }
   return {
     pris_en_charge: true,
+    typeTms,
     photos,
     courses_illisibles: coursesIllisibles,
+  };
+}
+
+function sansTelechargement(p: PhotoLue): PhotoTransporteur {
+  return {
+    id: p.id,
+    url: p.url,
+    prise_le: p.prise_le,
+    course: p.course,
+    deja_importee: p.deja_importee,
   };
 }
 
@@ -246,7 +315,79 @@ export async function listerPhotosTransporteur(
   collecteId: string,
   correlationId: string,
 ): Promise<PhotosTransporteur> {
-  return lirePhotos(supabase, collecteId, correlationId);
+  const lu = await lirePhotos(supabase, collecteId, correlationId);
+  if (!lu.pris_en_charge) return lu;
+  return {
+    pris_en_charge: true,
+    photos: lu.photos.map(sansTelechargement),
+    courses_illisibles: lu.courses_illisibles,
+  };
+}
+
+// Téléchargement d'une photo choisie. `null` : le transporteur n'a rien rendu.
+async function telecharger(
+  supabase: SupabaseClient,
+  typeTms: TypePhotos,
+  photo: PhotoLue,
+): Promise<{ contenu: Buffer; content_type: string } | null> {
+  if (typeTms === 'mts1') {
+    const contenu = await new Mts1Client(supabase).downloadPhoto(
+      photo.telechargement,
+    );
+    return contenu ? { contenu, content_type: 'image/jpeg' } : null;
+  }
+  return new EverestClient(supabase).downloadPhoto(photo.telechargement);
+}
+
+// Aperçus MTS-1 : la fenêtre en demande un par photo, en même temps. La liste
+// relue est gardée une minute par instance, pour ne pas relire le tour chez
+// MTS-1 à chaque image.
+const DUREE_LISTE_APERCU_MS = 60_000;
+const listesApercu = new Map<
+  string,
+  { expire: number; lecture: Promise<Lecture> }
+>();
+
+function lectureApercu(
+  supabase: SupabaseClient,
+  collecteId: string,
+  correlationId: string,
+): Promise<Lecture> {
+  const maintenant = Date.now();
+  for (const [cle, l] of listesApercu) {
+    if (l.expire <= maintenant) listesApercu.delete(cle);
+  }
+  const gardee = listesApercu.get(collecteId);
+  if (gardee) return gardee.lecture;
+  const lecture = lirePhotos(supabase, collecteId, correlationId);
+  listesApercu.set(collecteId, {
+    expire: maintenant + DUREE_LISTE_APERCU_MS,
+    lecture,
+  });
+  lecture.catch(() => listesApercu.delete(collecteId));
+  return lecture;
+}
+
+/** Pour les tests : oublie les listes gardées pour les aperçus. */
+export function _viderListesApercu(): void {
+  listesApercu.clear();
+}
+
+/**
+ * Image d'une photo du livreur, pour l'aperçu dans la fenêtre de choix, sans
+ * rien stocker. L'id doit désigner une photo de la collecte (jamais une adresse
+ * venue du navigateur). `null` : photo inconnue, ou que le transporteur ne rend
+ * pas.
+ */
+export async function apercuPhotoTransporteur(
+  supabase: SupabaseClient,
+  opts: { collecteId: string; id: string; correlationId: string },
+): Promise<{ contenu: Buffer; content_type: string } | null> {
+  const lu = await lectureApercu(supabase, opts.collecteId, opts.correlationId);
+  if (!lu.pris_en_charge) return null;
+  const photo = lu.photos.find((p) => p.id === opts.id);
+  if (!photo) return null;
+  return telecharger(supabase, lu.typeTms, photo);
 }
 
 /**
@@ -285,7 +426,6 @@ export async function importerPhotosTransporteur(
     );
   }
 
-  const client = new EverestClient(supabase);
   const resultat: ResultatImport = {
     importees: 0,
     deja_importees: 0,
@@ -293,7 +433,7 @@ export async function importerPhotosTransporteur(
     restantes: 0,
   };
   for (const id of new Set(ids)) {
-    const photo = parId.get(id) as PhotoTransporteur;
+    const photo = parId.get(id) as PhotoLue;
     if (photo.deja_importee) {
       resultat.deja_importees++;
       continue;
@@ -303,7 +443,9 @@ export async function importerPhotosTransporteur(
       continue;
     }
     try {
-      const { contenu, content_type } = await client.downloadPhoto(photo.url);
+      const telechargee = await telecharger(supabase, lu.typeTms, photo);
+      if (!telechargee) throw new Error('photo absente chez le transporteur');
+      const { contenu, content_type } = telechargee;
       const key = `${prefixe(collecteId)}${id}.${EXTENSIONS[content_type] ?? 'jpg'}`;
       // R2 d'abord, la ligne ensuite : jamais de ligne vers un objet absent.
       const { bucket } = await uploadObject(key, contenu, content_type);

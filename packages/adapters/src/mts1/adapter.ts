@@ -22,7 +22,6 @@
 import { createHash } from 'node:crypto';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { uploadObject } from '@savr/shared/src/r2/upload.js';
 
 import type {
   Collecte,
@@ -85,26 +84,27 @@ interface TourneeRow {
 }
 
 /**
- * Clé de stockage d'une photo remontée par le transporteur, dans le bucket de
- * l'environnement : `photos/collectes/<collecteId>/<empreinte>.jpg` — même dossier
- * que les photos importées à la main par l'Admin.
+ * Empreinte d'une photo MTS-1 : nom de l'objet sous
+ * `photos/collectes/<collecteId>/<empreinte>.jpg`, même dossier que les photos
+ * importées à la main par l'Admin.
  *
- * L'empreinte remplace les identifiants de tournée, d'arrêt et de photo du
- * logiciel du transporteur : la ligne shared.fichiers est lisible par les clients
- * de la collecte (§09 C1), sa clé ne doit pas les leur montrer (décision Val
- * 2026-10-07, prise tant qu'aucune photo n'existe). Ce n'est pas un secret, juste
- * un nom qui ne dit plus rien. Elle est DÉTERMINISTE — la dédup de processPhotos
- * cherche la clé — et ne porte que le triplet d'identifiants, pas l'adresse de la
- * photo : l'hôte du connecteur peut changer sans que la photo change.
+ * Elle remplace les identifiants de tournée, d'arrêt et de photo du logiciel du
+ * transporteur : la ligne shared.fichiers est lisible par les clients de la
+ * collecte (§09 C1), sa clé ne doit pas les leur montrer (décision Val
+ * 2026-10-07). Ce n'est pas un secret, juste un nom qui ne dit plus rien. Elle
+ * est DÉTERMINISTE (une photo déjà importée est reconnue) et ne porte que le
+ * triplet d'identifiants, pas l'adresse : l'hôte du connecteur peut changer sans
+ * que la photo change. Formule inchangée depuis la relève automatique (retirée
+ * le 2026-11-20) : les photos qu'elle a rangées restent reconnues.
  */
-function clePhoto(
-  collecteId: string,
-  photo: { tourId: string; stopId: string; photoId: string },
-): string {
-  const empreinte = createHash('sha256')
+export function empreintePhotoMts1(photo: {
+  tourId: string;
+  stopId: string;
+  photoId: string;
+}): string {
+  return createHash('sha256')
     .update(JSON.stringify([photo.tourId, photo.stopId, photo.photoId]))
     .digest('hex');
-  return `photos/collectes/${collecteId}/${empreinte}.jpg`;
 }
 
 // Suffixes flux ZD → libellés MTS-1 as-built (sortant)
@@ -399,6 +399,62 @@ function identifiantPhoto(
     photoId
     ? photoId
     : null;
+}
+
+/** Une photo d'une commande MTS-1, lue dans le détail de son tour. */
+export interface PhotoCommandeMts1 {
+  empreinte: string;
+  /** Adresse de téléchargement chez MTS-1 (clé d'API exigée). */
+  downloadUrl: string;
+}
+
+/**
+ * Photos d'une commande, lues à la demande de l'Admin (décision Val 2026-11-20 :
+ * plus rien n'est rangé seul). Le tour lu est celui que désigne la commande
+ * (`currentTour.tourId`, l'Admin a pu la regrouper dans la console), à défaut la
+ * tournée unitaire créée à l'envoi. Seuls les arrêts qui ne servent qu'elle,
+ * enlèvement et dépôt (`stops[].photos[].downloadUrl` ; il n'existe pas de route
+ * `GET /v3/tours/{id}/photos`, 404 `BAD_ROUTE` mesuré le 2026-10-13) : un arrêt
+ * qui nomme plusieurs commandes (dépôt commun) pourrait montrer la marchandise
+ * d'une autre collecte. Une adresse d'une autre forme que celle mesurée est
+ * écartée. Commande inconnue de MTS-1 : aucune photo.
+ */
+export async function photosDeLaCommandeMts1(
+  client: Mts1Client,
+  customerOrderId: string,
+  tourneeUnitaire: string | null,
+): Promise<PhotoCommandeMts1[]> {
+  const [commande] = await client.findOrdersByIds([customerOrderId]);
+  if (!commande) return [];
+  const designe = commande.currentTour?.tourId;
+  const tourId =
+    typeof designe === 'string' && designe !== '' ? designe : tourneeUnitaire;
+  if (!tourId || !estIdentifiantMts1(tourId)) return [];
+  const tour = await client.getTour(tourId);
+
+  const photos: PhotoCommandeMts1[] = [];
+  for (const stop of tour.stops ?? []) {
+    if (!stop || !sertLaCommande(stop, customerOrderId)) continue;
+    const commandesNommees = (stop.customerOrders ?? []).filter(
+      (c) => c?.customerOrderId,
+    );
+    if (commandesNommees.length > 1) continue;
+    for (const photo of stop.photos ?? []) {
+      const downloadUrl = photo?.downloadUrl;
+      if (typeof downloadUrl !== 'string') continue;
+      const photoId = identifiantPhoto(downloadUrl, tourId, stop.stopId);
+      if (!photoId) continue;
+      photos.push({
+        empreinte: empreintePhotoMts1({
+          tourId,
+          stopId: stop.stopId,
+          photoId,
+        }),
+        downloadUrl,
+      });
+    }
+  }
+  return photos;
 }
 
 export class AdapterMts1 implements LogistiqueProvider {
@@ -1213,17 +1269,9 @@ export class AdapterMts1 implements LogistiqueProvider {
         );
       }
 
-      // 6. Photos, en dernier, à chaque passage, après le traitement de la fin de
-      // mission : une photo lente ou en échec ne retarde ni les pesées ni la fin
-      // de mission (non bloquant, retentée au passage suivant).
-      if (lecture && tourId) {
-        await this.processPhotos(
-          lecture.tour,
-          tourId,
-          order.customerOrderId,
-          collecteId,
-        );
-      }
+      // Plus de photos à la relève (décision Val 2026-11-20) : l'Admin les
+      // affiche et garde celles qu'il retient depuis la fiche collecte
+      // (`photosDeLaCommandeMts1`, appelée par `photos-transporteur.ts`).
 
       if (inboxId) await this.markInboxDone(inboxId);
     } catch (err) {
@@ -1327,8 +1375,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
   /**
    * Détail d'un tour, pour UNE commande : plaque et chauffeur, pesées de son
-   * arrêt d'enlèvement. Rend le tour (ses photos sont relevées en dernier, après
-   * le traitement de la fin de mission), et dit si la mission de la commande est terminée (`FINISHED` sur
+   * arrêt d'enlèvement. Rend le tour, et dit si la mission de la commande est terminée (`FINISHED` sur
    * l'arrêt d'enlèvement) et si une pesée a été écrite ou modifiée.
    */
   private async processTourDetails(
@@ -2082,144 +2129,6 @@ export class AdapterMts1 implements LogistiqueProvider {
     return niveau;
   }
 
-  /**
-   * Photos de la commande : celles des arrêts du tour qui ne servent qu'elle,
-   * enlèvement et dépôt (`stops[].photos[].downloadUrl` ; il n'existe pas de
-   * route `GET /v3/tours/{id}/photos`, 404 `BAD_ROUTE` mesuré le 2026-10-13). Un
-   * arrêt qui nomme plusieurs commandes (dépôt commun) est écarté : sa photo
-   * pourrait montrer la marchandise d'une autre collecte.
-   * Non bloquant : une photo en échec est tracée et retentée au passage suivant.
-   */
-  private async processPhotos(
-    tour: Mts1Tour,
-    tourId: string,
-    customerOrderId: string,
-    collecteId: string,
-  ): Promise<void> {
-    for (const stop of tour.stops ?? []) {
-      if (!stop || !sertLaCommande(stop, customerOrderId)) continue;
-      const commandesNommees = (stop.customerOrders ?? []).filter(
-        (c) => c?.customerOrderId,
-      );
-      if (commandesNommees.length > 1) continue;
-
-      for (const photo of stop.photos ?? []) {
-        const stopId = stop.stopId;
-        const downloadUrl = photo?.downloadUrl;
-        const photoId =
-          typeof downloadUrl === 'string'
-            ? identifiantPhoto(downloadUrl, tourId, stopId)
-            : null;
-        if (!photoId) {
-          await this.logEntrantError(
-            'PHOTO_ADRESSE_INATTENDUE',
-            `tourId=${tourId} stopId=${stopId}`,
-          );
-          continue;
-        }
-        const storageKey = clePhoto(collecteId, { tourId, stopId, photoId });
-
-        // Dédup : photo déjà uploadée ? Une recherche en échec ne vaut pas
-        // « absente » : elle re-téléverserait la photo et doublerait sa ligne.
-        // Lignes supprimées comprises (une photo retirée par l'Admin ne revient
-        // pas) ; `limit(1)` et non `maybeSingle` : les doublons d'avant l'index
-        // uniq_fichiers_objet_vivant, marqués supprimés, restent sous la même clé.
-        const { data: trouvees, error: erreurDedup } = await this.supabase
-          .schema('shared')
-          .from('fichiers')
-          .select('id')
-          .eq('key', storageKey)
-          .limit(1);
-        const existante = (trouvees ?? []).length > 0;
-
-        if (erreurDedup) {
-          await this.logEntrantError(
-            'PHOTO_DEDUP_FAILED',
-            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
-          );
-          continue;
-        }
-        if (existante) continue;
-
-        // Téléchargement binaire
-        let buffer: Buffer | null;
-        try {
-          buffer = await this.client.downloadPhoto(downloadUrl);
-        } catch {
-          await this.logEntrantError(
-            'PHOTO_DOWNLOAD_FAILED',
-            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
-          );
-          continue;
-        }
-
-        if (buffer === null) {
-          // Photo absente (corps vide) → log non bloquant, retentée au passage suivant
-          await this.logEntrantError(
-            'PHOTO_DOWNLOAD_FAILED',
-            `absente tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
-          );
-          continue;
-        }
-
-        // Upload R2 D'ABORD, pointeur shared.fichiers ENSUITE : si l'upload échoue
-        // (credentials absents, rejet R2), on log + on saute sans INSERT → JAMAIS de
-        // ligne shared.fichiers orpheline pointant un objet inexistant (BL-P0-02).
-        // Non bloquant pour le poll : la photo est retentée au prochain passage.
-        // Le bucket persisté est celui que l'upload a réellement écrit (bucket de
-        // l'environnement) ; la clé est celle de `clePhoto`
-        // (`photos/collectes/<collecteId>/<empreinte>.jpg`).
-        let bucket: string;
-        try {
-          bucket = await this.uploadPhotoToR2(storageKey, buffer);
-        } catch {
-          await this.logEntrantError(
-            'PHOTO_UPLOAD_FAILED',
-            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
-          );
-          continue;
-        }
-
-        // Enregistrement dans shared.fichiers (objet désormais réellement présent
-        // sur R2). En échec, la photo sera retéléchargée au passage suivant.
-        const { error: erreurEnregistrement } = await this.supabase
-          .schema('shared')
-          .from('fichiers')
-          .insert({
-            storage_provider: 'r2',
-            bucket,
-            key: storageKey,
-            content_type: 'image/jpeg',
-            size_bytes: buffer.length,
-            // entity_type = table propriétaire (§04 shared.fichiers), ici la collecte :
-            // même valeur que l'import manuel Admin, lue par la galerie de la fiche
-            // collecte et par shared.f_fichier_visible (§09 C1). Toute autre valeur est
-            // refusée par la policy et la photo n'apparaît nulle part.
-            entity_type: 'plateforme.collectes',
-            entity_id: collecteId,
-          });
-        // 23505 : une relève simultanée (notifications MTS-1 en rafale) l'a
-        // enregistrée à l'instant — index uniq_fichiers_objet_vivant, constat
-        // du 2026-11-13. Elle est là une seule fois : rien à signaler.
-        if (erreurEnregistrement && erreurEnregistrement.code !== '23505') {
-          await this.logEntrantError(
-            'PHOTO_ENREGISTREMENT_FAILED',
-            `tourId=${tourId} stopId=${stopId} photoId=${photoId}`,
-          );
-        }
-      }
-    }
-  }
-
-  // Upload binaire vers R2 (S3-compatible) via la signature AWS Sig V4 partagée
-  // (@savr/shared/src/r2/upload). La logique R2/AWS-SDK vit hors packages/adapters/
-  // (garde-fou 3). `uploadObject` LÈVE en cas d'échec → l'appelant ne persiste pas
-  // de pointeur orphelin. Rend le bucket écrit (celui de l'environnement).
-  private async uploadPhotoToR2(key: string, buffer: Buffer): Promise<string> {
-    const { bucket } = await uploadObject(key, buffer, 'image/jpeg');
-    return bucket;
-  }
-
   // ─── Helpers polling entrant (M1.5b) ─────────────────────────────────────────
 
   private async loadFluxCodes(): Promise<Map<string, string>> {
@@ -2970,7 +2879,7 @@ export class AdapterMts1 implements LogistiqueProvider {
 
     // Marchandise transportée (pesée plus tard → quantity 0), chaque stuff portant le
     // point B (relatedAddress). ZD = 5 flux + le camion ; AG = le don
-    // alimentaire (poids/photos remontés ensuite par le polling, comme les pesées ZD).
+    // alimentaire (poids remonté ensuite par le polling, comme les pesées ZD).
     // Camion (décision Val 2026-11-16) : un article au libellé du véhicule choisi
     // par l'Admin (« 20 m³ simple »), quantité 1, comme le volume des commandes
     // Bubble. L'envoi d'une ZD sans véhicule est refusé en amont (route

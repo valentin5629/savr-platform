@@ -1,8 +1,9 @@
 'use client';
 
-// Choix des photos du livreur à garder (décision Val 2026-11-03) : la fenêtre
-// relit les photos chez le transporteur de la collecte, l'Admin coche celles
-// qu'il garde, elles sont importées non cochées « Visible du client ».
+// Choix des photos du livreur à garder (décisions Val 2026-11-03 pour A Toute!,
+// 2026-11-20 pour MTS-1) : la fenêtre relit les photos chez le transporteur de
+// la collecte, l'Admin coche celles qu'il garde, seules celles-là sont stockées,
+// non cochées « Visible du client ».
 
 import { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/modal';
@@ -16,7 +17,9 @@ import { Text } from '@/components/ui/text';
 
 interface PhotoLivreur {
   id: string;
-  url: string;
+  // null : le navigateur ne peut pas la lire chez le transporteur (MTS-1),
+  // l'aperçu passe par Savr sans rien stocker.
+  url: string | null;
   prise_le: string | null;
   course: number;
   deja_importee: boolean;
@@ -194,7 +197,8 @@ export function PhotosTransporteurModal({
                   className="block space-y-1.5"
                 >
                   <img
-                    src={p.url}
+                    src={p.url ?? `${url}/${encodeURIComponent(p.id)}`}
+                    loading="lazy"
                     referrerPolicy="no-referrer"
                     alt={
                       legende

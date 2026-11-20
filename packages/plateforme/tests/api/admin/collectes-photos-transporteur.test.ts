@@ -10,19 +10,23 @@ import { NextRequest } from 'next/server';
 const COLLECTE = 'col-1';
 const ID = 'a'.repeat(64);
 
-const { lister, importer, role, collecteExiste, audits } = vi.hoisted(() => ({
-  lister: vi.fn(),
-  importer: vi.fn(),
-  role: { valeur: 'admin_savr' as string },
-  collecteExiste: { valeur: true },
-  audits: [] as Array<Record<string, unknown>>,
-}));
+const { lister, importer, apercu, role, collecteExiste, audits } = vi.hoisted(
+  () => ({
+    lister: vi.fn(),
+    importer: vi.fn(),
+    apercu: vi.fn(),
+    role: { valeur: 'admin_savr' as string },
+    collecteExiste: { valeur: true },
+    audits: [] as Array<Record<string, unknown>>,
+  }),
+);
 
 vi.mock('@savr/adapters/src/index.js', () => {
   class PhotoTransporteurInconnueError extends Error {}
   return {
     listerPhotosTransporteur: lister,
     importerPhotosTransporteur: importer,
+    apercuPhotoTransporteur: apercu,
     PhotoTransporteurInconnueError,
   };
 });
@@ -85,6 +89,7 @@ const poster = async (body: unknown) =>
 beforeEach(() => {
   lister.mockReset();
   importer.mockReset();
+  apercu.mockReset();
   role.valeur = 'admin_savr';
   collecteExiste.valeur = true;
   audits.length = 0;
@@ -196,5 +201,48 @@ describe('photos du livreur — POST', () => {
     const res = await poster({ ids: [ID] });
     expect(res.status).toBe(502);
     expect(audits).toEqual([]);
+  });
+});
+
+// Aperçu d'une photo MTS-1 dans la fenêtre de choix (décision Val 2026-11-20).
+describe('GET …/photos/transporteur/[photoId] — aperçu sans stockage', () => {
+  const routeApercu = () =>
+    import('@/app/api/v1/admin/collectes/[id]/photos/transporteur/[photoId]/route.js');
+  const voir = async (photoId: string) =>
+    (await routeApercu()).GET(new NextRequest(`${URL_ROUTE}/${photoId}`), {
+      params: Promise.resolve({ id: COLLECTE, photoId }),
+    });
+  const JPEG = Buffer.from('ffd8ffe000104a464946ffd9', 'hex');
+
+  it('rend l’image de la photo désignée par son empreinte', async () => {
+    apercu.mockResolvedValue({ contenu: JPEG, content_type: 'image/jpeg' });
+    const res = await voir(ID);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/jpeg');
+    expect(res.headers.get('cache-control')).toContain('private');
+    expect(Buffer.from(await res.arrayBuffer())).toEqual(JPEG);
+    expect(apercu).toHaveBeenCalledWith(expect.anything(), {
+      collecteId: COLLECTE,
+      id: ID,
+      correlationId: expect.any(String),
+    });
+  });
+
+  it('photo inconnue de la collecte → 404', async () => {
+    apercu.mockResolvedValue(null);
+    expect((await voir(ID)).status).toBe(404);
+  });
+
+  it('identifiant qui n’est pas une empreinte → 404, aucun appel au transporteur', async () => {
+    const res = await voir('https%3A%2F%2Fexemple.test%2Fphoto.jpg');
+    expect(res.status).toBe(404);
+    expect(apercu).not.toHaveBeenCalled();
+  });
+
+  it('client (hors équipe Savr) → refusé, aucun appel au transporteur', async () => {
+    role.valeur = 'traiteur_manager';
+    const res = await voir(ID);
+    expect([401, 403]).toContain(res.status);
+    expect(apercu).not.toHaveBeenCalled();
   });
 });

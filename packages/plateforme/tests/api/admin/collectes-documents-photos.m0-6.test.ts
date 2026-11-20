@@ -191,6 +191,7 @@ describe('M0.6 — GET admin/collectes/[id]/documents : galerie photos', () => {
       content_type: 'image/jpeg',
       created_at: '2026-07-16T00:05:00Z',
       visible_client: false,
+      recadree: false,
       url: `https://r2.test/savr-test/${PHOTO_TRANSPORTEUR['key']}`,
     });
     // L'équipe Savr voit toutes les photos ; la réponse dit lesquelles sont

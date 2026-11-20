@@ -223,11 +223,13 @@ export {
   _getEverestHandlers,
 } from './everest/mock.js';
 
-// Photos du livreur relues chez le transporteur (décision Val 2026-11-03) —
-// point d'entrée neutre de la fiche collecte Admin (garde-fou 3).
+// Photos du livreur relues chez le transporteur, A Toute! et MTS-1 (décisions
+// Val 2026-11-03 et 2026-11-20) — point d'entrée neutre de la fiche collecte
+// Admin (garde-fou 3).
 export {
   listerPhotosTransporteur,
   importerPhotosTransporteur,
+  apercuPhotoTransporteur,
   PhotoTransporteurInconnueError,
 } from './photos-transporteur.js';
 export type {

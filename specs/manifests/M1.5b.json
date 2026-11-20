@@ -8,25 +8,25 @@
     "G5": "Aucune FK vers tms.* — tournees.external_ref_commande / tms_reference (neutre TMS-Ready)"
   },
   "scenarios": [
-    "photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement)",
+    "importe les seules photos cochées, sous la clé de toujours, non visibles du client",
     "upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)"
   ],
   "deliverables": [
     {
       "id": "BL-P0-02",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
-      "artefact": "packages/adapters/src/mts1/adapter.ts",
+      "artefact": "packages/adapters/src/photos-transporteur.ts (importerPhotosTransporteur)",
       "test": "upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)",
       "statut": "implemented",
-      "libelle": "upload photo MTS-1 → R2 (uploadObject @savr/shared, fin du stub Sig V4) + ligne shared.fichiers ; INSERT échoue si upload KO (jamais d'orpheline)"
+      "libelle": "upload photo MTS-1 → R2 (uploadObject @savr/shared) puis ligne shared.fichiers ; aucune ligne si l'upload échoue (jamais d'orpheline). Depuis le 2026-11-20 (décision Val, _Divergences/M1.5_20261120_photos-livreur-au-clic-et-recadrage.md), l'upload n'a lieu qu'à l'import des photos choisies par l'Admin dans la fiche collecte, plus à la relève."
     },
     {
       "id": "M1.5b-sync-nominal",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-1 / poll nominal, tournée acceptée par le transporteur → statut_tms=\"acceptee\", pesées upsertées, photo uploadée",
+      "test": "M1.5b-1 / poll nominal, tournée acceptée par le transporteur → statut_tms=\"acceptee\", pesées upsertées, photo non rangée",
       "statut": "implemented",
-      "libelle": "sync nominal : refus de la commande et attribution de sa tournée → statut_tms (cf. M1.5b-acceptee-transporteur) + upsert pesées (pesees_tournees, lues sur l'arrêt d'enlèvement de la commande) + photos (lues dans le détail du tour). La preuve sur la forme réelle du fil est portée par le livrable M1.5b-pesees-photos-forme-reelle."
+      "libelle": "sync nominal : refus de la commande et attribution de sa tournée → statut_tms (cf. M1.5b-acceptee-transporteur) + upsert pesées (pesees_tournees, lues sur l'arrêt d'enlèvement de la commande). Photos : plus rangées à la relève depuis le 2026-11-20 (décision Val, _Divergences/M1.5_20261120_photos-livreur-au-clic-et-recadrage.md), l'Admin choisit celles qu'il garde dans la fiche collecte. La preuve sur la forme réelle du fil est portée par le livrable M1.5b-pesees-photos-forme-reelle."
     },
     {
       "id": "M1.5b-dedup-inbox",
@@ -63,32 +63,32 @@
     {
       "id": "M1.5b-dedup-photo",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
-      "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-6 / photo déjà dans shared.fichiers → skip download",
+      "artefact": "packages/adapters/src/photos-transporteur.ts (clesDejaImportees)",
+      "test": "une photo rangée par l’ancienne relève, recadrée ou non, est signalée déjà importée + une photo déjà importée n’est pas importée deux fois",
       "statut": "implemented",
-      "libelle": "dédup photo : présente dans shared.fichiers (key) → skip download/upload"
+      "libelle": "dédup photo : présente dans shared.fichiers (clé, empreinte du triplet tourId, stopId, photoId) → signalée « Déjà importée » dans la fenêtre de choix, ni retéléchargée ni rangée deux fois ; une photo rangée par la relève d'avant le 2026-11-20, ou recadrée depuis, est reconnue (_Divergences/M1.5_20261120_photos-livreur-au-clic-et-recadrage.md)."
     },
     {
       "id": "M1.5b-photo-404",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md",
-      "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-7 / photo absente → log PHOTO_DOWNLOAD_FAILED, poll continue (pas d'exception)",
+      "artefact": "packages/adapters/src/photos-transporteur.ts (importerPhotosTransporteur)",
+      "test": "une photo que MTS-1 ne rend pas (corps vide) est comptée en échec, sans rien stocker",
       "statut": "implemented",
-      "libelle": "photo absente (corps vide rendu par MTS-1, ou 404) → log non bloquant, retentée au passage suivant (pas d'orpheline) ; pas d'alerte « photo manquante » pour l'instant (décision Val 2026-10-14 : l'équipe Savr vérifie à la main)"
+      "libelle": "photo absente (corps vide rendu par MTS-1, ou 404) → comptée en échec dans le résultat de l'import, rien n'est stocké (pas d'orpheline), l'Admin relance l'import ; pas d'alerte « photo manquante » (décision Val 2026-10-14 : l'équipe Savr vérifie à la main). Depuis le 2026-11-20, plus de relève automatique des photos (_Divergences/M1.5_20261120_photos-livreur-au-clic-et-recadrage.md)."
     },
     {
       "id": "M1.5b-photo-entity-type",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/09 - Authentification et permissions.md:824",
       "artefact": "packages/adapters/src/mts1/adapter.ts",
-      "test": "M1.5b-photo-entity-type / photo rangée sous la table propriétaire plateforme.collectes + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
+      "test": "importe les seules photos cochées, sous la clé de toujours, non visibles du client + collectes-documents-photos.m0-6.test.ts « photo remontée par le transporteur listée avec les imports manuels »",
       "statut": "implemented",
       "libelle": "photo MTS-1 rangée dans shared.fichiers sous entity_type='plateforme.collectes' (table propriétaire, liste C1 des 9 entity_type) : même valeur que l'import manuel Admin, lue par la galerie de la fiche collecte Admin et par shared.f_fichier_visible ; dédup inchangée (clé de stockage seule)"
     },
     {
       "id": "M1.5b-photo-cle-opaque",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:523",
-      "artefact": "packages/adapters/src/mts1/adapter.ts (clePhoto)",
-      "test": "M1.5b-photo-cle-opaque / la clé ne porte aucun identifiant du transporteur + photo téléchargée → upload R2 + ligne shared.fichiers (bucket de l'environnement) + M1.5b-photo-dedup-cle-seule / la recherche de doublon filtre sur la clé seule",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (empreintePhotoMts1) + packages/adapters/src/photos-transporteur.ts",
+      "test": "M1.5b/photos_commande_empreinte + importe les seules photos cochées, sous la clé de toujours, non visibles du client",
       "statut": "implemented",
       "libelle": "Photo remontée par le transporteur stockée dans le bucket de l'environnement sous photos/collectes/<collecteId>/<sha256(tourId, stopId, photoId)>.jpg (décisions Val 2026-10-07 — _Divergences/M1.6_20261007_stockage-r2-par-environnement.md ; le CDC §08 §3bis.7 l.504 fixe la clé de dédup (tourId, stopId, photoId) mais ni le bucket ni la forme de la clé de stockage). La clé ne montre plus les identifiants de tournée, d'arrêt et de photo du logiciel du transporteur aux clients qui lisent la ligne shared.fichiers (§09 C1) ; elle est déterministe (la dédup cherche la clé) et ne porte que le triplet, lu dans l'adresse de la photo : l'hôte et le début du chemin peuvent changer sans que la clé change. L'ancien bucket codé en dur `collectes` n'existait pas chez Cloudflare (404 mesuré le 2026-10-07)."
     },
@@ -153,8 +153,8 @@
     {
       "id": "M1.5b-pesees-photos-forme-reelle",
       "ref_cdc": "specs/cdc/01 - Cahier des charges App/08 - APIs et intégrations.md:504",
-      "artefact": "packages/adapters/src/mts1/adapter.ts (arretEnlevement, identifiantPhoto, processTourDetails, relevePesees, processPhotos), packages/adapters/src/mts1/client.ts (downloadPhoto ; getPhotos retiré), packages/adapters/src/mts1/mock.ts (Mts1Tour, Mts1TourStop, Mts1StopStuff, Mts1StopPhoto), fixtures/api/mts1/tours_*.json et pesees_photos.json",
-      "test": "M1.5b/releve_fil_pesees_enlevement_seul + M1.5b/releve_fil_poids_a_la_livraison + M1.5b/releve_fil_depot_avant_enlevement + M1.5b/releve_fil_don_alimentaire_ignore + M1.5b/releve_fil_flux_repete + M1.5b/releve_fil_poids_absent_ou_nul + M1.5b/releve_fil_deux_commandes_meme_tour + M1.5b/releve_tour_enregistre_a_defaut + M1.5b/releve_pesee_non_ecrite + M1.5b/releve_fil_photos_detail_du_tour + M1.5b/releve_fil_photo_absente_ou_illisible + M1.5b/releve_fil_photo_autre_commande + M1.5b/releve_photo_adresse_inattendue + M1.5b/releve_photos_apres_fin_de_mission + M1.5b/releve_fil_photo_arret_commun + M1.5b/releve_fil_photo_dedup_en_echec + M1.5b/releve_fil_photo_enregistrement_en_echec + M1.5b/releve_fil_entrees_vides + M1.5b/photo_fil_cle_et_base64 + M1.5b/photo_fil_binaire + M1.5b/photo_fil_absente + M1.5b/photo_fil_corps_lent + M1.5b/photo_fil_plafond + M1.5b/photo_fil_illisible + M1.5b/photo_fil_refus + M1.5b/photo_fil_hors_connecteur + M1.5b/photo_fil_erreur_sans_cle + M1.5b/releve_base_upsert_pesee + M1.5b/releve_base_explain_voit_42p10",
+      "artefact": "packages/adapters/src/mts1/adapter.ts (arretEnlevement, identifiantPhoto, processTourDetails, relevePesees, photosDeLaCommandeMts1 ; processPhotos retiré le 2026-11-20), packages/adapters/src/mts1/client.ts (downloadPhoto ; getPhotos retiré), packages/adapters/src/mts1/mock.ts (Mts1Tour, Mts1TourStop, Mts1StopStuff, Mts1StopPhoto), fixtures/api/mts1/tours_*.json et pesees_photos.json",
+      "test": "M1.5b/releve_fil_pesees_enlevement_seul + M1.5b/releve_fil_poids_a_la_livraison + M1.5b/releve_fil_depot_avant_enlevement + M1.5b/releve_fil_don_alimentaire_ignore + M1.5b/releve_fil_flux_repete + M1.5b/releve_fil_poids_absent_ou_nul + M1.5b/releve_fil_deux_commandes_meme_tour + M1.5b/releve_tour_enregistre_a_defaut + M1.5b/releve_pesee_non_ecrite + M1.5b/releve_sans_photo + M1.5b/photos_commande_detail_du_tour + M1.5b/photos_commande_tour_designe + M1.5b/photos_commande_inconnue + M1.5b/photos_commande_arret_commun + M1.5b/photos_commande_autre_commande + M1.5b/photos_commande_adresse_inattendue + M1.5b/releve_fil_entrees_vides + M1.5b/photo_fil_cle_et_base64 + M1.5b/photo_fil_binaire + M1.5b/photo_fil_absente + M1.5b/photo_fil_corps_lent + M1.5b/photo_fil_plafond + M1.5b/photo_fil_illisible + M1.5b/photo_fil_refus + M1.5b/photo_fil_hors_connecteur + M1.5b/photo_fil_erreur_sans_cle + M1.5b/releve_base_upsert_pesee + M1.5b/releve_base_explain_voit_42p10",
       "statut": "implemented",
       "ref_divergence": "_Divergences/M1.5_20261014_mts1-releve-pesees-photos-livree.md",
       "libelle": "Pesées et photos lues sur la forme réelle du détail d'un tour (mesurée le 2026-10-13 sur le compte de démonstration ; le compte de production n'a pas été interrogé). Pesées : stops[].stuffs[].quantityAfterDelivery, sur l'arrêt d'enlèvement (stopType CUSTOMER_ORDER) qui nomme la commande, et lui seul — les stuffs sont répétés sur l'arrêt de dépôt, et un tour peut porter plusieurs commandes (arrêt : décision Val 2026-10-13 ; champ : celui que lit Bubble, relu le 2026-11-12, quantityAfterPickup valant 1 pour chaque flux sur le tour mesuré le même jour). Une valeur absente ou à 0 n'écrit aucune pesée (décision Val 2026-10-13). Le tour lu est celui que la commande désigne (currentTour.tourId), à défaut celui de l'envoi. Photos : stops[].photos[].downloadUrl des arrêts qui ne servent que la commande, enlèvement et dépôt (un dépôt commun à plusieurs commandes est écarté), relevées en dernier, à chaque passage, après le traitement de la fin de mission ; identifiant = dernier segment de l'adresse, qui doit avoir la forme mesurée ; téléchargement avec la clé d'API, vers le seul connecteur, lecture bornée à 30 s et 15 Mo, et décodage du corps (le JPEG écrit en base64) ; une recherche de doublon en échec ne télécharge rien, un enregistrement en échec est tracé ; corps vide = photo absente, retentée. La route GET /v3/tours/{id}/photos, qui n'existe pas, n'est plus appelée. Le don d'une collecte AG n'est ni une pesée ni un stuff inconnu (§06.09). L'upsert des pesées n'est prouvé sur une vraie base que par l'inférence de sa contrainte (EXPLAIN, pgTAP) : aucune pesée n'a été écrite sur une vraie base."

@@ -5304,6 +5304,32 @@ export type Database = {
         Args: { p_consommes: number; p_initiaux: number; p_pack_id: string }
         Returns: undefined
       }
+      f_rechercher_lieux_programmation: {
+        Args: { p_recherche?: string }
+        Returns: {
+          acces_details: string | null
+          acces_office: string | null
+          adresse_acces: string
+          adresse_acces_2: string | null
+          adresse_acces_3: string | null
+          code_postal: string
+          code_postal_2: string | null
+          code_postal_3: string | null
+          contraintes_horaires: string | null
+          controle_acces_requis_default: boolean
+          flux_autorises: string[] | null
+          id: string
+          libelle_adresse_1: string | null
+          libelle_adresse_2: string | null
+          libelle_adresse_3: string | null
+          nom: string
+          stationnement: string | null
+          type_vehicule_max: string | null
+          ville: string
+          ville_2: string | null
+          ville_3: string | null
+        }[]
+      }
       f_taux_recyclage_moyen_parc: {
         Args: {
           p_nb_acteurs_min?: number

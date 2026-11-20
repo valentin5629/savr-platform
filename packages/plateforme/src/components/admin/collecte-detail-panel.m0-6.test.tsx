@@ -4069,6 +4069,164 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     ATTENTE_CAS_MS,
   );
 
+  // Décision Val 2026-11-20 (C3) : collecte MTS-1 dont la commande existe =
+  // choix parmi les photos du livreur, aperçus servis par Savr ; l'import
+  // depuis l'ordinateur reste.
+  it(
+    'M0.6 — Bloc 3 MTS-1 : « Photos du livreur » ouvre le choix, aperçus servis par Savr, import depuis l’ordinateur conservé',
+    async () => {
+      const ID_A = 'a'.repeat(64);
+      const fetchMock = installMock({
+        collecte: {
+          ...baseAg,
+          tms_reference: 'CMD-1',
+          prestataire_actuel: {
+            transporteur_id: 't-strike',
+            nom: 'Transnormandie',
+            type_tms: 'mts1',
+          },
+        },
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((url, init) => {
+        if (String(url).endsWith('/photos/transporteur')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              photos: [
+                {
+                  id: ID_A,
+                  url: null,
+                  prise_le: null,
+                  course: 1,
+                  deja_importee: false,
+                },
+              ],
+            }),
+          });
+        }
+        return base(url, init);
+      });
+      const { container } = render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+
+      expect(container.querySelector('#collecte-import-photo')).not.toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: /Photos du livreur/ }),
+      );
+      const dialogue = await screen.findByRole(
+        'dialog',
+        { name: 'Photos du livreur' },
+        ATTENTE_UI,
+      );
+      const image = await within(dialogue).findByRole(
+        'img',
+        undefined,
+        ATTENTE_UI,
+      );
+      expect(image.getAttribute('src')).toBe(
+        `/api/v1/admin/collectes/c1/photos/transporteur/${ID_A}`,
+      );
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  it(
+    'M0.6 — Bloc 3 MTS-1 : sans commande chez MTS-1, pas de « Photos du livreur »',
+    async () => {
+      installMock({
+        collecte: {
+          ...baseAg,
+          tms_reference: null,
+          prestataire_actuel: {
+            transporteur_id: 't-strike',
+            nom: 'Transnormandie',
+            type_tms: 'mts1',
+          },
+        },
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+      await screen.findByText('Rapport de don', undefined, ATTENTE_UI);
+      expect(
+        screen.queryByRole('button', { name: /Photos du livreur/ }),
+      ).toBeNull();
+    },
+    ATTENTE_CAS_MS,
+  );
+
+  // Décisions Val 2026-11-20 (C1, C2) : recadrage dans la fiche, original gardé.
+  it(
+    'M0.6 — Bloc 3 : galerie — « Recadrer » ouvre l’éditeur sur l’original ; une photo recadrée propose « Revenir à l’original »',
+    async () => {
+      // `installMock` simule URL.createObjectURL (« blob:… »).
+      const fetchMock = installMock({
+        documents: {
+          ...documentsAg,
+          photos: [
+            {
+              id: 'p1',
+              content_type: 'image/jpeg',
+              created_at: '2026-07-16T00:05:00Z',
+              visible_client: false,
+              recadree: true,
+              url: 'https://r2.exemple.test/p1.jpg',
+            },
+          ],
+        },
+      });
+      const base = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation((url, init) => {
+        if (String(url).endsWith('/photos/p1/recadrage')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(['x'], { type: 'image/png' }),
+            json: async () => ({ photo: { id: 'p1', recadree: false } }),
+          });
+        }
+        return base(url, init);
+      });
+      render(<CollecteDetailPanel collecteId="c1" />);
+      await ouvrirOnglet('Documents');
+
+      fireEvent.click(
+        await screen.findByRole(
+          'button',
+          { name: 'Recadrée · modifier' },
+          ATTENTE_UI,
+        ),
+      );
+      const dialogue = await screen.findByRole(
+        'dialog',
+        { name: 'Recadrer la photo' },
+        ATTENTE_UI,
+      );
+      const image = await within(dialogue).findByRole(
+        'img',
+        { name: 'Photo à recadrer' },
+        ATTENTE_UI,
+      );
+      expect(image.getAttribute('src')).toMatch(/^blob:/);
+      fireEvent.click(
+        within(dialogue).getByRole('button', {
+          name: "Revenir à l'original",
+        }),
+      );
+      await waitFor(() => {
+        const suppr = fetchMock.mock.calls.find(
+          ([u, i]) =>
+            String(u).endsWith('/photos/p1/recadrage') &&
+            (i as { method?: string } | undefined)?.method === 'DELETE',
+        );
+        expect(suppr).toBeTruthy();
+      }, ATTENTE_UI);
+    },
+    ATTENTE_CAS_MS,
+  );
+
   // Décisions Val 2026-10-07 : le client ne voit que les photos choisies par
   // l'équipe Savr dans cette galerie, 2 au maximum.
   const photo = (id: string, visible_client: boolean) => ({
@@ -4076,6 +4234,7 @@ describe('M0.6 — fiche collecte Documents/Pack/Attribution/Timeline (BL-P1-BOA
     content_type: 'image/jpeg',
     created_at: '2026-07-16T00:05:00Z',
     visible_client,
+    recadree: false,
     url: null,
   });
 

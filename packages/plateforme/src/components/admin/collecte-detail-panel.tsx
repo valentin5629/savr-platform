@@ -130,6 +130,7 @@ import { telechargerRapportRecyclage } from '@/lib/collectes/rapport-telechargem
 import { Label } from '@/components/ui/label';
 import { UploadSimpleIcon } from '@/components/ui/icones';
 import { PhotosTransporteurModal } from './photos-transporteur-modal';
+import { PhotoRecadrageModal } from './photo-recadrage-modal';
 import { DeclarationCoursierSection } from './declaration-coursier-section';
 import { LogoClientRapport } from '@/components/collecte/logo-client-rapport';
 import { STATUTS_ANNULES } from '@/lib/collectes/fiche-client-types';
@@ -409,6 +410,8 @@ interface PhotoItem {
   created_at: string;
   // Photo choisie par l'équipe Savr pour le client (2 au maximum par collecte).
   visible_client: boolean;
+  // Recadrée par l'équipe Savr, original gardé (décision Val 2026-11-20).
+  recadree: boolean;
   url: string | null;
 }
 interface DocumentsData {
@@ -906,8 +909,14 @@ export function CollecteDetailPanel({
   const [avecRadar, setAvecRadar] = useState(false);
   const [fabrication, setFabrication] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
-  // Photos du livreur relues chez A Toute! (décision Val 2026-11-03).
+  // Photos du livreur relues chez le transporteur, A Toute! et MTS-1
+  // (décisions Val 2026-11-03 et 2026-11-20).
   const [photosLivreurModal, setPhotosLivreurModal] = useState(false);
+  // Photo en cours de recadrage (décision Val 2026-11-20).
+  const [photoARecadrer, setPhotoARecadrer] = useState<{
+    id: string;
+    recadree: boolean;
+  } | null>(null);
   const [photoEnCours, setPhotoEnCours] = useState<string | null>(null);
   const nbPhotosClient = (documents?.photos ?? []).filter(
     (p) => p.visible_client,
@@ -1814,7 +1823,8 @@ export function CollecteDetailPanel({
     infosModal ||
     poidsModal ||
     acceptationModal ||
-    photosLivreurModal;
+    photosLivreurModal ||
+    photoARecadrer !== null;
   if (blockCloseRef) blockCloseRef.current = anySubModalOpen;
 
   if (loading) {
@@ -3620,6 +3630,9 @@ export function CollecteDetailPanel({
                   </Text>
                   {/* A Toute! : on choisit parmi les photos du livreur, plus
                       d'import depuis l'ordinateur (décision Val 2026-11-03).
+                      MTS-1, dès qu'une commande existe : on choisit aussi parmi
+                      les photos du livreur, rien n'est rangé seul (décision Val
+                      2026-11-20, C3), et l'import depuis l'ordinateur reste.
                       Autres transporteurs : import depuis l'ordinateur. */}
                   {collecte.prestataire_actuel?.type_tms === 'a_toutes' ? (
                     <Button
@@ -3631,17 +3644,30 @@ export function CollecteDetailPanel({
                       Importer des photos
                     </Button>
                   ) : (
-                    <FileButton
-                      id="collecte-import-photo"
-                      variant="link"
-                      accept="image/png,image/jpeg,image/webp"
-                      loading={photoUploading}
-                      loadingText="Import…"
-                      onFile={(f) => void handleImportPhoto(f)}
-                      className="h-auto gap-1 px-0 font-normal sm:h-auto"
-                    >
-                      Importer des photos
-                    </FileButton>
+                    <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+                      {collecte.prestataire_actuel?.type_tms === 'mts1' &&
+                        collecte.tms_reference && (
+                          <Button
+                            variant="link"
+                            onClick={() => setPhotosLivreurModal(true)}
+                            className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                          >
+                            <UploadSimpleIcon aria-hidden="true" />
+                            Photos du livreur
+                          </Button>
+                        )}
+                      <FileButton
+                        id="collecte-import-photo"
+                        variant="link"
+                        accept="image/png,image/jpeg,image/webp"
+                        loading={photoUploading}
+                        loadingText="Import…"
+                        onFile={(f) => void handleImportPhoto(f)}
+                        className="h-auto gap-1 px-0 font-normal sm:h-auto"
+                      >
+                        Importer des photos
+                      </FileButton>
+                    </div>
                   )}
                 </div>
                 {documents?.photos && documents.photos.length > 0 ? (
@@ -3684,6 +3710,20 @@ export function CollecteDetailPanel({
                             />
                             <span>Visible du client</span>
                           </Label>
+                          {p.url && (
+                            <Button
+                              variant="link"
+                              onClick={() =>
+                                setPhotoARecadrer({
+                                  id: p.id,
+                                  recadree: p.recadree,
+                                })
+                              }
+                              className="h-auto px-0 font-normal sm:h-auto"
+                            >
+                              {p.recadree ? 'Recadrée · modifier' : 'Recadrer'}
+                            </Button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -3998,6 +4038,18 @@ export function CollecteDetailPanel({
           />
         </form>
       </Modal>
+
+      <PhotoRecadrageModal
+        photoId={photoARecadrer?.id ?? null}
+        recadree={photoARecadrer?.recadree ?? false}
+        collecteId={collecteId}
+        onClose={() => setPhotoARecadrer(null)}
+        onSaved={async (message) => {
+          toast({ title: message });
+          await refetchDocuments();
+          await refetchAudit();
+        }}
+      />
 
       {/* Modale — Acceptation manuelle mission Everest (§06.06 §3 Bloc 0) */}
       <PhotosTransporteurModal

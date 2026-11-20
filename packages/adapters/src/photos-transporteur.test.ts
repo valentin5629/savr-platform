@@ -1,23 +1,30 @@
 /**
- * Photos du livreur relues chez A Toute! (décision Val 2026-11-03) : listage
- * pour l'Admin et import des photos cochées, non visibles du client.
- * Forme des médias = celle mesurée sur le compte A Toute! le 2026-11-03.
+ * Photos du livreur relues chez le transporteur, A Toute! (décision Val
+ * 2026-11-03) et MTS-1 (décision Val 2026-11-20) : listage pour l'Admin, aperçu
+ * sans stockage, import des seules photos cochées, non visibles du client.
+ * Forme des médias A Toute! = celle mesurée sur son compte le 2026-11-03.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const { uploads } = vi.hoisted(() => ({
+const { uploads, r2 } = vi.hoisted(() => ({
   uploads: [] as Array<{ key: string; type: string }>,
+  r2: { enPanne: false },
 }));
 vi.mock('@savr/shared/src/r2/upload.js', () => ({
   uploadObject: async (key: string, _b: Buffer, type: string) => {
+    if (r2.enPanne) throw new Error('R2 indisponible');
     uploads.push({ key, type });
     return { bucket: 'savr-dev' };
   },
 }));
 
 import { _setEverestHandlers, setupEverestMock } from './everest/mock.js';
+import { _setMts1Handlers, JPEG_SIMULE } from './mts1/mock.js';
+import { stuffSimule, tourSimule } from './mts1/mock-tour.js';
 import {
+  _viderListesApercu,
+  apercuPhotoTransporteur,
   importerPhotosTransporteur,
   listerPhotosTransporteur,
   PhotoTransporteurInconnueError,
@@ -90,7 +97,8 @@ function fauxSupabase(etat: Etat): SupabaseClient {
       like: () => c,
       maybeSingle: () => Promise.resolve({ data: resultat(), error: null }),
       insert: (ligne: Record<string, unknown>) => {
-        etat.inserts.push(ligne);
+        // Seules les lignes de photos comptent (pas les journaux d'appels).
+        if (nom === 'fichiers') etat.inserts.push(ligne);
         return Promise.resolve({
           error: etat.insertDoublon
             ? { code: '23505', message: 'duplicate key value' }
@@ -139,6 +147,7 @@ function poserMissions() {
 let etat: Etat;
 beforeEach(() => {
   uploads.length = 0;
+  r2.enPanne = false;
   etat = { typeTms: 'a_toutes', fichiers: [], inserts: [] };
   poserMissions();
 });
@@ -161,8 +170,8 @@ describe('listerPhotosTransporteur', () => {
     }
   });
 
-  it('un transporteur autre qu’A Toute! : pas pris en charge, aucun appel', async () => {
-    etat.typeTms = 'mts1';
+  it('un transporteur sans photos lisibles (par mail) : pas pris en charge, aucun appel', async () => {
+    etat.typeTms = 'par_mail';
     const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
     expect(r).toEqual({ pris_en_charge: false });
   });
@@ -362,5 +371,174 @@ describe('importerPhotosTransporteur', () => {
     });
     expect(r.echecs).toBe(1);
     expect(etat.inserts).toEqual([]);
+  });
+});
+
+// ─── MTS-1 (décision Val 2026-11-20) ─────────────────────────────────────────
+// Les commandes MIS-1 / MIS-2 sont sur les tours TOUR-MIS-1 / TOUR-MIS-2 ; le
+// navigateur ne peut pas lire leurs photos (clé d'API) : l'aperçu passe par Savr.
+
+describe('MTS-1 : photos du livreur à la demande', () => {
+  // Empreinte du triplet (TOUR-MIS-1, arret-1, p1), écrite EN DUR : la même
+  // formule que la relève automatique d'avant le 2026-11-20, sinon ses photos
+  // déjà rangées ne seraient plus reconnues.
+  const EMPREINTE_P1 =
+    '46a744507f81f785c38b6d935d180f0e20306aee524fe99b93728b0319b38ad8';
+  let getTour: ReturnType<typeof vi.fn>;
+  let downloadPhoto: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    etat.typeTms = 'mts1';
+    _viderListesApercu();
+    getTour = vi.fn(async (tourId: string) => {
+      const rang = tourId.endsWith('1') ? 1 : 2;
+      return tourSimule({
+        tourId,
+        customerOrderId: `MIS-${rang}`,
+        stopId: `arret-${rang}`,
+        stuffs: [stuffSimule('Verre (en kg)', 3)],
+        photosEnlevement: rang === 1 ? ['p1', 'p2'] : ['p3'],
+      });
+    });
+    downloadPhoto = vi.fn(async () => JPEG_SIMULE);
+    _setMts1Handlers({
+      pollOrders: vi.fn(),
+      postOrder: vi.fn(),
+      getTour,
+      downloadPhoto,
+      findOrdersByIds: vi.fn(
+        async (ids: string[]) =>
+          ids.map((id) => ({
+            customerOrderId: id,
+            orderNumber: id,
+            customerOrderStatus: 'OK',
+            orderDate: '2026-11-15T20:00:00.000Z',
+            currentTour: {
+              tourId: `TOUR-${id}`,
+              stopId: 'sans-objet',
+              tourDate: '2026-11-15T20:00:00.000Z',
+            },
+          })) as never,
+      ),
+    });
+  });
+  afterEach(() => _setMts1Handlers(null));
+
+  it('liste les photos des courses sans rien télécharger ni stocker ; l’aperçu passe par Savr (url null)', async () => {
+    const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
+    expect(r.pris_en_charge).toBe(true);
+    if (!r.pris_en_charge) return;
+    expect(r.photos.map((p) => [p.course, p.url])).toEqual([
+      [1, null],
+      [1, null],
+      [2, null],
+    ]);
+    expect(r.photos[0]!.id).toBe(EMPREINTE_P1);
+    expect(downloadPhoto).not.toHaveBeenCalled();
+    expect(uploads).toEqual([]);
+    expect(etat.inserts).toEqual([]);
+  });
+
+  it('une photo rangée par l’ancienne relève, recadrée ou non, est signalée déjà importée', async () => {
+    etat.fichiers = [
+      { key: `photos/collectes/${COLLECTE}/${EMPREINTE_P1}.jpg.recadree.jpg` },
+    ];
+    const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
+    if (!r.pris_en_charge) throw new Error('pris en charge attendu');
+    expect(r.photos.map((p) => p.deja_importee)).toEqual([true, false, false]);
+  });
+
+  it('importe les seules photos cochées, sous la clé de toujours, non visibles du client', async () => {
+    const r = await listerPhotosTransporteur(fauxSupabase(etat), COLLECTE, 'c');
+    if (!r.pris_en_charge) throw new Error('pris en charge attendu');
+    const res = await importerPhotosTransporteur(fauxSupabase(etat), {
+      collecteId: COLLECTE,
+      ids: [EMPREINTE_P1],
+      userId: 'admin-1',
+      correlationId: 'c',
+    });
+    expect(res).toEqual({
+      pris_en_charge: true,
+      importees: 1,
+      deja_importees: 0,
+      echecs: 0,
+      restantes: 0,
+    });
+    expect(downloadPhoto).toHaveBeenCalledTimes(1);
+    expect(downloadPhoto).toHaveBeenCalledWith(
+      'https://mts1.test/v3/tours/photo/TOUR-MIS-1/arret-1/p1',
+    );
+    expect(uploads).toEqual([
+      {
+        key: `photos/collectes/${COLLECTE}/${EMPREINTE_P1}.jpg`,
+        type: 'image/jpeg',
+      },
+    ]);
+    expect(etat.inserts).toEqual([
+      expect.objectContaining({
+        bucket: 'savr-dev',
+        key: `photos/collectes/${COLLECTE}/${EMPREINTE_P1}.jpg`,
+        content_type: 'image/jpeg',
+        entity_type: 'plateforme.collectes',
+        entity_id: COLLECTE,
+        created_by: 'admin-1',
+        rang_client: null,
+      }),
+    ]);
+  });
+
+  it('une photo que MTS-1 ne rend pas (corps vide) est comptée en échec, sans rien stocker', async () => {
+    downloadPhoto.mockResolvedValue(null);
+    const res = await importerPhotosTransporteur(fauxSupabase(etat), {
+      collecteId: COLLECTE,
+      ids: [EMPREINTE_P1],
+      userId: 'admin-1',
+      correlationId: 'c',
+    });
+    expect(res.echecs).toBe(1);
+    expect(res.importees).toBe(0);
+    expect(uploads).toEqual([]);
+    expect(etat.inserts).toEqual([]);
+  });
+
+  it("upload R2 KO → aucune ligne shared.fichiers (pas d'orpheline)", async () => {
+    r2.enPanne = true;
+    const res = await importerPhotosTransporteur(fauxSupabase(etat), {
+      collecteId: COLLECTE,
+      ids: [EMPREINTE_P1],
+      userId: 'admin-1',
+      correlationId: 'c',
+    });
+    expect(res.echecs).toBe(1);
+    expect(etat.inserts).toEqual([]);
+  });
+
+  it('l’aperçu rend l’image d’une photo de la collecte sans la stocker, et relit le tour une fois pour plusieurs aperçus', async () => {
+    const supabase = fauxSupabase(etat);
+    const image = await apercuPhotoTransporteur(supabase, {
+      collecteId: COLLECTE,
+      id: EMPREINTE_P1,
+      correlationId: 'c',
+    });
+    expect(image).toEqual({ contenu: JPEG_SIMULE, content_type: 'image/jpeg' });
+    const toursLus = getTour.mock.calls.length;
+    await apercuPhotoTransporteur(supabase, {
+      collecteId: COLLECTE,
+      id: EMPREINTE_P1,
+      correlationId: 'c',
+    });
+    expect(getTour.mock.calls.length).toBe(toursLus);
+    expect(uploads).toEqual([]);
+    expect(etat.inserts).toEqual([]);
+  });
+
+  it('l’aperçu d’un id inconnu de la collecte ne télécharge rien', async () => {
+    const image = await apercuPhotoTransporteur(fauxSupabase(etat), {
+      collecteId: COLLECTE,
+      id: 'f'.repeat(64),
+      correlationId: 'c',
+    });
+    expect(image).toBeNull();
+    expect(downloadPhoto).not.toHaveBeenCalled();
   });
 });

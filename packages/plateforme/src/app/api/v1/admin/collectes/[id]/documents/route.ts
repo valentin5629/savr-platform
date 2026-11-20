@@ -13,6 +13,7 @@ import { createAdminSupabaseClient } from '@savr/shared/src/supabase-client.js';
 import { requireStaff } from '@/lib/api-auth.js';
 import { getPresignedUrl } from '@/lib/pdf/r2-client.js';
 import { ENTITE_PHOTO_COLLECTE } from '@/lib/collectes/photos-client.js';
+import { estRecadree } from '@/lib/collectes/photo-recadrage.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,6 +87,7 @@ export async function GET(
         content_type: p.content_type,
         created_at: p.created_at,
         visible_client: p.rang_client !== null,
+        recadree: estRecadree(p.key),
         url,
       };
     }),

@@ -15,18 +15,22 @@ import {
   PRESTA_MTS1,
   builderTransporteurs,
 } from '../mock-referentiel-transporteurs.js';
-import { AdapterMts1 } from './adapter.js';
+import {
+  AdapterMts1,
+  empreintePhotoMts1,
+  photosDeLaCommandeMts1,
+} from './adapter.js';
+import { Mts1Client } from './client.js';
 import type { Mts1Tour } from './mock.js';
 import { _setMts1Handlers } from './mock.js';
 import {
   CONNECTEUR_SIMULE,
-  JPEG_DE_TEST,
   adressePhotoSimulee,
   stuffSimule,
   tourSimule,
 } from './mock-tour.js';
 
-// ─── Relève des pesées et des photos sur la forme RÉELLE du tour ─────────────
+// ─── Relève des pesées sur la forme RÉELLE du tour, et photos à la demande ───
 // Tests « sur le fil » : handlers à null, `fetch` simulé, réponses dans la forme
 // mesurée sur le compte de démonstration le 2026-10-13 (lecture seule). Jusqu'à
 // ce lot la relève lisait `stops[].items[].weight` et `GET /v3/tours/{id}/photos`,
@@ -1277,273 +1281,40 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     expect(base.de('fn_agreger_terminal_collecte', 'rpc')).toHaveLength(1);
   });
 
-  // ── Photos ────────────────────────────────────────────────────────────────
+  // ── Photos : plus rien à la relève (décision Val 2026-11-20) ──────────────
 
-  it('M1.5b/releve_fil_photos_detail_du_tour — les photos se lisent dans le détail du tour, se téléchargent avec la clé et arrivent décodées', async () => {
-    const base = baseSimulee({
-      collecteStatut: 'en_cours',
-      tournees: [TOURNEE_1],
-    });
-    const photo = (nom: string) =>
-      Buffer.concat([JPEG_DE_TEST, Buffer.from(nom)]);
-    const chemin = (arret: string, id: string) =>
-      adressePhotoSimulee('TOUR-1', arret, id).replace(BASE, '');
-    const fil = filSimule({
-      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
-      '/v3/tours/TOUR-1': {
-        json: tourA({
-          photosEnlevement: ['photo-enlevement'],
-          photosDepot: ['photo-depot'],
-          typeDepot: 'CUSTOMER_ORDER_LINKED',
-        }),
-      },
-      // Le corps n'est pas le fichier : c'est le JPEG écrit en base64.
-      [chemin('arret-a', 'photo-enlevement')]: {
-        corps: photo('enlevement').toString('base64'),
-      },
-      [chemin('arret-a-depot', 'photo-depot')]: {
-        corps: photo('depot').toString('base64'),
-      },
-    });
-
-    await releve(base);
-
-    // Enlèvement ET dépôt, chacune demandée avec la clé d'API.
-    const telechargements = fil.vus.filter((v) =>
-      v.chemin.startsWith('/v3/tours/photo/'),
-    );
-    expect(telechargements.map((v) => v.chemin)).toEqual([
-      chemin('arret-a', 'photo-enlevement'),
-      chemin('arret-a-depot', 'photo-depot'),
-    ]);
-    expect(telechargements.map((v) => v.cle)).toEqual([
-      'Bearer cle-de-test',
-      'Bearer cle-de-test',
-    ]);
-    // La route qu'appelait l'ancien code (404 BAD_ROUTE) n'est plus demandée.
-    expect(fil.chemins()).not.toContain('/v3/tours/TOUR-1/photos');
-
-    // Les octets envoyés au stockage sont ceux du JPEG, pas son base64.
-    const envois = vi.mocked(uploadObject).mock.calls;
-    expect(
-      envois.map((e) => (e[1] as Buffer).equals(photo('enlevement'))),
-    ).toEqual([true, false]);
-    expect((envois[1]![1] as Buffer).equals(photo('depot'))).toBe(true);
-    expect(envois.map((e) => e[2])).toEqual(['image/jpeg', 'image/jpeg']);
-    // Clés distinctes, opaques, rangées sous la collecte.
-    const cles = envois.map((e) => e[0]);
-    expect(new Set(cles).size).toBe(2);
-    for (const cle of cles) {
-      expect(cle).toMatch(/^photos\/collectes\/col-001\/[0-9a-f]{64}\.jpg$/);
-    }
-    expect(
-      base.de('fichiers', 'insert').map((a) => a.data!['entity_type']),
-    ).toEqual(['plateforme.collectes', 'plateforme.collectes']);
-
-    // Passage suivant : les deux photos sont connues, aucun téléchargement.
-    await releve(base);
-    expect(
-      fil.vus.filter((v) => v.chemin.startsWith('/v3/tours/photo/')),
-    ).toHaveLength(2);
-    expect(vi.mocked(uploadObject)).toHaveBeenCalledTimes(2);
-  });
-
-  it('M1.5b/releve_fil_photo_absente_ou_illisible — corps vide ou illisible : rien n’est stocké, la photo est retentée au passage suivant', async () => {
-    const base = baseSimulee({
-      collecteStatut: 'en_cours',
-      tournees: [TOURNEE_1],
-    });
-    const chemin = (id: string) =>
-      adressePhotoSimulee('TOUR-1', 'arret-a', id).replace(BASE, '');
-    const fil = filSimule({
-      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
-      '/v3/tours/TOUR-1': {
-        json: tourA({ photosEnlevement: ['photo-vide', 'photo-illisible'] }),
-      },
-      // MTS-1 répond 200 avec un corps vide pour une photo qu'il n'a pas.
-      [chemin('photo-vide')]: { corps: '' },
-      [chemin('photo-illisible')]: { corps: '<html>erreur</html>' },
-    });
-
-    await releve(base);
-
-    expect(vi.mocked(uploadObject)).not.toHaveBeenCalled();
-    expect(base.de('fichiers', 'insert')).toEqual([]);
-    expect(
-      base.journal('PHOTO_DOWNLOAD_FAILED').map((a) => a.data!['erreur']),
-    ).toEqual([
-      'PHOTO_DOWNLOAD_FAILED: absente tourId=TOUR-1 stopId=arret-a photoId=photo-vide',
-      'PHOTO_DOWNLOAD_FAILED: tourId=TOUR-1 stopId=arret-a photoId=photo-illisible',
-    ]);
-    // Non bloquant : les pesées sont écrites, la commande n'est pas en échec.
-    expect(base.de('pesees_tournees', 'upsert')).toHaveLength(5);
-    expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
-
-    // La photo arrive au passage suivant : elle est prise.
-    fil.poser(chemin('photo-vide'), {
-      corps: JPEG_DE_TEST.toString('base64'),
-    });
-    await releve(base);
-    expect(vi.mocked(uploadObject)).toHaveBeenCalledTimes(1);
-    expect(base.de('fichiers', 'insert')).toHaveLength(1);
-  });
-
-  it('M1.5b/releve_photos_apres_fin_de_mission — une photo en échec ne retarde ni les pesées ni la fin de mission', async () => {
+  it('M1.5b/releve_sans_photo — la relève ne télécharge ni ne range aucune photo, même quand le tour en porte', async () => {
     const base = baseSimulee({
       collecteStatut: 'en_cours',
       tournees: [TOURNEE_1],
       agregation: 'realisee',
     });
-    filSimule({
+    // Aucune adresse de photo n'est servie : un téléchargement lèverait.
+    const fil = filSimule({
       [RECHERCHE]: { json: [commande('CMD-A', 'OK', 'TOUR-1')] },
       '/v3/tours/TOUR-1': {
-        json: tourA({ terminee: true, photosEnlevement: ['photo-lente'] }),
-      },
-      // La photo répond en erreur : elle est tracée, la commande va au bout.
-      [adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-lente').replace(
-        BASE,
-        '',
-      )]: { status: 503, corps: '' },
-    });
-
-    await releve(base);
-
-    expect(base.etat.tournees[0]!.statut).toBe('terminee');
-    expect(base.de('pesees_tournees', 'upsert')).toHaveLength(5);
-    expect(base.journal('PHOTO_DOWNLOAD_FAILED')).toHaveLength(1);
-    // Les photos viennent après l'agrégation de la collecte.
-    const ordre = base.appels
-      .filter(
-        (a) =>
-          a.table === 'fn_agreger_terminal_collecte' ||
-          (a.table === 'integrations_logs' &&
-            String(a.data?.['erreur']).startsWith('PHOTO_DOWNLOAD_FAILED')),
-      )
-      .map((a) => a.table);
-    expect(ordre).toEqual([
-      'fn_agreger_terminal_collecte',
-      'integrations_logs',
-    ]);
-    expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
-  });
-
-  it('M1.5b/releve_fil_photo_arret_commun — la photo d’un dépôt commun à plusieurs commandes n’est pas prise', async () => {
-    const base = baseSimulee({
-      collecteStatut: 'en_cours',
-      tournees: [TOURNEE_1],
-    });
-    const tour = tourA({ photosEnlevement: ['photo-enlevement'] });
-    tour.stops![1] = {
-      ...tour.stops![1]!,
-      // Le dépôt nomme aussi une autre commande, d'une autre collecte possible.
-      customerOrders: [
-        { customerOrderId: 'CMD-A' },
-        { customerOrderId: 'CMD-AUTRE' },
-      ],
-      photos: [
-        {
-          downloadUrl: adressePhotoSimulee(
-            'TOUR-1',
-            'arret-a-depot',
-            'photo-depot',
-          ),
-        },
-      ],
-    };
-    const fil = filSimule({
-      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
-      '/v3/tours/TOUR-1': { json: tour },
-      [adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-enlevement').replace(
-        BASE,
-        '',
-      )]: { corps: JPEG_DE_TEST.toString('base64') },
-    });
-
-    await releve(base);
-
-    expect(
-      fil.vus
-        .filter((v) => v.chemin.startsWith('/v3/tours/photo/'))
-        .map((v) => v.chemin.split('/').at(-1)),
-    ).toEqual(['photo-enlevement']);
-    expect(base.de('fichiers', 'insert')).toHaveLength(1);
-  });
-
-  it('M1.5b/releve_fil_photo_enregistrement_en_echec — un enregistrement de photo refusé laisse une trace', async () => {
-    const base = baseSimulee({
-      collecteStatut: 'en_cours',
-      tournees: [TOURNEE_1],
-      erreurEnregistrementFichier: { message: 'connexion perdue' },
-    });
-    filSimule({
-      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
-      '/v3/tours/TOUR-1': {
-        json: tourA({ photosEnlevement: ['photo-enlevement'] }),
-      },
-      [adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-enlevement').replace(
-        BASE,
-        '',
-      )]: { corps: JPEG_DE_TEST.toString('base64') },
-    });
-
-    await releve(base);
-
-    expect(
-      base.journal('PHOTO_ENREGISTREMENT_FAILED').map((a) => a.data!['erreur']),
-    ).toEqual([
-      'PHOTO_ENREGISTREMENT_FAILED: tourId=TOUR-1 stopId=arret-a photoId=photo-enlevement',
-    ]);
-    expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
-  });
-
-  it('M1.5b/releve_fil_photo_enregistree_ailleurs — une photo enregistrée à l’instant par une relève simultanée (23505) n’est pas une erreur', async () => {
-    const base = baseSimulee({
-      collecteStatut: 'en_cours',
-      tournees: [TOURNEE_1],
-      fichierDejaEnregistre: true,
-    });
-    filSimule({
-      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
-      '/v3/tours/TOUR-1': {
-        json: tourA({ photosEnlevement: ['photo-enlevement'] }),
-      },
-      [adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-enlevement').replace(
-        BASE,
-        '',
-      )]: { corps: JPEG_DE_TEST.toString('base64') },
-    });
-
-    await releve(base);
-
-    expect(base.de('fichiers', 'insert')).toHaveLength(1);
-    expect(base.journal('PHOTO_ENREGISTREMENT_FAILED')).toEqual([]);
-    expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
-  });
-
-  it('M1.5b/releve_fil_photo_dedup_en_echec — une recherche de doublon en échec ne télécharge ni n’enregistre rien', async () => {
-    const base = baseSimulee({
-      collecteStatut: 'en_cours',
-      tournees: [TOURNEE_1],
-      erreurFichiers: { message: 'connexion perdue' },
-    });
-    const fil = filSimule({
-      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
-      '/v3/tours/TOUR-1': {
-        json: tourA({ photosEnlevement: ['photo-enlevement'] }),
+        json: tourA({
+          terminee: true,
+          photosEnlevement: ['photo-enlevement'],
+          photosDepot: ['photo-depot'],
+          typeDepot: 'CUSTOMER_ORDER_LINKED',
+        }),
       },
     });
 
     await releve(base);
 
-    expect(
-      fil.vus.filter((v) => v.chemin.startsWith('/v3/tours/photo/')),
-    ).toEqual([]);
+    expect(fil.chemins()).toEqual([RECHERCHE, '/v3/tours/TOUR-1']);
+    expect(vi.mocked(uploadObject)).not.toHaveBeenCalled();
     expect(base.de('fichiers', 'insert')).toEqual([]);
-    expect(base.journal('PHOTO_DEDUP_FAILED')).toHaveLength(1);
+    expect(base.de('fichiers', 'select')).toEqual([]);
+    // Pesées et fin de mission vont au bout, comme avant.
+    expect(base.de('pesees_tournees', 'upsert')).toHaveLength(5);
+    expect(base.etat.tournees[0]!.statut).toBe('terminee');
     expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
   });
 
-  it('M1.5b/releve_fil_entrees_vides — une entrée vide dans les arrêts, commandes, stuffs ou photos est ignorée', async () => {
+  it('M1.5b/releve_fil_entrees_vides — une entrée vide dans les arrêts, commandes ou stuffs est ignorée', async () => {
     const base = baseSimulee({
       collecteStatut: 'en_cours',
       tournees: [TOURNEE_1],
@@ -1574,15 +1345,139 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
     expect(base.journal('SYNC_ORDER_FAILED')).toEqual([]);
     expect(base.de('pesees_tournees', 'upsert')).toHaveLength(5);
     expect(base.etat.tournees[0]!.statut).toBe('terminee');
-    expect(base.journal('PHOTO_ADRESSE_INATTENDUE')).toHaveLength(1);
     expect(fil.chemins()).toEqual([RECHERCHE, '/v3/tours/TOUR-1']);
   });
+});
 
-  it('M1.5b/releve_fil_photo_autre_commande — les photos d’un arrêt qui sert une autre commande ne sont pas prises', async () => {
-    const base = baseSimulee({
-      collecteStatut: 'en_cours',
-      tournees: [TOURNEE_1],
+// ─── Photos d'une commande, lues à la demande de l'Admin ─────────────────────
+// Décision Val 2026-11-20 : la fiche collecte affiche les photos du livreur et
+// l'Admin ne garde que celles qu'il retient. La lecture ne télécharge rien.
+
+describe('M1.5b / photos d’une commande MTS-1, lues à la demande', () => {
+  const PAR_ID = '/v3/customerOrders?customerOrderIds=CMD-A';
+  const lire = (base: ReturnType<typeof baseSimulee>, unitaire = 'TOUR-1') =>
+    photosDeLaCommandeMts1(new Mts1Client(base.supabase), 'CMD-A', unitaire);
+
+  beforeEach(() => {
+    _setMts1Handlers(null);
+    vi.stubEnv('MTS1_BASE_URL', BASE);
+    vi.stubEnv('MTS1_API_KEY', 'cle-de-test');
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('M1.5b/photos_commande_detail_du_tour — les photos de l’enlèvement et du dépôt se lisent dans le détail du tour, sans téléchargement', async () => {
+    const base = baseSimulee({ collecteStatut: 'realisee', tournees: [] });
+    const fil = filSimule({
+      [PAR_ID]: { json: [commande('CMD-A', 'OK', 'TOUR-1')] },
+      '/v3/tours/TOUR-1': {
+        json: tourA({
+          photosEnlevement: ['photo-enlevement'],
+          photosDepot: ['photo-depot'],
+          typeDepot: 'CUSTOMER_ORDER_LINKED',
+        }),
+      },
     });
+
+    const photos = await lire(base);
+
+    expect(photos.map((p) => p.downloadUrl)).toEqual([
+      adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-enlevement'),
+      adressePhotoSimulee('TOUR-1', 'arret-a-depot', 'photo-depot'),
+    ]);
+    expect(fil.chemins()).toEqual([PAR_ID, '/v3/tours/TOUR-1']);
+    // Clé d'API vers le connecteur seulement.
+    expect(fil.vus.every((v) => v.cle === 'Bearer cle-de-test')).toBe(true);
+  });
+
+  it('M1.5b/photos_commande_empreinte — l’empreinte ne dépend que du triplet tour, arrêt, photo (photos déjà rangées reconnues)', async () => {
+    const base = baseSimulee({ collecteStatut: 'realisee', tournees: [] });
+    filSimule({
+      [PAR_ID]: { json: [commande('CMD-A', 'OK', 'TOUR-1')] },
+      '/v3/tours/TOUR-1': {
+        json: tourA({ photosEnlevement: ['photo-enlevement'] }),
+      },
+    });
+
+    const [photo] = await lire(base);
+
+    expect(photo!.empreinte).toBe(
+      empreintePhotoMts1({
+        tourId: 'TOUR-1',
+        stopId: 'arret-a',
+        photoId: 'photo-enlevement',
+      }),
+    );
+    expect(photo!.empreinte).toMatch(/^[0-9a-f]{64}$/);
+    for (const identifiant of ['TOUR-1', 'arret-a', 'photo-enlevement']) {
+      expect(photo!.empreinte).not.toContain(identifiant);
+    }
+  });
+
+  it('M1.5b/photos_commande_tour_designe — le tour lu est celui que désigne la commande, à défaut la tournée unitaire', async () => {
+    const base = baseSimulee({ collecteStatut: 'realisee', tournees: [] });
+    const fil = filSimule({
+      // L'Admin a regroupé la commande sur un autre tour dans la console.
+      [PAR_ID]: { json: [commande('CMD-A', 'OK', 'TOUR-2')] },
+      '/v3/tours/TOUR-2': {
+        json: tourSimule({
+          tourId: 'TOUR-2',
+          customerOrderId: 'CMD-A',
+          stopId: 'arret-b',
+          stuffs: STUFFS_PESES,
+          photosEnlevement: ['photo-b'],
+        }),
+      },
+    });
+    expect((await lire(base)).map((p) => p.downloadUrl)).toEqual([
+      adressePhotoSimulee('TOUR-2', 'arret-b', 'photo-b'),
+    ]);
+
+    fil.poser(PAR_ID, { json: [commande('CMD-A', 'OK')] });
+    fil.poser('/v3/tours/TOUR-1', {
+      json: tourA({ photosEnlevement: ['photo-a'] }),
+    });
+    expect((await lire(base)).map((p) => p.downloadUrl)).toEqual([
+      adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-a'),
+    ]);
+  });
+
+  it('M1.5b/photos_commande_inconnue — commande absente chez MTS-1 : aucune photo, aucun tour lu', async () => {
+    const base = baseSimulee({ collecteStatut: 'realisee', tournees: [] });
+    const fil = filSimule({ [PAR_ID]: { json: [] } });
+
+    expect(await lire(base)).toEqual([]);
+    expect(fil.chemins()).toEqual([PAR_ID]);
+  });
+
+  it('M1.5b/photos_commande_arret_commun — la photo d’un dépôt commun à plusieurs commandes n’est pas proposée', async () => {
+    const base = baseSimulee({ collecteStatut: 'realisee', tournees: [] });
+    const tour = tourA({
+      photosEnlevement: ['photo-enlevement'],
+      photosDepot: ['photo-depot'],
+      typeDepot: 'CUSTOMER_ORDER_LINKED',
+    });
+    tour.stops![1] = {
+      ...tour.stops![1]!,
+      customerOrders: [
+        { customerOrderId: 'CMD-A' },
+        { customerOrderId: 'CMD-Z' },
+      ],
+    };
+    filSimule({
+      [PAR_ID]: { json: [commande('CMD-A', 'OK', 'TOUR-1')] },
+      '/v3/tours/TOUR-1': { json: tour },
+    });
+
+    expect((await lire(base)).map((p) => p.downloadUrl)).toEqual([
+      adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-enlevement'),
+    ]);
+  });
+
+  it('M1.5b/photos_commande_autre_commande — les photos d’un arrêt qui sert une autre commande ne sont pas proposées', async () => {
+    const base = baseSimulee({ collecteStatut: 'realisee', tournees: [] });
     const tour = tourA();
     tour.stops!.push({
       stopId: 'arret-z',
@@ -1593,16 +1488,33 @@ describe('M1.5b / relève MTS-1 — pesées et photos sur la forme réelle du to
         { downloadUrl: adressePhotoSimulee('TOUR-1', 'arret-z', 'photo-z') },
       ],
     });
-    const fil = filSimule({
-      [RECHERCHE]: { json: [commande('CMD-A', 'IN_PROGRESSION', 'TOUR-1')] },
+    filSimule({
+      [PAR_ID]: { json: [commande('CMD-A', 'OK', 'TOUR-1')] },
       '/v3/tours/TOUR-1': { json: tour },
     });
 
-    await releve(base);
+    expect(await lire(base)).toEqual([]);
+  });
 
-    expect(
-      fil.vus.filter((v) => v.chemin.startsWith('/v3/tours/photo/')),
-    ).toEqual([]);
-    expect(base.de('fichiers', 'insert')).toEqual([]);
+  it('M1.5b/photos_commande_adresse_inattendue — une adresse hors de la forme mesurée, ou une entrée vide, est écartée', async () => {
+    const base = baseSimulee({ collecteStatut: 'realisee', tournees: [] });
+    const tour = tourA();
+    tour.stops![0] = {
+      ...tour.stops![0]!,
+      photos: [
+        null,
+        { downloadUrl: `${BASE}/v3/tours/photo/AUTRE-TOUR/arret-a/photo-x` },
+        { downloadUrl: `${BASE}/ailleurs/photo-y` },
+        { downloadUrl: adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-ok') },
+      ] as never,
+    };
+    filSimule({
+      [PAR_ID]: { json: [commande('CMD-A', 'OK', 'TOUR-1')] },
+      '/v3/tours/TOUR-1': { json: tour },
+    });
+
+    expect((await lire(base)).map((p) => p.downloadUrl)).toEqual([
+      adressePhotoSimulee('TOUR-1', 'arret-a', 'photo-ok'),
+    ]);
   });
 });

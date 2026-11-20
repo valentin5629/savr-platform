@@ -16,7 +16,7 @@ type Ligne = Record<string, unknown>;
 
 const COLLECTE = 'col-1';
 
-// Ligne telle que l'adapter du transporteur l'écrit (processPhotos) : clé
+// Ligne telle que l'import des photos du livreur l'écrit (photos-transporteur) : clé
 // photos/collectes/<collecte>/<empreinte>.jpg (opaque depuis le 2026-10-07, sans
 // identifiant du transporteur), pas de created_by, et NON choisie pour le client
 // (rang_client vide : c'est l'équipe Savr qui choisit).

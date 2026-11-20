@@ -201,7 +201,17 @@ export function PhotoRecadrageModal({
         partout, l&apos;original est conservé.
       </Text>
       {source ? (
-        <div className="flex justify-center">
+        <div
+          className="flex justify-center"
+          // Cadre et poignées aux couleurs du DS (variables de react-image-crop).
+          style={
+            {
+              '--rc-focus-color': 'var(--primary)',
+              '--rc-drag-handle-bg-colour': 'var(--primary)',
+              '--rc-border-color': 'var(--color-savr-white)',
+            } as React.CSSProperties
+          }
+        >
           <ReactCrop
             crop={cadre}
             onChange={(_px, pourcent) => setCadre(pourcent)}

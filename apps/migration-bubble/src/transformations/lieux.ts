@@ -234,6 +234,9 @@ export function transformerLieux(
     plan.blocagesDecisions.push(
       `lieux-a-valider.csv : ${boucles.length} boucle(s) de fiches qui se désignent l'une l'autre (colonne groupe_decide), aucune ne serait regroupée : ${boucles.map((b) => b.join(' → ')).join(' ; ')}`,
     );
+  const rangs = ctx.decisions.rangsAdresseLieux ?? new Map<string, string>();
+  const libelles =
+    ctx.decisions.libellesAdresseLieux ?? new Map<string, string>();
   const propositionParCle = new Map(propositions.map((p) => [p.cle, p]));
   const nomDe = (cle: string) => nomPrincipal.get(cle) ?? '';
 
@@ -255,6 +258,8 @@ export function transformerLieux(
       adresse_groupe_propose: fiches.get(p.groupePropose)?.adresse ?? '',
       motif: p.motif,
       groupe_decide: ctx.decisions.lieux.get(f.cle) ?? '',
+      adresse_rang: rangs.get(f.cle) ?? '',
+      libelle_adresse: libelles.get(f.cle) ?? '',
     });
   }
   plan.aValider.lieux = rangerParDossier(plan.aValider.lieux, 'cle');
@@ -269,10 +274,61 @@ export function transformerLieux(
     const tete = fiches.get(chef)!;
     const id = identifiantCible('lieu', chef);
     const noms = plusFrequents(groupeFiches.flatMap((f) => f.noms));
+    const adresses = adressesDuLieu(chef, groupeFiches, rangs, libelles, plan);
+    // Position de l'adresse n° 1 : la tête d'abord, puis une fiche fusionnée
+    // (même accès), jamais une adresse n° 2 ou n° 3, située ailleurs.
+    const gardees = new Set(adresses.autres.map((a) => a.fiche.cle));
     const geocode =
-      groupeFiches
+      [tete, ...groupeFiches.filter((f) => f !== tete && !gardees.has(f.cle))]
         .map((f) => position(ctx.geocodes.get(f.cle), false))
         .find((g) => g !== null) ?? null;
+    // Toutes les lignes portent les mêmes colonnes (exigé à l'écriture) : emplacements vides par défaut.
+    const emplacements: Record<string, unknown> = {
+      libelle_adresse_1: adresses.libelle1,
+    };
+    for (const n of [2, 3])
+      for (const c of [
+        'libelle_adresse',
+        'adresse_acces',
+        'code_postal',
+        'ville',
+        'latitude',
+        'longitude',
+      ])
+        emplacements[`${c}_${n}`] = null;
+    let rang = 2;
+    for (const a of adresses.autres) {
+      const g = position(ctx.geocodes.get(a.fiche.cle), false);
+      const luAutre = codePostalVille(a.fiche.adresse);
+      const cp = g?.codePostal ?? luAutre?.codePostal ?? null;
+      const villeAutre = g?.ville ?? luAutre?.ville ?? null;
+      if (!cp || !villeAutre || a.fiche.adresse.length > 200) {
+        ajouterAuListing(plan, 'lieux-a-completer', {
+          lieu_id: id,
+          nom: noms[0] ?? tete.adresse,
+          adresse: a.fiche.adresse,
+          manque: `adresse n° ${a.rang} non reprise : ${[
+            cp ? null : 'code postal',
+            villeAutre ? null : 'ville',
+            a.fiche.adresse.length > 200
+              ? 'adresse de plus de 200 caractères'
+              : null,
+          ]
+            .filter((m) => m !== null)
+            .join(', ')}`,
+        });
+        continue;
+      }
+      Object.assign(emplacements, {
+        [`libelle_adresse_${rang}`]: a.libelle,
+        [`adresse_acces_${rang}`]: a.fiche.adresse,
+        [`code_postal_${rang}`]: cp,
+        [`ville_${rang}`]: villeAutre,
+        [`latitude_${rang}`]: g?.latitude ?? null,
+        [`longitude_${rang}`]: g?.longitude ?? null,
+      });
+      rang++;
+    }
     const lu = codePostalVille(tete.adresse);
     const codePostal = geocode?.codePostal ?? lu?.codePostal ?? null;
     const ville = geocode?.ville ?? lu?.ville ?? null;
@@ -310,6 +366,7 @@ export function transformerLieux(
       latitude: geocode?.latitude ?? null,
       longitude: geocode?.longitude ?? null,
       region: region ?? 'idf',
+      ...emplacements,
       acces_details:
         instructions.length > 0 ? instructions.join('\n---\n') : null,
       // Pas de source Bubble : valeur la moins contraignante, resserrée par l'Admin (fiche 03).
@@ -355,6 +412,68 @@ export function transformerLieux(
     }
   }
   return retenus;
+}
+
+interface AdresseGardee {
+  fiche: Fiche;
+  rang: 2 | 3;
+  libelle: string | null;
+}
+
+/**
+ * Adresses de livraison d'un lieu regroupé, d'après les colonnes `adresse_rang`
+ * et `libelle_adresse` de `lieux-a-valider.csv`. La tête porte l'adresse n° 1 ;
+ * une fiche rattachée marquée `2` ou `3` devient une adresse de livraison, les
+ * autres sont fusionnées (adresse non gardée). Une décision incohérente avec le
+ * regroupement bloque l'import au lieu d'être devinée.
+ */
+function adressesDuLieu(
+  chef: string,
+  groupeFiches: Fiche[],
+  rangs: Map<string, string>,
+  libelles: Map<string, string>,
+  plan: Plan,
+): { libelle1: string | null; autres: AdresseGardee[] } {
+  const defauts: string[] = [];
+  const libelle = (cle: string) => {
+    const l = (libelles.get(cle) ?? '').trim();
+    if (l.length > 60)
+      defauts.push(`${cle} : libellé de plus de 60 caractères`);
+    return l === '' || l.length > 60 ? null : l;
+  };
+  const rangTete = rangs.get(chef) ?? '1';
+  if (rangTete !== '1')
+    defauts.push(
+      groupeFiches.length === 1
+        ? `${chef} : rang ${rangTete} sur une fiche qui n'est rattachée à aucun lieu (colonne groupe_decide)`
+        : `${chef} : rang ${rangTete} sur la fiche de tête, qui porte l'adresse n° 1`,
+    );
+  const autres: AdresseGardee[] = [];
+  for (const f of groupeFiches) {
+    if (f.cle === chef) continue;
+    const r = rangs.get(f.cle) ?? 'fusion';
+    if (r === '1')
+      defauts.push(
+        `${f.cle} : rang 1 sur une fiche rattachée à ${chef}, qui porte l'adresse n° 1`,
+      );
+    if (r === '2' || r === '3')
+      autres.push({
+        fiche: f,
+        rang: Number(r) as 2 | 3,
+        libelle: libelle(f.cle),
+      });
+  }
+  autres.sort((a, b) => a.rang - b.rang);
+  for (const r of [2, 3])
+    if (autres.filter((a) => a.rang === r).length > 1)
+      defauts.push(`${chef} : plusieurs fiches au rang ${r}`);
+  if (defauts.length > 0) {
+    plan.blocagesDecisions.push(
+      `lieux-a-valider.csv : rang d'adresse incohérent (colonnes adresse_rang, libelle_adresse) : ${defauts.join(' ; ')}`,
+    );
+    return { libelle1: null, autres: [] };
+  }
+  return { libelle1: libelle(chef), autres };
 }
 
 /** Adresses à situer : celles des fiches Bubble et des collectes, normalisées et sans doublon. */

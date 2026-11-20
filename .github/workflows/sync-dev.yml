@@ -31,7 +31,7 @@ jobs:
   sync-dev:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # `git commit-tree ... -p HEAD` n'a besoin que de HEAD + son tree ;
           # la profondeur 1 par défaut suffit. Les credentials du token sont

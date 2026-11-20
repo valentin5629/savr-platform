@@ -237,6 +237,13 @@ export function transformerLieux(
   const rangs = ctx.decisions.rangsAdresseLieux ?? new Map<string, string>();
   const libelles =
     ctx.decisions.libellesAdresseLieux ?? new Map<string, string>();
+  const inconnues = [...new Set([...rangs.keys(), ...libelles.keys()])].filter(
+    (cle) => !fiches.has(cle),
+  );
+  if (inconnues.length > 0)
+    plan.blocagesDecisions.push(
+      `lieux-a-valider.csv : ${inconnues.length} rang(s) ou libellé(s) d'adresse désignent une fiche inconnue (colonnes adresse_rang, libelle_adresse) : ${inconnues.join(', ')}`,
+    );
   const propositionParCle = new Map(propositions.map((p) => [p.cle, p]));
   const nomDe = (cle: string) => nomPrincipal.get(cle) ?? '';
 
@@ -302,7 +309,15 @@ export function transformerLieux(
       const luAutre = codePostalVille(a.fiche.adresse);
       const cp = g?.codePostal ?? luAutre?.codePostal ?? null;
       const villeAutre = g?.ville ?? luAutre?.ville ?? null;
-      if (!cp || !villeAutre || a.fiche.adresse.length > 200) {
+      const trop = (v: string | null, max: number) =>
+        v !== null && v.length > max;
+      if (
+        !cp ||
+        !villeAutre ||
+        trop(a.fiche.adresse, 200) ||
+        trop(cp, 16) ||
+        trop(villeAutre, 120)
+      ) {
         ajouterAuListing(plan, 'lieux-a-completer', {
           lieu_id: id,
           nom: noms[0] ?? tete.adresse,
@@ -310,9 +325,11 @@ export function transformerLieux(
           manque: `adresse n° ${a.rang} non reprise : ${[
             cp ? null : 'code postal',
             villeAutre ? null : 'ville',
-            a.fiche.adresse.length > 200
+            trop(a.fiche.adresse, 200)
               ? 'adresse de plus de 200 caractères'
               : null,
+            trop(cp, 16) ? 'code postal de plus de 16 caractères' : null,
+            trop(villeAutre, 120) ? 'ville de plus de 120 caractères' : null,
           ]
             .filter((m) => m !== null)
             .join(', ')}`,
@@ -455,6 +472,10 @@ function adressesDuLieu(
     if (r === '1')
       defauts.push(
         `${f.cle} : rang 1 sur une fiche rattachée à ${chef}, qui porte l'adresse n° 1`,
+      );
+    if (r !== '2' && r !== '3' && (libelles.get(f.cle) ?? '').trim() !== '')
+      defauts.push(
+        `${f.cle} : libellé sur une fiche dont l'adresse n'est pas gardée (rang ${r})`,
       );
     if (r === '2' || r === '3')
       autres.push({

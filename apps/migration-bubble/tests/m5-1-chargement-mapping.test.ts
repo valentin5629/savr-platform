@@ -1398,6 +1398,19 @@ describe('M5.1 / lieux — référentiel initié par la migration', () => {
         `${b} : rang 2 sur une fiche qui n'est rattachée à aucun lieu`,
       ),
     ]);
+    expect(blocages([], undefined, [[b, 'Accès livraison']])).toEqual([
+      expect.stringContaining(
+        `${b} : libellé sur une fiche dont l'adresse n'est pas gardée (rang fusion)`,
+      ),
+    ]);
+    // Faute de frappe sur la clé : jamais ignorée en silence.
+    expect(
+      blocages([['clé mal recopiée', '2']], undefined, [['autre clé', 'x']]),
+    ).toEqual([
+      expect.stringContaining(
+        "2 rang(s) ou libellé(s) d'adresse désignent une fiche inconnue (colonnes adresse_rang, libelle_adresse) : clé mal recopiée, autre clé",
+      ),
+    ]);
     expect(blocages([[b, '2']], undefined, [[b, 'x'.repeat(61)]])).toEqual([
       expect.stringContaining(`${b} : libellé de plus de 60 caractères`),
     ]);
